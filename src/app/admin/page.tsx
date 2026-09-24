@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Order, DeliveryArea, OrderStatus } from "@/types";
@@ -27,6 +27,8 @@ import {
   Moon,
   Utensils,
   ShoppingBag,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { BrandLogo } from "@/components/BrandLogo";
 
@@ -42,6 +44,12 @@ export default function AdminPage() {
   const [orderStatusFilter, setOrderStatusFilter] = useState<string>("active");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
+
+  // Track expanded cards and table rows
+  const [expandedOrderIds, setExpandedOrderIds] = useState<Set<string>>(new Set());
+
+  // Optimistic UI animation tracker
+  const [animatingOrders, setAnimatingOrders] = useState<Record<string, { targetStatus: OrderStatus; timestamp: number }>>({});
 
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isUpdating, setIsUpdating] = useState<boolean>(false);
@@ -78,44 +86,113 @@ export default function AdminPage() {
     checkAdminAuth();
   }, [router]);
 
-  const loadData = async (silent = false) => {
+  // Load all operational data once without filtering on the backend
+  // This allows 100% instant (0ms) client-side tab switching without loading spinners
+  const loadData = useCallback(async (silent = false) => {
     if (authStatus !== "authorized") return;
     if (!silent) setIsLoading(true);
     try {
-      const ordersRes = await fetch(`/api/v1/ops/orders?status=${orderStatusFilter}`);
-      const ordersData = await ordersRes.json();
-      if (ordersData.success) setOrders(ordersData.data);
+      // Query without status restriction to fetch all ops pipeline orders
+      const [ordersRes, areasRes, settingsRes] = await Promise.all([
+        fetch("/api/v1/ops/orders"),
+        fetch("/api/v1/admin/delivery-areas"),
+        fetch("/api/v1/admin/settings"),
+      ]);
 
-      const areasRes = await fetch("/api/v1/admin/delivery-areas");
-      const areasData = await areasRes.json();
-      if (areasData.success) setDeliveryAreas(areasData.data);
+      const [ordersData, areasData, settingsData] = await Promise.all([
+        ordersRes.json(),
+        areasRes.json(),
+        settingsRes.json(),
+      ]);
 
-      const settingsRes = await fetch("/api/v1/admin/settings");
-      const settingsData = await settingsRes.json();
-      if (settingsData.success) setSettings(settingsData.data.settings);
+      if (ordersData.success) {
+        setOrders(ordersData.data);
+      }
+      if (areasData.success) {
+        setDeliveryAreas(areasData.data);
+      }
+      if (settingsData.success) {
+        setSettings(settingsData.data.settings);
+      }
     } catch (err) {
-      console.error(err);
+      console.error("Failed to load admin data:", err);
     } finally {
       if (!silent) setIsLoading(false);
     }
-  };
+  }, [authStatus]);
 
+  // Initial load and fast 4-second background silent polling
   useEffect(() => {
     if (authStatus === "authorized") {
       loadData();
-      // Fast 5-second polling for live operations
-      const interval = setInterval(() => loadData(true), 5000);
+      const interval = setInterval(() => loadData(true), 4000);
       return () => clearInterval(interval);
     }
-  }, [authStatus, orderStatusFilter]);
+  }, [authStatus, loadData]);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3000);
   };
 
+  // Toggle order expansion
+  const toggleOrderExpand = (orderId: string) => {
+    setExpandedOrderIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(orderId)) {
+        next.delete(orderId);
+      } else {
+        next.add(orderId);
+      }
+      return next;
+    });
+  };
+
+  // Toggle expand all
+  const toggleExpandAll = () => {
+    if (expandedOrderIds.size > 0) {
+      setExpandedOrderIds(new Set());
+    } else {
+      setExpandedOrderIds(new Set(orders.map((o) => o.id)));
+    }
+  };
+
+  // Microsecond Optimistic Update with Smooth Animation
   const handleUpdateOrderStatus = async (orderId: string, targetStatus: OrderStatus) => {
-    setIsUpdating(true);
+    // 1. Snapshot previous state for rollback on error
+    const previousOrders = [...orders];
+
+    // 2. Trigger microsecond in-memory state update
+    setOrders((prev) =>
+      prev.map((o) =>
+        o.id === orderId
+          ? {
+              ...o,
+              status: targetStatus,
+              updatedAt: new Date().toISOString(),
+            }
+          : o
+      )
+    );
+
+    // 3. Mark order as actively animating for visual transition
+    setAnimatingOrders((prev) => ({
+      ...prev,
+      [orderId]: { targetStatus, timestamp: Date.now() },
+    }));
+
+    showToast(`✓ Order moved to ${targetStatus}`);
+
+    // Remove animation flag after smooth completion
+    setTimeout(() => {
+      setAnimatingOrders((prev) => {
+        const next = { ...prev };
+        delete next[orderId];
+        return next;
+      });
+    }, 600);
+
+    // 4. Background network sync
     try {
       const res = await fetch(`/api/v1/orders/${orderId}/status`, {
         method: "POST",
@@ -123,16 +200,15 @@ export default function AdminPage() {
         body: JSON.stringify({ targetStatus }),
       });
       const data = await res.json();
-      if (data.success) {
-        showToast(`Order status updated to ${targetStatus}`);
-        loadData(true);
-      } else {
+      if (!data.success) {
+        // Rollback on rejection
+        setOrders(previousOrders);
         alert(data.error?.message || "Failed to update order status");
       }
     } catch {
-      alert("Error updating order status");
-    } finally {
-      setIsUpdating(false);
+      // Rollback on network failure
+      setOrders(previousOrders);
+      alert("Network connection error. Reverted order status.");
     }
   };
 
@@ -215,34 +291,65 @@ export default function AdminPage() {
     }
   };
 
-  // Filtered orders based on search query
+  // Instant (0ms) In-Memory Filtered Orders
   const filteredOrders = useMemo(() => {
-    if (!searchQuery.trim()) return orders;
-    const q = searchQuery.toLowerCase().trim();
-    return orders.filter((o) => {
-      const num = (o.orderNumber || "").toLowerCase();
-      const name = (o.customerNameSnapshot || o.customerName || "").toLowerCase();
-      const phone = (o.customerPhoneSnapshot || o.customerPhone || "").toLowerCase();
-      const area = (o.deliveryAreaNameSnapshot || o.deliveryAreaName || "").toLowerCase();
-      return num.includes(q) || name.includes(q) || phone.includes(q) || area.includes(q);
-    });
-  }, [orders, searchQuery]);
+    let list = orders;
 
-  // Operational KPI metrics
+    // Status category filter
+    if (orderStatusFilter === "active") {
+      list = list.filter(
+        (o) => o.status !== ORDER_STATUSES.COMPLETED && o.status !== ORDER_STATUSES.CANCELLED
+      );
+    } else if (orderStatusFilter !== "all") {
+      list = list.filter((o) => o.status.toLowerCase() === orderStatusFilter.toLowerCase());
+    }
+
+    // Search query filter across all fields
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      list = list.filter((o) => {
+        const num = (o.orderNumber || "").toLowerCase();
+        const name = (o.customerNameSnapshot || o.customerName || "").toLowerCase();
+        const phone = (o.customerPhoneSnapshot || o.customerPhone || "").toLowerCase();
+        const area = (o.deliveryAreaNameSnapshot || o.deliveryAreaName || "").toLowerCase();
+        const addr = (o.deliveryAddressSnapshot || o.deliveryAddress || "").toLowerCase();
+        const itemsMatch = o.items?.some(
+          (it: any) =>
+            it.productName?.toLowerCase().includes(q) ||
+            it.productNameSnapshot?.toLowerCase().includes(q) ||
+            it.variantName?.toLowerCase().includes(q) ||
+            it.variantNameSnapshot?.toLowerCase().includes(q)
+        );
+        return num.includes(q) || name.includes(q) || phone.includes(q) || area.includes(q) || addr.includes(q) || itemsMatch;
+      });
+    }
+
+    return list;
+  }, [orders, orderStatusFilter, searchQuery]);
+
+  // Operational KPI metrics and category count tallies
   const kpiMetrics = useMemo(() => {
     const active = orders.filter(
       (o) => o.status !== ORDER_STATUSES.COMPLETED && o.status !== ORDER_STATUSES.CANCELLED
     );
     const newCount = orders.filter((o) => o.status === ORDER_STATUSES.NEW).length;
+    const confirmedCount = orders.filter((o) => o.status === ORDER_STATUSES.CONFIRMED).length;
     const kitchenCount = orders.filter((o) => o.status === ORDER_STATUSES.PREPARING).length;
+    const readyCount = orders.filter((o) => o.status === ORDER_STATUSES.READY).length;
     const riderCount = orders.filter((o) => o.status === ORDER_STATUSES.OUT_FOR_DELIVERY).length;
+    const completedCount = orders.filter((o) => o.status === ORDER_STATUSES.COMPLETED).length;
+    const cancelledCount = orders.filter((o) => o.status === ORDER_STATUSES.CANCELLED).length;
     const totalCash = active.reduce((sum, o) => sum + (o.totalPkr || 0), 0);
 
     return {
       activeCount: active.length,
       newCount,
+      confirmedCount,
       kitchenCount,
+      readyCount,
       riderCount,
+      completedCount,
+      cancelledCount,
       totalCash,
     };
   }, [orders]);
@@ -315,6 +422,31 @@ export default function AdminPage() {
 
   return (
     <div style={{ backgroundColor: "var(--cnm-bg)", minHeight: "100vh", color: "var(--cnm-text-primary)" }}>
+      {/* INJECT DYNAMIC ANIMATION STYLES */}
+      <style>{`
+        @keyframes orderSuccessPulse {
+          0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(46, 204, 113, 0.4); }
+          50% { transform: scale(1.015); box-shadow: 0 0 0 10px rgba(46, 204, 113, 0); }
+          100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(46, 204, 113, 0); }
+        }
+        @keyframes fadeInFast {
+          from { opacity: 0; transform: translateY(4px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .anim-optimistic-pulse {
+          animation: orderSuccessPulse 0.5s ease-out forwards;
+        }
+        .anim-fade-in {
+          animation: fadeInFast 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        .order-card-transition {
+          transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+        }
+        .order-card-transition:hover {
+          box-shadow: var(--shadow-md);
+        }
+      `}</style>
+
       {/* 1. TOP EXECUTIVE HEADER */}
       <header
         style={{
@@ -367,23 +499,24 @@ export default function AdminPage() {
           </span>
         </div>
 
-        {/* Center Live Badge */}
-        <div style={{ display: "none", alignItems: "center", gap: "6px" }} className="admin-desktop-live">
+        {/* Center Live Ops Indicator */}
+        <div style={{ display: "flex", alignItems: "center", gap: "7px" }}>
           <span
             style={{
-              width: "7px",
-              height: "7px",
+              width: "8px",
+              height: "8px",
               borderRadius: "50%",
               backgroundColor: "var(--status-ready)",
               boxShadow: "0 0 8px var(--status-ready)",
+              display: "inline-block",
             }}
           />
           <span style={{ fontSize: "12px", fontWeight: 700, color: "var(--cnm-text-secondary)" }}>
-            Live Ops • Auto-refresh 5s
+            Live Ops • 4s Polling
           </span>
         </div>
 
-        {/* Right Corner Controls: Theme Toggle, Refresh, Logout */}
+        {/* Right Corner Controls: Theme Toggle, Fast Refresh, Logout */}
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
           {/* Theme Switcher Button */}
           <button
@@ -414,7 +547,7 @@ export default function AdminPage() {
             style={{ padding: "8px 12px", display: "flex", alignItems: "center", gap: "6px" }}
           >
             <RefreshCw size={14} className={isLoading ? "spin" : ""} />
-            <span>Refresh</span>
+            <span>Sync</span>
           </button>
 
           {/* Staff Logout */}
@@ -451,7 +584,7 @@ export default function AdminPage() {
             fontWeight: 800,
             zIndex: 9999,
             boxShadow: "var(--shadow-elevated)",
-            animation: "fadeIn 0.2s ease-in-out",
+            animation: "fadeInFast 0.2s ease-in-out",
           }}
         >
           {toastMessage}
@@ -489,10 +622,11 @@ export default function AdminPage() {
                 display: "inline-flex",
                 alignItems: "center",
                 gap: "6px",
+                transition: "all 0.15s ease",
               }}
             >
               <Flame size={15} />
-              <span>Live Pipeline ({orders.length})</span>
+              <span>Live Pipeline ({kpiMetrics.activeCount})</span>
             </button>
 
             <button
@@ -510,6 +644,7 @@ export default function AdminPage() {
                 display: "inline-flex",
                 alignItems: "center",
                 gap: "6px",
+                transition: "all 0.15s ease",
               }}
             >
               <MapPin size={15} />
@@ -531,6 +666,7 @@ export default function AdminPage() {
                 display: "inline-flex",
                 alignItems: "center",
                 gap: "6px",
+                transition: "all 0.15s ease",
               }}
             >
               <Clock size={15} />
@@ -551,7 +687,7 @@ export default function AdminPage() {
                 marginBottom: "18px",
               }}
             >
-              {/* Metric 1 */}
+              {/* Metric 1: Active Total */}
               <div
                 style={{
                   backgroundColor: "var(--cnm-surface)",
@@ -569,7 +705,7 @@ export default function AdminPage() {
                 </div>
               </div>
 
-              {/* Metric 2 */}
+              {/* Metric 2: Needs Call */}
               <div
                 style={{
                   backgroundColor: "var(--cnm-surface)",
@@ -588,7 +724,7 @@ export default function AdminPage() {
                 </div>
               </div>
 
-              {/* Metric 3 */}
+              {/* Metric 3: Kitchen Cooking */}
               <div
                 style={{
                   backgroundColor: "var(--cnm-surface)",
@@ -607,7 +743,7 @@ export default function AdminPage() {
                 </div>
               </div>
 
-              {/* Metric 4 */}
+              {/* Metric 4: Rider In-Transit */}
               <div
                 style={{
                   backgroundColor: "var(--cnm-surface)",
@@ -626,7 +762,7 @@ export default function AdminPage() {
                 </div>
               </div>
 
-              {/* Metric 5 */}
+              {/* Metric 5: Active Cash */}
               <div
                 style={{
                   backgroundColor: "var(--cnm-surface)",
@@ -645,7 +781,7 @@ export default function AdminPage() {
               </div>
             </div>
 
-            {/* 4. CONTROLS BAR: SEARCH, STATUS FILTER PILLS & VIEW TOGGLE */}
+            {/* 4. CONTROLS BAR: INSTANT SEARCH, STATUS FILTER PILLS & VIEW TOGGLE */}
             <div
               style={{
                 display: "flex",
@@ -676,7 +812,7 @@ export default function AdminPage() {
                 />
                 <input
                   type="text"
-                  placeholder="Search order #, customer, phone..."
+                  placeholder="Search order #, customer, item, phone..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   style={{
@@ -709,17 +845,17 @@ export default function AdminPage() {
                 )}
               </div>
 
-              {/* Status Filter Pills */}
+              {/* Status Filter Pills with Instant 0ms Tally Badges */}
               <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", alignItems: "center" }}>
                 {[
-                  { key: "active", label: "All Active" },
-                  { key: "New", label: "New" },
-                  { key: "Confirmed", label: "Confirmed" },
-                  { key: "Preparing", label: "Kitchen" },
-                  { key: "Ready", label: "Ready" },
-                  { key: "Out for delivery", label: "Dispatched" },
-                  { key: "Completed", label: "Completed" },
-                  { key: "Cancelled", label: "Cancelled" },
+                  { key: "active", label: "All Active", count: kpiMetrics.activeCount },
+                  { key: "New", label: "New", count: kpiMetrics.newCount },
+                  { key: "Confirmed", label: "Confirmed", count: kpiMetrics.confirmedCount },
+                  { key: "Preparing", label: "Kitchen", count: kpiMetrics.kitchenCount },
+                  { key: "Ready", label: "Ready", count: kpiMetrics.readyCount },
+                  { key: "Out for delivery", label: "Dispatched", count: kpiMetrics.riderCount },
+                  { key: "Completed", label: "Completed", count: kpiMetrics.completedCount },
+                  { key: "Cancelled", label: "Cancelled", count: kpiMetrics.cancelledCount },
                 ].map((f) => {
                   const isSelected = orderStatusFilter === f.key;
                   return (
@@ -737,55 +873,104 @@ export default function AdminPage() {
                         backgroundColor: isSelected ? "var(--cnm-orange)" : "var(--cnm-surface)",
                         color: isSelected ? "#ffffff" : "var(--cnm-text-secondary)",
                         border: `1px solid ${isSelected ? "var(--cnm-orange)" : "var(--cnm-border)"}`,
-                        transition: "all 0.15s ease",
+                        transition: "background-color 0.15s ease, color 0.15s ease, transform 0.1s ease",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "6px",
                       }}
                     >
-                      {f.label}
+                      <span>{f.label}</span>
+                      <span
+                        style={{
+                          fontSize: "10px",
+                          fontWeight: 900,
+                          padding: "1px 6px",
+                          borderRadius: "10px",
+                          backgroundColor: isSelected ? "rgba(0,0,0,0.2)" : "var(--cnm-surface-elevated)",
+                          color: isSelected ? "#ffffff" : "var(--cnm-text-muted)",
+                        }}
+                      >
+                        {f.count}
+                      </span>
                     </button>
                   );
                 })}
               </div>
 
-              {/* View Mode Toggle: Grid vs Table */}
-              <div
-                style={{
-                  display: "inline-flex",
-                  borderRadius: "var(--radius-sm)",
-                  border: "1px solid var(--cnm-border)",
-                  backgroundColor: "var(--cnm-surface)",
-                  padding: "2px",
-                }}
-              >
+              {/* View Mode & Expand-All Controls */}
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                {/* Expand All / Collapse All Toggle */}
                 <button
-                  onClick={() => setViewMode("grid")}
+                  onClick={toggleExpandAll}
                   style={{
-                    padding: "4px 10px",
+                    padding: "5px 10px",
+                    borderRadius: "var(--radius-sm)",
+                    backgroundColor: "var(--cnm-surface)",
+                    border: "1px solid var(--cnm-border)",
+                    color: "var(--cnm-text-secondary)",
                     fontSize: "12px",
                     fontWeight: 800,
-                    borderRadius: "var(--radius-xs)",
-                    backgroundColor: viewMode === "grid" ? "var(--cnm-surface-elevated)" : "transparent",
-                    color: viewMode === "grid" ? "var(--cnm-orange)" : "var(--cnm-text-muted)",
-                    border: "none",
                     cursor: "pointer",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "4px",
                   }}
+                  title="Expand or collapse full itemized breakdown on all cards"
                 >
-                  Cards
+                  {expandedOrderIds.size > 0 ? (
+                    <>
+                      <ChevronUp size={14} />
+                      <span>Collapse All</span>
+                    </>
+                  ) : (
+                    <>
+                      <ChevronDown size={14} />
+                      <span>Expand All</span>
+                    </>
+                  )}
                 </button>
-                <button
-                  onClick={() => setViewMode("table")}
+
+                {/* Grid vs Table View Mode */}
+                <div
                   style={{
-                    padding: "4px 10px",
-                    fontSize: "12px",
-                    fontWeight: 800,
-                    borderRadius: "var(--radius-xs)",
-                    backgroundColor: viewMode === "table" ? "var(--cnm-surface-elevated)" : "transparent",
-                    color: viewMode === "table" ? "var(--cnm-orange)" : "var(--cnm-text-muted)",
-                    border: "none",
-                    cursor: "pointer",
+                    display: "inline-flex",
+                    borderRadius: "var(--radius-sm)",
+                    border: "1px solid var(--cnm-border)",
+                    backgroundColor: "var(--cnm-surface)",
+                    padding: "2px",
                   }}
                 >
-                  Table
-                </button>
+                  <button
+                    onClick={() => setViewMode("grid")}
+                    style={{
+                      padding: "4px 10px",
+                      fontSize: "12px",
+                      fontWeight: 800,
+                      borderRadius: "var(--radius-xs)",
+                      backgroundColor: viewMode === "grid" ? "var(--cnm-surface-elevated)" : "transparent",
+                      color: viewMode === "grid" ? "var(--cnm-orange)" : "var(--cnm-text-muted)",
+                      border: "none",
+                      cursor: "pointer",
+                    }}
+                  >
+                    Cards
+                  </button>
+                  <button
+                    onClick={() => setViewMode("table")}
+                    style={{
+                      padding: "4px 10px",
+                      fontSize: "12px",
+                      fontWeight: 800,
+                      borderRadius: "var(--radius-xs)",
+                      backgroundColor: viewMode === "table" ? "var(--cnm-surface-elevated)" : "transparent",
+                      color: viewMode === "table" ? "var(--cnm-orange)" : "var(--cnm-text-muted)",
+                      border: "none",
+                      cursor: "pointer",
+                    }}
+                  >
+                    Table
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -799,6 +984,7 @@ export default function AdminPage() {
                   border: "1px dashed var(--cnm-border)",
                   borderRadius: "var(--radius-lg)",
                   color: "var(--cnm-text-muted)",
+                  animation: "fadeInFast 0.2s ease",
                 }}
               >
                 <Clock size={40} style={{ margin: "0 auto 12px", opacity: 0.4 }} />
@@ -810,7 +996,7 @@ export default function AdminPage() {
                 </p>
               </div>
             ) : viewMode === "grid" ? (
-              /* A. UNIFORM CARD GRID (Max 3-4 columns, uniform height, clean alignment) */
+              /* A. UNIFORM CARD GRID WITH EXPANDABLE BREAKDOWN */
               <div
                 style={{
                   display: "grid",
@@ -820,6 +1006,9 @@ export default function AdminPage() {
                 }}
               >
                 {filteredOrders.map((ord) => {
+                  const isExpanded = expandedOrderIds.has(ord.id);
+                  const isAnimating = !!animatingOrders[ord.id];
+
                   const getStatusAccent = () => {
                     switch (ord.status) {
                       case "New":
@@ -846,6 +1035,7 @@ export default function AdminPage() {
                   return (
                     <div
                       key={ord.id}
+                      className={`order-card-transition ${isAnimating ? "anim-optimistic-pulse" : "anim-fade-in"}`}
                       style={{
                         backgroundColor: "var(--cnm-surface)",
                         border: "1px solid var(--cnm-border)",
@@ -920,10 +1110,11 @@ export default function AdminPage() {
                               fontWeight: 800,
                               padding: "2px 8px",
                               borderRadius: "var(--radius-xs)",
-                              backgroundColor: "var(--cnm-surface-elevated)",
-                              color: "var(--cnm-text-primary)",
+                              backgroundColor: isAnimating ? "rgba(46, 204, 113, 0.2)" : "var(--cnm-surface-elevated)",
+                              color: isAnimating ? "var(--status-ready)" : "var(--cnm-text-primary)",
                               border: "1px solid var(--cnm-border)",
                               textTransform: "uppercase",
+                              transition: "all 0.2s ease",
                             }}
                           >
                             {ord.status}
@@ -931,7 +1122,7 @@ export default function AdminPage() {
                         </div>
                       </div>
 
-                      {/* Customer & Location Box (Standardized height) */}
+                      {/* Customer & Location Box */}
                       <div
                         style={{
                           backgroundColor: "var(--cnm-surface-elevated)",
@@ -940,10 +1131,9 @@ export default function AdminPage() {
                           borderRadius: "var(--radius-sm)",
                           fontSize: "12.5px",
                           marginBottom: "12px",
-                          minHeight: "56px",
                           display: "flex",
                           flexDirection: "column",
-                          justifyContent: "center",
+                          gap: "4px",
                         }}
                       >
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -968,55 +1158,184 @@ export default function AdminPage() {
                         </div>
 
                         {ord.orderType === "DELIVERY" && (
-                          <div style={{ fontSize: "11.5px", color: "var(--cnm-text-secondary)", marginTop: "4px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            📍 <span style={{ fontWeight: 700 }}>{ord.deliveryAreaNameSnapshot || ord.deliveryAreaName}:</span> {ord.deliveryAddressSnapshot || ord.deliveryAddress}
+                          <div style={{ fontSize: "11.5px", color: "var(--cnm-text-secondary)" }}>
+                            📍 <span style={{ fontWeight: 700 }}>{ord.deliveryAreaNameSnapshot || ord.deliveryAreaName}:</span>{" "}
+                            {ord.deliveryAddressSnapshot || ord.deliveryAddress}
+                            {ord.deliveryLandmarkSnapshot && (
+                              <span style={{ color: "var(--cnm-text-muted)" }}> (Near: {ord.deliveryLandmarkSnapshot})</span>
+                            )}
                           </div>
                         )}
 
                         {ord.orderType === "DINE_IN" && (
-                          <div style={{ fontSize: "11.5px", color: "var(--status-confirmed)", marginTop: "4px" }}>
-                            🍽️ Dine-in: {ord.dineInPreferredTime} ({ord.paymentLocation})
+                          <div style={{ fontSize: "11.5px", color: "var(--status-confirmed)" }}>
+                            🍽️ Dine-in: {ord.dineInPreferredTime} ({ord.paymentLocation || "On Table"})
                           </div>
                         )}
                       </div>
 
-                      {/* Items List (Standardized Scrollable Height - eliminates uneven card heights) */}
+                      {/* Customer Special Instructions Alert (If present) */}
+                      {ord.specialInstructions && (
+                        <div
+                          style={{
+                            backgroundColor: "rgba(255, 193, 7, 0.12)",
+                            border: "1px solid rgba(255, 193, 7, 0.35)",
+                            borderRadius: "var(--radius-xs)",
+                            padding: "6px 10px",
+                            fontSize: "11.5px",
+                            color: "var(--cnm-text-primary)",
+                            marginBottom: "10px",
+                            display: "flex",
+                            alignItems: "flex-start",
+                            gap: "6px",
+                          }}
+                        >
+                          <AlertCircle size={13} style={{ color: "var(--status-new)", flexShrink: 0, marginTop: "2px" }} />
+                          <div>
+                            <span style={{ fontWeight: 800, color: "var(--status-new)" }}>Customer Note: </span>
+                            <span>{ord.specialInstructions}</span>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Items Section Header with Expand / Collapse Button */}
                       <div
                         style={{
-                          height: "90px",
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          marginBottom: "6px",
+                        }}
+                      >
+                        <span style={{ fontSize: "11px", fontWeight: 800, textTransform: "uppercase", color: "var(--cnm-text-muted)" }}>
+                          Order Items ({ord.items?.length || 0})
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => toggleOrderExpand(ord.id)}
+                          style={{
+                            background: "none",
+                            border: "none",
+                            color: "var(--cnm-orange)",
+                            fontSize: "11px",
+                            fontWeight: 800,
+                            cursor: "pointer",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "3px",
+                            padding: "2px 4px",
+                          }}
+                        >
+                          <span>{isExpanded ? "Collapse" : "Expand Details"}</span>
+                          {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                        </button>
+                      </div>
+
+                      {/* Items List: Clean summary when collapsed, rich breakdown when expanded */}
+                      <div
+                        style={{
+                          maxHeight: isExpanded ? "400px" : "90px",
+                          height: isExpanded ? "auto" : "90px",
                           overflowY: "auto",
                           paddingRight: "4px",
                           marginBottom: "12px",
                           display: "flex",
                           flexDirection: "column",
-                          gap: "5px",
+                          gap: isExpanded ? "8px" : "5px",
+                          transition: "max-height 0.25s ease",
                         }}
                       >
                         {ord.items?.map((item, idx) => (
                           <div
                             key={idx}
                             style={{
-                              display: "flex",
-                              justifyContent: "space-between",
+                              backgroundColor: isExpanded ? "var(--cnm-surface-elevated)" : "transparent",
+                              padding: isExpanded ? "8px" : "0",
+                              borderRadius: "var(--radius-xs)",
+                              border: isExpanded ? "1px solid var(--cnm-border)" : "none",
                               fontSize: "12px",
-                              color: "var(--cnm-text-primary)",
                               lineHeight: 1.3,
                             }}
                           >
-                            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", paddingRight: "6px" }}>
-                              <span style={{ fontWeight: 800, color: "var(--cnm-orange)" }}>{item.quantity}x</span>{" "}
-                              {item.productNameSnapshot || item.productName}{" "}
-                              {(item.variantNameSnapshot || item.variantName) && (
-                                <span style={{ color: "var(--cnm-text-muted)" }}>({item.variantNameSnapshot || item.variantName})</span>
-                              )}
-                            </span>
-                            <span style={{ fontWeight: 800, flexShrink: 0 }}>{item.lineTotalPkr} PKR</span>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                              <span style={{ paddingRight: "6px", fontWeight: 700, color: "var(--cnm-text-primary)" }}>
+                                <span style={{ fontWeight: 800, color: "var(--cnm-orange)" }}>{item.quantity}x</span>{" "}
+                                {item.productNameSnapshot || item.productName}
+                                {(item.variantNameSnapshot || item.variantName) && (
+                                  <span
+                                    style={{
+                                      display: "inline-block",
+                                      marginLeft: "4px",
+                                      padding: "1px 5px",
+                                      borderRadius: "3px",
+                                      backgroundColor: "rgba(255, 130, 67, 0.1)",
+                                      color: "var(--cnm-orange)",
+                                      fontSize: "10.5px",
+                                      fontWeight: 800,
+                                    }}
+                                  >
+                                    {item.variantNameSnapshot || item.variantName}
+                                  </span>
+                                )}
+                              </span>
+                              <span style={{ fontWeight: 800, flexShrink: 0, color: "var(--cnm-text-primary)" }}>
+                                {item.lineTotalPkr} PKR
+                              </span>
+                            </div>
+
+                            {/* Full Modifiers & Addons breakdown when expanded */}
+                            {isExpanded && item.modifiers && item.modifiers.length > 0 && (
+                              <div style={{ marginTop: "4px", paddingLeft: "12px", borderLeft: "2px solid var(--cnm-orange)" }}>
+                                {item.modifiers.map((m: any, mIdx: number) => (
+                                  <div
+                                    key={mIdx}
+                                    style={{
+                                      display: "flex",
+                                      justifyContent: "space-between",
+                                      fontSize: "11px",
+                                      color: "var(--cnm-text-secondary)",
+                                    }}
+                                  >
+                                    <span>+ {m.name || m.modifierNameSnapshot}</span>
+                                    <span>{(m.pricePkr || m.priceSnapshotPkr || 0) > 0 ? `+${m.pricePkr || m.priceSnapshotPkr} PKR` : "Included"}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            {isExpanded && (
+                              <div style={{ fontSize: "10.5px", color: "var(--cnm-text-muted)", marginTop: "2px" }}>
+                                Unit: {item.unitPriceSnapshotPkr || item.unitPricePkr} PKR
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>
 
                       {/* Card Footer (Pinned to bottom) */}
                       <div style={{ marginTop: "auto", paddingTop: "10px", borderTop: "1px dashed var(--cnm-border)" }}>
+                        {/* Subtotal, Fee, Discount breakdown when expanded */}
+                        {isExpanded && (
+                          <div style={{ marginBottom: "8px", fontSize: "11.5px", color: "var(--cnm-text-secondary)" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "2px" }}>
+                              <span>Subtotal</span>
+                              <span>{ord.subtotalPkr} PKR</span>
+                            </div>
+                            {ord.deliveryFeePkr > 0 && (
+                              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "2px" }}>
+                                <span>Delivery Fee</span>
+                                <span>+{ord.deliveryFeePkr} PKR</span>
+                              </div>
+                            )}
+                            {(ord.discountPkr || 0) > 0 && (
+                              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "2px", color: "var(--status-ready)", fontWeight: 700 }}>
+                                <span>Discount</span>
+                                <span>-{ord.discountPkr} PKR</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
                         {/* Total Amount Cash */}
                         <div
                           style={{
@@ -1034,7 +1353,7 @@ export default function AdminPage() {
                           </span>
                         </div>
 
-                        {/* Action Buttons */}
+                        {/* Action Buttons with Microsecond Optimistic Triggers */}
                         <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
                           {ord.status === "New" && (
                             <button
@@ -1128,7 +1447,7 @@ export default function AdminPage() {
                 })}
               </div>
             ) : (
-              /* B. DENSE DATA TABLE VIEW (Alternative high-density view) */
+              /* B. DENSE DATA TABLE VIEW WITH ACCORDION ROW EXPANSION */
               <div
                 style={{
                   backgroundColor: "var(--cnm-surface)",
@@ -1136,107 +1455,264 @@ export default function AdminPage() {
                   borderRadius: "14px",
                   overflowX: "auto",
                   boxShadow: "var(--shadow-sm)",
+                  animation: "fadeInFast 0.2s ease",
                 }}
               >
                 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px", textAlign: "left" }}>
                   <thead>
                     <tr style={{ backgroundColor: "var(--cnm-surface-elevated)", borderBottom: "1px solid var(--cnm-border)" }}>
+                      <th style={{ padding: "12px 10px", width: "40px" }}></th>
                       <th style={{ padding: "12px 14px", fontWeight: 800 }}>Order #</th>
                       <th style={{ padding: "12px 14px", fontWeight: 800 }}>Time</th>
                       <th style={{ padding: "12px 14px", fontWeight: 800 }}>Customer</th>
                       <th style={{ padding: "12px 14px", fontWeight: 800 }}>Type & Area</th>
-                      <th style={{ padding: "12px 14px", fontWeight: 800 }}>Items</th>
+                      <th style={{ padding: "12px 14px", fontWeight: 800 }}>Items Summary</th>
                       <th style={{ padding: "12px 14px", fontWeight: 800 }}>Cash Total</th>
                       <th style={{ padding: "12px 14px", fontWeight: 800 }}>Status</th>
                       <th style={{ padding: "12px 14px", fontWeight: 800, textAlign: "right" }}>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredOrders.map((ord) => (
-                      <tr key={ord.id} style={{ borderBottom: "1px solid var(--cnm-border)" }}>
-                        <td style={{ padding: "12px 14px", fontWeight: 900, fontFamily: "var(--font-display)" }}>
-                          {ord.orderNumber}
-                        </td>
-                        <td style={{ padding: "12px 14px", color: "var(--cnm-text-muted)", fontSize: "12px" }}>
-                          {new Date(ord.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                        </td>
-                        <td style={{ padding: "12px 14px" }}>
-                          <div style={{ fontWeight: 700 }}>{ord.customerNameSnapshot || ord.customerName}</div>
-                          <a href={`tel:${ord.customerPhoneSnapshot || ord.customerPhone}`} style={{ color: "var(--cnm-orange)", fontSize: "12px" }}>
-                            {ord.customerPhoneSnapshot || ord.customerPhone}
-                          </a>
-                        </td>
-                        <td style={{ padding: "12px 14px", fontSize: "12px" }}>
-                          <span style={{ fontWeight: 700 }}>{ord.orderType}</span>
-                          <div style={{ color: "var(--cnm-text-muted)" }}>{ord.deliveryAreaNameSnapshot || ord.deliveryAreaName || "Branch"}</div>
-                        </td>
-                        <td style={{ padding: "12px 14px", fontSize: "12px" }}>
-                          {ord.items?.map((it) => `${it.quantity}x ${it.productNameSnapshot || it.productName}`).join(", ")}
-                        </td>
-                        <td style={{ padding: "12px 14px", fontWeight: 900 }}>{ord.totalPkr} PKR</td>
-                        <td style={{ padding: "12px 14px" }}>
-                          <span
+                    {filteredOrders.map((ord) => {
+                      const isExpanded = expandedOrderIds.has(ord.id);
+                      const isAnimating = !!animatingOrders[ord.id];
+
+                      return (
+                        <React.Fragment key={ord.id}>
+                          <tr
+                            className={isAnimating ? "anim-optimistic-pulse" : ""}
                             style={{
-                              fontSize: "11px",
-                              fontWeight: 800,
-                              padding: "3px 8px",
-                              borderRadius: "var(--radius-xs)",
-                              backgroundColor: "var(--cnm-surface-elevated)",
-                              border: "1px solid var(--cnm-border)",
+                              borderBottom: isExpanded ? "none" : "1px solid var(--cnm-border)",
+                              backgroundColor: isExpanded ? "var(--cnm-surface-elevated)" : "transparent",
+                              cursor: "pointer",
+                              transition: "background-color 0.15s ease",
                             }}
+                            onClick={() => toggleOrderExpand(ord.id)}
                           >
-                            {ord.status}
-                          </span>
-                        </td>
-                        <td style={{ padding: "12px 14px", textAlign: "right" }}>
-                          {ord.status === "New" && (
-                            <button
-                              onClick={() => handleUpdateOrderStatus(ord.id, ORDER_STATUSES.CONFIRMED)}
-                              className="btn btn-sm btn-primary"
-                              style={{ backgroundColor: "var(--status-new)", color: "#000", fontSize: "11px" }}
-                            >
-                              Confirm
-                            </button>
+                            <td style={{ padding: "12px 10px", textAlign: "center" }}>
+                              <button
+                                type="button"
+                                style={{
+                                  background: "none",
+                                  border: "none",
+                                  color: "var(--cnm-text-muted)",
+                                  cursor: "pointer",
+                                  padding: 0,
+                                }}
+                              >
+                                {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                              </button>
+                            </td>
+                            <td style={{ padding: "12px 14px", fontWeight: 900, fontFamily: "var(--font-display)" }}>
+                              {ord.orderNumber}
+                            </td>
+                            <td style={{ padding: "12px 14px", color: "var(--cnm-text-muted)", fontSize: "12px" }}>
+                              {new Date(ord.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                            </td>
+                            <td style={{ padding: "12px 14px" }}>
+                              <div style={{ fontWeight: 700 }}>{ord.customerNameSnapshot || ord.customerName}</div>
+                              <a
+                                href={`tel:${ord.customerPhoneSnapshot || ord.customerPhone}`}
+                                onClick={(e) => e.stopPropagation()}
+                                style={{ color: "var(--cnm-orange)", fontSize: "12px", textDecoration: "none" }}
+                              >
+                                {ord.customerPhoneSnapshot || ord.customerPhone}
+                              </a>
+                            </td>
+                            <td style={{ padding: "12px 14px", fontSize: "12px" }}>
+                              <span style={{ fontWeight: 700 }}>{ord.orderType}</span>
+                              <div style={{ color: "var(--cnm-text-muted)" }}>{ord.deliveryAreaNameSnapshot || ord.deliveryAreaName || "Branch"}</div>
+                            </td>
+                            <td style={{ padding: "12px 14px", fontSize: "12px" }}>
+                              {ord.items?.map((it) => `${it.quantity}x ${it.productNameSnapshot || it.productName}`).join(", ")}
+                            </td>
+                            <td style={{ padding: "12px 14px", fontWeight: 900 }}>{ord.totalPkr} PKR</td>
+                            <td style={{ padding: "12px 14px" }}>
+                              <span
+                                style={{
+                                  fontSize: "11px",
+                                  fontWeight: 800,
+                                  padding: "3px 8px",
+                                  borderRadius: "var(--radius-xs)",
+                                  backgroundColor: isAnimating ? "rgba(46, 204, 113, 0.2)" : "var(--cnm-surface-elevated)",
+                                  color: isAnimating ? "var(--status-ready)" : "var(--cnm-text-primary)",
+                                  border: "1px solid var(--cnm-border)",
+                                }}
+                              >
+                                {ord.status}
+                              </span>
+                            </td>
+                            <td style={{ padding: "12px 14px", textAlign: "right" }} onClick={(e) => e.stopPropagation()}>
+                              {ord.status === "New" && (
+                                <button
+                                  onClick={() => handleUpdateOrderStatus(ord.id, ORDER_STATUSES.CONFIRMED)}
+                                  className="btn btn-sm btn-primary"
+                                  style={{ backgroundColor: "var(--status-new)", color: "#000", fontSize: "11px" }}
+                                >
+                                  Confirm
+                                </button>
+                              )}
+                              {ord.status === "Confirmed" && (
+                                <button
+                                  onClick={() => handleUpdateOrderStatus(ord.id, ORDER_STATUSES.PREPARING)}
+                                  className="btn btn-sm btn-primary"
+                                  style={{ fontSize: "11px" }}
+                                >
+                                  Kitchen
+                                </button>
+                              )}
+                              {ord.status === "Preparing" && (
+                                <button
+                                  onClick={() => handleUpdateOrderStatus(ord.id, ORDER_STATUSES.READY)}
+                                  className="btn btn-sm btn-primary"
+                                  style={{ backgroundColor: "var(--status-ready)", fontSize: "11px" }}
+                                >
+                                  Ready
+                                </button>
+                              )}
+                              {ord.status === "Ready" && ord.orderType === "DELIVERY" && (
+                                <button
+                                  onClick={() => handleUpdateOrderStatus(ord.id, ORDER_STATUSES.OUT_FOR_DELIVERY)}
+                                  className="btn btn-sm btn-primary"
+                                  style={{ fontSize: "11px" }}
+                                >
+                                  Dispatch
+                                </button>
+                              )}
+                              {ord.status === "Ready" && ord.orderType !== "DELIVERY" && (
+                                <button
+                                  onClick={() => handleUpdateOrderStatus(ord.id, ORDER_STATUSES.COMPLETED)}
+                                  className="btn btn-sm btn-primary"
+                                  style={{ backgroundColor: "var(--status-ready)", fontSize: "11px" }}
+                                >
+                                  Handover
+                                </button>
+                              )}
+                              {ord.status === "Out for delivery" && (
+                                <button
+                                  onClick={() => handleUpdateOrderStatus(ord.id, ORDER_STATUSES.COMPLETED)}
+                                  className="btn btn-sm btn-primary"
+                                  style={{ backgroundColor: "var(--status-ready)", fontSize: "11px" }}
+                                >
+                                  Settle
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+
+                          {/* Expanded Full Details Row */}
+                          {isExpanded && (
+                            <tr style={{ borderBottom: "1px solid var(--cnm-border)", backgroundColor: "var(--cnm-surface-elevated)" }}>
+                              <td colSpan={9} style={{ padding: "0 14px 16px 50px" }}>
+                                <div
+                                  style={{
+                                    backgroundColor: "var(--cnm-surface)",
+                                    border: "1px solid var(--cnm-border)",
+                                    borderRadius: "var(--radius-sm)",
+                                    padding: "14px",
+                                  }}
+                                >
+                                  {/* Special Instructions callout */}
+                                  {ord.specialInstructions && (
+                                    <div
+                                      style={{
+                                        backgroundColor: "rgba(255, 193, 7, 0.12)",
+                                        border: "1px solid rgba(255, 193, 7, 0.35)",
+                                        borderRadius: "var(--radius-xs)",
+                                        padding: "6px 10px",
+                                        fontSize: "12px",
+                                        color: "var(--cnm-text-primary)",
+                                        marginBottom: "12px",
+                                      }}
+                                    >
+                                      <span style={{ fontWeight: 800, color: "var(--status-new)" }}>📝 Customer Note: </span>
+                                      <span>{ord.specialInstructions}</span>
+                                    </div>
+                                  )}
+
+                                  {/* Itemized Grid Breakdown */}
+                                  <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "16px" }}>
+                                    <div>
+                                      <div style={{ fontSize: "11px", fontWeight: 800, textTransform: "uppercase", color: "var(--cnm-text-muted)", marginBottom: "6px" }}>
+                                        Itemized Breakdown
+                                      </div>
+                                      <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                                        {ord.items?.map((item, itIdx) => (
+                                          <div
+                                            key={itIdx}
+                                            style={{
+                                              display: "flex",
+                                              justifyContent: "space-between",
+                                              fontSize: "12.5px",
+                                              borderBottom: "1px dashed var(--cnm-border)",
+                                              paddingBottom: "4px",
+                                            }}
+                                          >
+                                            <div>
+                                              <span style={{ fontWeight: 800, color: "var(--cnm-orange)" }}>{item.quantity}x</span>{" "}
+                                              <span style={{ fontWeight: 700 }}>{item.productNameSnapshot || item.productName}</span>{" "}
+                                              {(item.variantNameSnapshot || item.variantName) && (
+                                                <span style={{ color: "var(--cnm-text-muted)", fontSize: "11.5px" }}>
+                                                  ({item.variantNameSnapshot || item.variantName})
+                                                </span>
+                                              )}
+                                              {/* Modifiers */}
+                                              {item.modifiers && item.modifiers.length > 0 && (
+                                                <div style={{ fontSize: "11px", color: "var(--cnm-text-secondary)", paddingLeft: "8px" }}>
+                                                  {item.modifiers.map((m: any, mIdx: number) => (
+                                                    <span key={mIdx} style={{ marginRight: "8px" }}>
+                                                      + {m.name || m.modifierNameSnapshot}
+                                                    </span>
+                                                  ))}
+                                                </div>
+                                              )}
+                                            </div>
+                                            <div style={{ fontWeight: 800 }}>{item.lineTotalPkr} PKR</div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+
+                                    {/* Financial Breakdown & Address */}
+                                    <div style={{ borderLeft: "1px solid var(--cnm-border)", paddingLeft: "16px", fontSize: "12px" }}>
+                                      <div style={{ fontSize: "11px", fontWeight: 800, textTransform: "uppercase", color: "var(--cnm-text-muted)", marginBottom: "6px" }}>
+                                        Fulfillment & Total
+                                      </div>
+                                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "3px" }}>
+                                        <span>Subtotal:</span>
+                                        <span>{ord.subtotalPkr} PKR</span>
+                                      </div>
+                                      {ord.deliveryFeePkr > 0 && (
+                                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "3px" }}>
+                                          <span>Delivery Fee:</span>
+                                          <span>+{ord.deliveryFeePkr} PKR</span>
+                                        </div>
+                                      )}
+                                      {(ord.discountPkr || 0) > 0 && (
+                                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "3px", color: "var(--status-ready)" }}>
+                                          <span>Discount:</span>
+                                          <span>-{ord.discountPkr} PKR</span>
+                                        </div>
+                                      )}
+                                      <div style={{ display: "flex", justifyContent: "space-between", marginTop: "6px", paddingTop: "4px", borderTop: "1px solid var(--cnm-border)", fontWeight: 900, fontSize: "13px" }}>
+                                        <span>Total Cash:</span>
+                                        <span>{ord.totalPkr} PKR</span>
+                                      </div>
+
+                                      {ord.deliveryAddressSnapshot && (
+                                        <div style={{ marginTop: "10px", fontSize: "11.5px", color: "var(--cnm-text-secondary)" }}>
+                                          <strong>Address:</strong> {ord.deliveryAddressSnapshot}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
                           )}
-                          {ord.status === "Confirmed" && (
-                            <button
-                              onClick={() => handleUpdateOrderStatus(ord.id, ORDER_STATUSES.PREPARING)}
-                              className="btn btn-sm btn-primary"
-                              style={{ fontSize: "11px" }}
-                            >
-                              Kitchen
-                            </button>
-                          )}
-                          {ord.status === "Preparing" && (
-                            <button
-                              onClick={() => handleUpdateOrderStatus(ord.id, ORDER_STATUSES.READY)}
-                              className="btn btn-sm btn-primary"
-                              style={{ backgroundColor: "var(--status-ready)", fontSize: "11px" }}
-                            >
-                              Ready
-                            </button>
-                          )}
-                          {ord.status === "Ready" && ord.orderType === "DELIVERY" && (
-                            <button
-                              onClick={() => handleUpdateOrderStatus(ord.id, ORDER_STATUSES.OUT_FOR_DELIVERY)}
-                              className="btn btn-sm btn-primary"
-                              style={{ fontSize: "11px" }}
-                            >
-                              Dispatch
-                            </button>
-                          )}
-                          {ord.status === "Out for delivery" && (
-                            <button
-                              onClick={() => handleUpdateOrderStatus(ord.id, ORDER_STATUSES.COMPLETED)}
-                              className="btn btn-sm btn-primary"
-                              style={{ backgroundColor: "var(--status-ready)", fontSize: "11px" }}
-                            >
-                              Settle
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
+                        </React.Fragment>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

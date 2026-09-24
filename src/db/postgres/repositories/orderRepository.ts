@@ -624,9 +624,32 @@ export async function getOpsOrders(
       .from(orderItems)
       .where(inArray(orderItems.orderId, orderIds));
 
+    const itemIds = items.map((i) => i.id);
+    const modifiersMap = new Map<string, any[]>();
+    if (itemIds.length > 0) {
+      const modifiers = await db
+        .select({
+          id: orderItemModifiers.id,
+          orderItemId: orderItemModifiers.orderItemId,
+          name: orderItemModifiers.modifierNameSnapshot,
+          pricePkr: orderItemModifiers.priceSnapshotPkr,
+        })
+        .from(orderItemModifiers)
+        .where(inArray(orderItemModifiers.orderItemId, itemIds));
+
+      for (const m of modifiers) {
+        const list = modifiersMap.get(m.orderItemId) || [];
+        list.push(m);
+        modifiersMap.set(m.orderItemId, list);
+      }
+    }
+
     for (const item of items) {
       const list = itemsMap.get(item.orderId) || [];
-      list.push(item);
+      list.push({
+        ...item,
+        modifiers: modifiersMap.get(item.id) || [],
+      });
       itemsMap.set(item.orderId, list);
     }
   }
