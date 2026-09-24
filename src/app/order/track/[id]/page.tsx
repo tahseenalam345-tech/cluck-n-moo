@@ -85,9 +85,9 @@ export default function OrderTrackingPage() {
 
   if (isLoading) {
     return (
-      <div className="app-container" style={{ alignItems: "center", justifyContent: "center", minHeight: "80vh" }}>
+      <div className="app-container" style={{ alignItems: "center", justifyContent: "center", minHeight: "80vh", backgroundColor: "var(--cnm-bg)" }}>
         <RefreshCw className="spin" size={32} color="var(--cnm-orange)" />
-        <p style={{ marginTop: "14px", color: "var(--cnm-gray-400)", fontSize: "14px" }}>
+        <p style={{ marginTop: "14px", color: "var(--cnm-text-muted)", fontSize: "14px" }}>
           Loading live tracking status...
         </p>
       </div>
@@ -96,10 +96,10 @@ export default function OrderTrackingPage() {
 
   if (error || !order) {
     return (
-      <div className="app-container" style={{ padding: "32px 16px", textAlign: "center" }}>
+      <div className="app-container" style={{ padding: "32px 16px", textAlign: "center", backgroundColor: "var(--cnm-bg)" }}>
         <AlertTriangle size={48} color="var(--status-cancelled)" style={{ margin: "40px auto 16px" }} />
-        <h2 style={{ fontFamily: "var(--font-display)", fontSize: "24px", marginBottom: "8px" }}>Order Not Found</h2>
-        <p style={{ color: "var(--cnm-gray-400)", marginBottom: "24px" }}>{error}</p>
+        <h2 style={{ fontFamily: "var(--font-display)", fontSize: "24px", marginBottom: "8px", color: "var(--cnm-text-primary)" }}>Order Not Found</h2>
+        <p style={{ color: "var(--cnm-text-muted)", marginBottom: "24px" }}>{error}</p>
         <Link href="/" className="btn btn-primary" style={{ display: "inline-flex" }}>
           Return to Menu
         </Link>
@@ -109,13 +109,17 @@ export default function OrderTrackingPage() {
 
   const isCancelled = order.status === ORDER_STATUSES.CANCELLED;
   const currentStepIndex = STATUS_STEPS.indexOf(order.status);
+  const customerPhone = order.customerPhone || (order as any).customerPhoneSnapshot || "your phone";
+  const customerName = order.customerName || (order as any).customerNameSnapshot || "Customer";
+  const deliveryArea = order.deliveryAreaName || (order as any).deliveryAreaNameSnapshot || "Kharian Area";
+  const deliveryAddress = order.deliveryAddress || (order as any).deliveryAddressSnapshot || "";
 
   const getStatusCardConfig = () => {
     switch (order.status) {
       case ORDER_STATUSES.NEW:
         return {
           title: "ORDER PLACED — AWAITING CALL",
-          desc: `Our staff will call you on ${order.customerPhoneSnapshot} to confirm your order details before cooking.`,
+          desc: `Our staff will call you on ${customerPhone} to confirm your order details before cooking.`,
           borderColor: "var(--status-new)",
           bgColor: "var(--status-new-bg)",
           icon: <Phone size={20} color="var(--status-new)" />,
@@ -150,7 +154,7 @@ export default function OrderTrackingPage() {
       case ORDER_STATUSES.OUT_FOR_DELIVERY:
         return {
           title: "RIDER ON THE ROAD!",
-          desc: `CNM delivery rider is on the way to ${order.deliveryAreaNameSnapshot || "your address"} with your order.`,
+          desc: `CNM delivery rider is on the way to ${deliveryArea} with your order.`,
           borderColor: "var(--status-delivery)",
           bgColor: "var(--status-delivery-bg)",
           icon: <Bike size={20} color="var(--status-delivery)" />,
@@ -175,9 +179,9 @@ export default function OrderTrackingPage() {
         return {
           title: order.status,
           desc: "",
-          borderColor: "var(--cnm-dark-700)",
-          bgColor: "var(--cnm-dark-800)",
-          icon: <Clock size={20} />,
+          borderColor: "var(--cnm-border)",
+          bgColor: "var(--cnm-surface-elevated)",
+          icon: <Clock size={20} color="var(--cnm-text-muted)" />,
         };
     }
   };
@@ -185,7 +189,7 @@ export default function OrderTrackingPage() {
   const statusConfig = getStatusCardConfig();
 
   return (
-    <div className="app-container" style={{ paddingBottom: "40px" }}>
+    <div className="app-container" style={{ paddingBottom: "40px", backgroundColor: "var(--cnm-bg)" }}>
       {/* Top Bar */}
       <header
         style={{
@@ -193,8 +197,8 @@ export default function OrderTrackingPage() {
           alignItems: "center",
           justifyContent: "space-between",
           padding: "14px 16px",
-          borderBottom: "1px solid var(--cnm-dark-700)",
-          backgroundColor: "var(--cnm-black)",
+          borderBottom: "1px solid var(--cnm-border)",
+          backgroundColor: "var(--cnm-surface)",
         }}
       >
         <Link
@@ -203,7 +207,7 @@ export default function OrderTrackingPage() {
             display: "flex",
             alignItems: "center",
             gap: "6px",
-            color: "var(--cnm-cream)",
+            color: "var(--cnm-text-primary)",
             fontSize: "14px",
             fontWeight: 700,
           }}
@@ -219,8 +223,12 @@ export default function OrderTrackingPage() {
           style={{
             padding: "8px",
             borderRadius: "50%",
-            backgroundColor: "var(--cnm-dark-800)",
-            color: "var(--cnm-white)",
+            backgroundColor: "var(--cnm-surface-elevated)",
+            color: "var(--cnm-text-primary)",
+            border: "1px solid var(--cnm-border)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
           }}
           title="Refresh"
         >
@@ -238,13 +246,15 @@ export default function OrderTrackingPage() {
           className="card"
           style={{
             marginBottom: "16px",
-            backgroundColor: "var(--cnm-dark-900)",
-            border: "1px solid var(--cnm-dark-700)",
+            backgroundColor: "var(--cnm-surface)",
+            border: "1px solid var(--cnm-border)",
+            padding: "20px",
+            borderRadius: "var(--radius-lg)",
           }}
         >
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
             <div>
-              <span style={{ fontSize: "11px", color: "var(--cnm-gray-400)", textTransform: "uppercase", fontWeight: 700 }}>
+              <span style={{ fontSize: "11px", color: "var(--cnm-text-muted)", textTransform: "uppercase", fontWeight: 700 }}>
                 ORDER REFERENCE
               </span>
               <h2
@@ -252,7 +262,7 @@ export default function OrderTrackingPage() {
                   fontFamily: "var(--font-display)",
                   fontSize: "24px",
                   fontWeight: 900,
-                  color: "var(--cnm-white)",
+                  color: "var(--cnm-text-primary)",
                   marginTop: "2px",
                   letterSpacing: "0.02em",
                 }}
@@ -266,18 +276,27 @@ export default function OrderTrackingPage() {
               style={{
                 backgroundColor:
                   order.orderType === "DELIVERY"
-                    ? "rgba(255,130,67,0.18)"
+                    ? "var(--cnm-orange-subtle)"
                     : order.orderType === "DINE_IN"
-                    ? "rgba(59,130,246,0.18)"
-                    : "rgba(16,185,129,0.18)",
+                    ? "rgba(59,130,246,0.12)"
+                    : "rgba(16,185,129,0.12)",
                 color:
                   order.orderType === "DELIVERY"
                     ? "var(--cnm-orange)"
                     : order.orderType === "DINE_IN"
                     ? "var(--status-confirmed)"
                     : "var(--status-ready)",
-                border: "1px solid currentColor",
-                fontSize: "11px",
+                border: `1px solid ${
+                  order.orderType === "DELIVERY"
+                    ? "var(--cnm-orange)"
+                    : order.orderType === "DINE_IN"
+                    ? "var(--status-confirmed)"
+                    : "var(--status-ready)"
+                }`,
+                fontSize: "12px",
+                fontWeight: 800,
+                padding: "4px 10px",
+                borderRadius: "var(--radius-full)",
               }}
             >
               {order.orderType}
@@ -289,11 +308,11 @@ export default function OrderTrackingPage() {
               display: "flex",
               alignItems: "center",
               gap: "8px",
-              marginTop: "10px",
-              paddingTop: "10px",
-              borderTop: "1px solid #222",
+              marginTop: "12px",
+              paddingTop: "12px",
+              borderTop: "1px solid var(--cnm-border)",
               fontSize: "12px",
-              color: "var(--cnm-gray-400)",
+              color: "var(--cnm-text-muted)",
             }}
           >
             <Clock size={14} />
@@ -320,14 +339,14 @@ export default function OrderTrackingPage() {
                 fontFamily: "var(--font-display)",
                 fontSize: "17px",
                 fontWeight: 900,
-                color: "var(--cnm-white)",
+                color: "var(--cnm-text-primary)",
                 letterSpacing: "0.03em",
               }}
             >
               {statusConfig.title}
             </h3>
           </div>
-          <p style={{ fontSize: "13px", color: "var(--cnm-cream-dim)", lineHeight: 1.45 }}>
+          <p style={{ fontSize: "13.5px", color: "var(--cnm-text-secondary)", lineHeight: 1.5, fontWeight: 500 }}>
             {statusConfig.desc}
           </p>
         </div>
@@ -338,14 +357,16 @@ export default function OrderTrackingPage() {
             className="card"
             style={{
               marginBottom: "20px",
-              backgroundColor: "var(--cnm-dark-900)",
-              border: "1px solid var(--cnm-dark-700)",
+              backgroundColor: "var(--cnm-surface)",
+              border: "1px solid var(--cnm-border)",
+              padding: "20px",
+              borderRadius: "var(--radius-lg)",
             }}
           >
             <h4
               style={{
                 fontSize: "11px",
-                color: "var(--cnm-gray-400)",
+                color: "var(--cnm-text-muted)",
                 textTransform: "uppercase",
                 letterSpacing: "0.06em",
                 fontWeight: 800,
@@ -375,18 +396,18 @@ export default function OrderTrackingPage() {
                           ? "var(--cnm-orange)"
                           : isCompleted
                           ? "var(--status-ready)"
-                          : "var(--cnm-dark-800)",
+                          : "var(--cnm-surface-elevated)",
                         border: `2px solid ${
                           isCurrent
                             ? "var(--cnm-orange)"
                             : isCompleted
                             ? "var(--status-ready)"
-                            : "var(--cnm-dark-700)"
+                            : "var(--cnm-border)"
                         }`,
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
-                        color: isCompleted || isCurrent ? "var(--cnm-white)" : "var(--cnm-gray-500)",
+                        color: isCompleted || isCurrent ? "#ffffff" : "var(--cnm-text-muted)",
                         fontSize: "11px",
                         fontWeight: 900,
                         flexShrink: 0,
@@ -404,8 +425,8 @@ export default function OrderTrackingPage() {
                           color: isCurrent
                             ? "var(--cnm-orange)"
                             : isCompleted
-                            ? "var(--cnm-white)"
-                            : "var(--cnm-gray-500)",
+                            ? "var(--cnm-text-primary)"
+                            : "var(--cnm-text-muted)",
                           textTransform: "uppercase",
                         }}
                       >
@@ -436,14 +457,16 @@ export default function OrderTrackingPage() {
           className="card"
           style={{
             marginBottom: "20px",
-            backgroundColor: "var(--cnm-dark-900)",
-            border: "1px solid var(--cnm-dark-700)",
+            backgroundColor: "var(--cnm-surface)",
+            border: "1px solid var(--cnm-border)",
+            padding: "20px",
+            borderRadius: "var(--radius-lg)",
           }}
         >
           <h4
             style={{
               fontSize: "11px",
-              color: "var(--cnm-gray-400)",
+              color: "var(--cnm-text-muted)",
               textTransform: "uppercase",
               letterSpacing: "0.06em",
               fontWeight: 800,
@@ -461,21 +484,21 @@ export default function OrderTrackingPage() {
                   display: "flex",
                   justifyContent: "space-between",
                   fontSize: "14px",
-                  paddingBottom: "8px",
-                  borderBottom: "1px solid #202020",
+                  paddingBottom: "10px",
+                  borderBottom: "1px solid var(--cnm-border)",
                 }}
               >
                 <div>
-                  <span style={{ fontWeight: 800, color: "var(--cnm-white)" }}>
+                  <span style={{ fontWeight: 800, color: "var(--cnm-text-primary)" }}>
                     {item.quantity}x {item.productNameSnapshot || item.productName}
                   </span>
                   {(item.variantNameSnapshot || item.variantName) && (
-                    <span style={{ display: "block", fontSize: "12px", color: "var(--cnm-cream)" }}>
+                    <span style={{ display: "block", fontSize: "12px", color: "var(--cnm-text-secondary)" }}>
                       • {item.variantNameSnapshot || item.variantName}
                     </span>
                   )}
                   {item.modifiers?.map((m) => (
-                    <span key={m.id} style={{ display: "block", fontSize: "11px", color: "var(--cnm-gray-400)" }}>
+                    <span key={m.id} style={{ display: "block", fontSize: "11px", color: "var(--cnm-text-muted)" }}>
                       + {m.modifierNameSnapshot || (m as any).name}
                     </span>
                   ))}
@@ -487,10 +510,10 @@ export default function OrderTrackingPage() {
             ))}
           </div>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "13px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", color: "var(--cnm-gray-400)" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "8px", fontSize: "13px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", color: "var(--cnm-text-muted)" }}>
               <span>Subtotal</span>
-              <span>{order.subtotalPkr.toLocaleString()} PKR</span>
+              <span style={{ color: "var(--cnm-text-primary)", fontWeight: 600 }}>{order.subtotalPkr.toLocaleString()} PKR</span>
             </div>
 
             {order.discountPkr && order.discountPkr > 0 ? (
@@ -501,9 +524,9 @@ export default function OrderTrackingPage() {
             ) : null}
 
             {order.orderType === "DELIVERY" && (
-              <div style={{ display: "flex", justifyContent: "space-between", color: "var(--cnm-gray-400)" }}>
-                <span>Delivery Fee ({order.deliveryAreaNameSnapshot || "Kharian Area"})</span>
-                <span>{order.deliveryFeePkr.toLocaleString()} PKR</span>
+              <div style={{ display: "flex", justifyContent: "space-between", color: "var(--cnm-text-muted)" }}>
+                <span>Delivery Fee ({deliveryArea})</span>
+                <span style={{ color: "var(--cnm-text-primary)", fontWeight: 600 }}>{order.deliveryFeePkr.toLocaleString()} PKR</span>
               </div>
             )}
 
@@ -513,9 +536,10 @@ export default function OrderTrackingPage() {
                 justifyContent: "space-between",
                 fontSize: "17px",
                 fontWeight: 900,
-                color: "var(--cnm-white)",
-                paddingTop: "6px",
-                borderTop: "1px dashed var(--cnm-dark-700)",
+                color: "var(--cnm-text-primary)",
+                paddingTop: "10px",
+                marginTop: "4px",
+                borderTop: "1px dashed var(--cnm-border)",
               }}
             >
               <span>Total to Pay ({order.paymentMethod})</span>
@@ -529,53 +553,55 @@ export default function OrderTrackingPage() {
           className="card"
           style={{
             marginBottom: "20px",
-            backgroundColor: "var(--cnm-dark-900)",
-            border: "1px solid var(--cnm-dark-700)",
+            backgroundColor: "var(--cnm-surface)",
+            border: "1px solid var(--cnm-border)",
+            padding: "20px",
+            borderRadius: "var(--radius-lg)",
           }}
         >
           <h4
             style={{
               fontSize: "11px",
-              color: "var(--cnm-gray-400)",
+              color: "var(--cnm-text-muted)",
               textTransform: "uppercase",
               letterSpacing: "0.06em",
               fontWeight: 800,
-              marginBottom: "10px",
+              marginBottom: "12px",
             }}
           >
             ORDER CONTACT & DESTINATION
           </h4>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "13px" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "8px", fontSize: "13px" }}>
             <div>
-              <span style={{ color: "var(--cnm-gray-400)" }}>Name: </span>
-              <span style={{ color: "var(--cnm-white)", fontWeight: 800 }}>{order.customerNameSnapshot || order.customerName}</span>
+              <span style={{ color: "var(--cnm-text-muted)" }}>Name: </span>
+              <span style={{ color: "var(--cnm-text-primary)", fontWeight: 800 }}>{customerName}</span>
             </div>
 
             <div>
-              <span style={{ color: "var(--cnm-gray-400)" }}>Phone: </span>
-              <span style={{ color: "var(--cnm-orange)", fontWeight: 800 }}>{order.customerPhoneSnapshot || order.customerPhone}</span>
+              <span style={{ color: "var(--cnm-text-muted)" }}>Phone: </span>
+              <span style={{ color: "var(--cnm-orange)", fontWeight: 800 }}>{customerPhone}</span>
             </div>
 
             {order.orderType === "DELIVERY" && (
               <>
                 <div>
-                  <span style={{ color: "var(--cnm-gray-400)" }}>Area: </span>
-                  <span style={{ color: "var(--cnm-white)", fontWeight: 700 }}>
-                    {order.deliveryAreaNameSnapshot || order.deliveryAreaName}
+                  <span style={{ color: "var(--cnm-text-muted)" }}>Area: </span>
+                  <span style={{ color: "var(--cnm-text-primary)", fontWeight: 700 }}>
+                    {deliveryArea}
                   </span>
                 </div>
                 <div>
-                  <span style={{ color: "var(--cnm-gray-400)" }}>Address: </span>
-                  <span style={{ color: "var(--cnm-white)" }}>{order.deliveryAddressSnapshot || order.deliveryAddress}</span>
+                  <span style={{ color: "var(--cnm-text-muted)" }}>Address: </span>
+                  <span style={{ color: "var(--cnm-text-primary)", fontWeight: 500 }}>{deliveryAddress}</span>
                 </div>
               </>
             )}
 
             {order.orderType === "DINE_IN" && order.dineInPreferredTime && (
               <div>
-                <span style={{ color: "var(--cnm-gray-400)" }}>Arrival Time: </span>
-                <span style={{ color: "var(--cnm-white)", fontWeight: 800 }}>{order.dineInPreferredTime}</span>
+                <span style={{ color: "var(--cnm-text-muted)" }}>Arrival Time: </span>
+                <span style={{ color: "var(--cnm-text-primary)", fontWeight: 800 }}>{order.dineInPreferredTime}</span>
               </div>
             )}
           </div>
@@ -585,14 +611,34 @@ export default function OrderTrackingPage() {
         <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
           <a
             href={`tel:${BRAND.branch.phone}`}
-            className="btn btn-cream btn-block"
-            style={{ padding: "14px" }}
+            className="btn btn-primary btn-block"
+            style={{
+              padding: "14px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "8px",
+              fontWeight: 800,
+            }}
           >
             <Phone size={18} />
             <span>Call Restaurant ({BRAND.branch.phone})</span>
           </a>
 
-          <Link href="/" className="btn btn-secondary btn-block">
+          <Link
+            href="/"
+            className="btn btn-secondary btn-block"
+            style={{
+              padding: "14px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: "var(--cnm-surface-elevated)",
+              color: "var(--cnm-text-primary)",
+              border: "1px solid var(--cnm-border)",
+              fontWeight: 700,
+            }}
+          >
             Order More Food
           </Link>
         </div>

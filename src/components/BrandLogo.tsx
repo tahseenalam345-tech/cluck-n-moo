@@ -5,30 +5,35 @@ import React, { useState } from "react";
 interface BrandLogoProps {
   size?: "sm" | "md" | "lg";
   showTagline?: boolean;
+  layout?: "horizontal" | "vertical";
 }
 
 const SIZE_MAP = {
   sm: { box: 36, title: "15px", badge: "8px", tagline: "11px" },
   md: { box: 48, title: "18px", badge: "9px", tagline: "12px" },
-  lg: { box: 60, title: "22px", badge: "10px", tagline: "13px" },
+  lg: { box: 64, title: "22px", badge: "10px", tagline: "14px" },
 };
 
-export function BrandLogo({ size = "md", showTagline = true }: BrandLogoProps) {
+export function BrandLogo({ size = "md", showTagline = true, layout = "horizontal" }: BrandLogoProps) {
   const [imgSrc, setImgSrc] = useState<string>("/logo.png");
   const [imgError, setImgError] = useState(false);
 
   const dim = SIZE_MAP[size] || SIZE_MAP.md;
+  const isVertical = layout === "vertical";
 
   return (
     <div
-      className="brand-logo-container"
+      className={`brand-logo-container ${isVertical ? "brand-logo-vertical" : ""}`}
       style={{
-        display: "inline-flex",
+        display: isVertical ? "flex" : "inline-flex",
+        flexDirection: isVertical ? "column" : "row",
         alignItems: "center",
-        gap: "10px",
+        justifyContent: "center",
+        gap: isVertical ? "12px" : "10px",
         userSelect: "none",
         flexShrink: 0,
         maxWidth: "100%",
+        textAlign: isVertical ? "center" : "left",
       }}
     >
       {!imgError && (
