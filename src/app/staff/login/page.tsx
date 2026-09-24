@@ -65,58 +65,80 @@ export default function StaffLoginPage() {
     <div
       style={{
         minHeight: "100vh",
-        backgroundColor: "#080808",
-        color: "var(--cnm-white)",
+        backgroundColor: "var(--cnm-bg)",
+        color: "var(--cnm-text-primary)",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        padding: "24px",
+        padding: "24px 16px",
       }}
     >
       <div style={{ maxWidth: "420px", width: "100%" }}>
-        <div style={{ textAlign: "center", marginBottom: "32px" }}>
-          <BrandLogo size="lg" />
+        {/* Centered Brand & Header Lockup */}
+        <div
+          style={{
+            textAlign: "center",
+            marginBottom: "28px",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          {/* Logo on top, text underneath */}
+          <BrandLogo size="lg" layout="vertical" />
+
           <div
             style={{
               display: "inline-flex",
               alignItems: "center",
               gap: "6px",
-              backgroundColor: "rgba(255, 130, 67, 0.15)",
+              backgroundColor: "rgba(255, 130, 67, 0.12)",
               color: "var(--cnm-orange)",
-              padding: "4px 12px",
+              border: "1px solid rgba(255, 130, 67, 0.3)",
+              padding: "5px 14px",
               borderRadius: "100px",
-              fontSize: "12px",
-              fontWeight: 700,
-              letterSpacing: "0.05em",
+              fontSize: "11.5px",
+              fontWeight: 800,
+              letterSpacing: "0.06em",
               marginTop: "16px",
             }}
           >
             <AlertTriangle size={14} />
             <span>STAFF OPERATIONS PORTAL</span>
           </div>
-          <h1 style={{ fontSize: "24px", fontWeight: 800, marginTop: "12px" }}>
-            Sign In to Terminal
-          </h1>
-          <p style={{ fontSize: "14px", color: "var(--cnm-text-muted)", marginTop: "4px" }}>
+
+          <p
+            style={{
+              fontSize: "13.5px",
+              color: "var(--cnm-text-muted)",
+              marginTop: "10px",
+              maxWidth: "320px",
+              lineHeight: 1.45,
+            }}
+          >
             Restricted to Cluck N Moo verified staff members only.
           </p>
         </div>
 
+        {/* Login Box */}
         <div
+          className="card"
           style={{
-            backgroundColor: "#111111",
-            border: "1px solid #242424",
-            borderRadius: "var(--radius-md)",
-            padding: "28px",
+            backgroundColor: "var(--cnm-surface)",
+            border: "1px solid var(--cnm-border)",
+            borderRadius: "var(--radius-lg)",
+            boxShadow: "var(--shadow-elevated)",
+            padding: "32px 28px",
           }}
         >
           {error && (
             <div
               style={{
-                backgroundColor: "rgba(239, 68, 68, 0.15)",
+                backgroundColor: "rgba(239, 68, 68, 0.12)",
                 border: "1px solid rgba(239, 68, 68, 0.3)",
-                color: "#fca5a5",
+                color: "var(--status-cancelled)",
                 padding: "12px 14px",
                 borderRadius: "var(--radius-sm)",
                 fontSize: "13px",
@@ -124,6 +146,7 @@ export default function StaffLoginPage() {
                 alignItems: "flex-start",
                 gap: "8px",
                 marginBottom: "20px",
+                fontWeight: 600,
               }}
             >
               <AlertTriangle size={16} style={{ flexShrink: 0, marginTop: "2px" }} />
@@ -131,9 +154,16 @@ export default function StaffLoginPage() {
             </div>
           )}
 
-          <form onSubmit={handleLogin} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+          <form onSubmit={handleLogin} style={{ display: "flex", flexDirection: "column", gap: "18px" }}>
             <div className="form-group" style={{ marginBottom: 0 }}>
-              <label className="form-label" style={{ color: "#aaa" }}>
+              <label
+                className="form-label"
+                style={{
+                  color: "var(--cnm-text-secondary)",
+                  fontWeight: 700,
+                  fontSize: "13px",
+                }}
+              >
                 Staff Email Address
               </label>
               <div>
@@ -145,16 +175,25 @@ export default function StaffLoginPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   style={{
-                    backgroundColor: "#1a1a1a",
-                    borderColor: "#333",
-                    color: "#fff",
+                    backgroundColor: "var(--cnm-surface-elevated)",
+                    borderColor: "var(--cnm-border)",
+                    color: "var(--cnm-text-primary)",
+                    padding: "13px 14px",
+                    borderRadius: "var(--radius-sm)",
                   }}
                 />
               </div>
             </div>
 
             <div className="form-group" style={{ marginBottom: 0 }}>
-              <label className="form-label" style={{ color: "#aaa" }}>
+              <label
+                className="form-label"
+                style={{
+                  color: "var(--cnm-text-secondary)",
+                  fontWeight: 700,
+                  fontSize: "13px",
+                }}
+              >
                 Security Password
               </label>
               <div>
@@ -166,9 +205,11 @@ export default function StaffLoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   style={{
-                    backgroundColor: "#1a1a1a",
-                    borderColor: "#333",
-                    color: "#fff",
+                    backgroundColor: "var(--cnm-surface-elevated)",
+                    borderColor: "var(--cnm-border)",
+                    color: "var(--cnm-text-primary)",
+                    padding: "13px 14px",
+                    borderRadius: "var(--radius-sm)",
                   }}
                 />
               </div>
@@ -181,15 +222,18 @@ export default function StaffLoginPage() {
               style={{
                 width: "100%",
                 padding: "14px",
-                marginTop: "8px",
+                marginTop: "6px",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
                 gap: "8px",
-                fontWeight: 700,
+                fontWeight: 800,
+                fontSize: "14px",
+                letterSpacing: "0.02em",
+                boxShadow: "var(--shadow-cta)",
               }}
             >
-              <span>{isLoading ? "AUTHENTICATING..." : "SIGN IN TO STATION"}</span>
+              <span>{isLoading ? "Signing In..." : "Sign In"}</span>
               <ArrowRight size={16} />
             </button>
           </form>
@@ -202,6 +246,7 @@ export default function StaffLoginPage() {
               fontSize: "13px",
               color: "var(--cnm-text-muted)",
               textDecoration: "none",
+              fontWeight: 600,
             }}
           >
             ← Return to Customer Storefront

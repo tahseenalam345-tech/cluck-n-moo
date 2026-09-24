@@ -82,7 +82,15 @@ export function BrandLogo({ size = "md", showTagline = true, layout = "horizonta
       )}
 
       {/* Authoritative Typographic Lockup */}
-      <div style={{ display: "flex", flexDirection: "column", minWidth: 0, justifyContent: "center" }}>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          minWidth: 0,
+          justifyContent: "center",
+          alignItems: isVertical ? "center" : "flex-start",
+        }}
+      >
         <div style={{ display: "flex", alignItems: "center", gap: "6px", whiteSpace: "nowrap" }}>
           <span
             className={`brand-logo-title brand-logo-title-${size}`}
