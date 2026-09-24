@@ -1,27 +1,30 @@
 import { NextResponse } from "next/server";
-import { sqlite } from "@/db";
 import { deliveryAreaInputSchema } from "@/lib/validation";
-import crypto from "crypto";
+import {
+  getAllDeliveryAreasForAdmin,
+  createDeliveryAreaInPostgres,
+  updateDeliveryAreaInPostgres,
+} from "@/db/postgres/repositories/storeAdminRepository";
+import { enforceRole } from "@/lib/authGuard";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    const areas = sqlite
-      .prepare(
-        `SELECT id, name, slug, delivery_fee_pkr as deliveryFeePkr,
-                estimated_delivery_mins as estimatedDeliveryMins,
-                is_active as isActive, display_order as displayOrder,
-                created_at as createdAt, updated_at as updatedAt
-         FROM delivery_areas
-         ORDER BY display_order ASC, name ASC`
-      )
-      .all();
+    const authResult = await enforceRole(["ADMIN"]);
+    if (authResult.errorResponse) {
+      return authResult.errorResponse;
+    }
 
+    const areas = await getAllDeliveryAreasForAdmin();
     return NextResponse.json({ success: true, data: areas });
   } catch (err: any) {
+    console.error("Admin delivery areas GET error:", err?.message || "Internal database query failure");
     return NextResponse.json(
-      { success: false, error: { code: "SERVER_ERROR", message: err.message } },
+      {
+        success: false,
+        error: { code: "SERVER_ERROR", message: "Unable to retrieve delivery areas." },
+      },
       { status: 500 }
     );
   }
@@ -29,6 +32,11 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
+    const authResult = await enforceRole(["ADMIN"]);
+    if (authResult.errorResponse) {
+      return authResult.errorResponse;
+    }
+
     const body = await req.json();
     const parse = deliveryAreaInputSchema.safeParse(body);
     if (!parse.success) {
@@ -41,25 +49,25 @@ export async function POST(req: Request) {
       );
     }
 
-    const { name, deliveryFeePkr, estimatedDeliveryMins, isActive, displayOrder } = parse.data;
-    const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
-    const id = `area_${crypto.randomBytes(6).toString("hex")}`;
-    const now = new Date().toISOString();
-
-    sqlite
-      .prepare(
-        `INSERT INTO delivery_areas (id, name, slug, delivery_fee_pkr, estimated_delivery_mins, is_active, display_order, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-      )
-      .run(id, name, slug, deliveryFeePkr, estimatedDeliveryMins, isActive ? 1 : 0, displayOrder, now, now);
+    const result = await createDeliveryAreaInPostgres({
+      name: parse.data.name,
+      deliveryFeePkr: parse.data.deliveryFeePkr,
+      estimatedDeliveryMins: parse.data.estimatedDeliveryMins,
+      isActive: Boolean(parse.data.isActive),
+      displayOrder: parse.data.displayOrder,
+    });
 
     return NextResponse.json({
       success: true,
-      data: { id, name, slug, deliveryFeePkr, estimatedDeliveryMins, isActive: isActive ? 1 : 0 },
+      data: result,
     });
   } catch (err: any) {
+    console.error("Admin delivery areas POST error:", err?.message || "Internal database error");
     return NextResponse.json(
-      { success: false, error: { code: "SERVER_ERROR", message: err.message } },
+      {
+        success: false,
+        error: { code: "SERVER_ERROR", message: "Unable to create delivery area." },
+      },
       { status: 500 }
     );
   }
@@ -67,8 +75,13 @@ export async function POST(req: Request) {
 
 export async function PATCH(req: Request) {
   try {
+    const authResult = await enforceRole(["ADMIN"]);
+    if (authResult.errorResponse) {
+      return authResult.errorResponse;
+    }
+
     const body = await req.json();
-    const { id, deliveryFeePkr, isActive, name } = body;
+    const { id, deliveryFeePkr, estimatedDeliveryMins, isActive, displayOrder, name } = body;
 
     if (!id) {
       return NextResponse.json(
@@ -77,23 +90,22 @@ export async function PATCH(req: Request) {
       );
     }
 
-    const now = new Date().toISOString();
+    await updateDeliveryAreaInPostgres(id, {
+      name,
+      deliveryFeePkr,
+      estimatedDeliveryMins,
+      isActive,
+      displayOrder,
+    });
 
-    sqlite
-      .prepare(
-        `UPDATE delivery_areas
-         SET delivery_fee_pkr = COALESCE(?, delivery_fee_pkr),
-             is_active = COALESCE(?, is_active),
-             name = COALESCE(?, name),
-             updated_at = ?
-         WHERE id = ?`
-      )
-      .run(deliveryFeePkr !== undefined ? deliveryFeePkr : null, isActive !== undefined ? (isActive ? 1 : 0) : null, name || null, now, id);
-
-    return NextResponse.json({ success: true, message: "Delivery area updated" });
+    return NextResponse.json({ success: true, message: "Delivery area updated successfully." });
   } catch (err: any) {
+    console.error("Admin delivery areas PATCH error:", err?.message || "Internal database error");
     return NextResponse.json(
-      { success: false, error: { code: "SERVER_ERROR", message: err.message } },
+      {
+        success: false,
+        error: { code: "SERVER_ERROR", message: "Unable to update delivery area." },
+      },
       { status: 500 }
     );
   }

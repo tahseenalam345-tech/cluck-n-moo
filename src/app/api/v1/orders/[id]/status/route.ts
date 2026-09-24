@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
-import { sqlite, runInTransaction } from "@/db";
 import { updateOrderStatusInputSchema } from "@/lib/validation";
-import { validateStatusTransition } from "@/lib/stateMachine";
-import { OrderStatus, OrderType, UserRole } from "@/lib/constants";
-import crypto from "crypto";
+import { updateOrderStatusInPostgres } from "@/db/postgres/repositories/orderRepository";
+import { enforceRole } from "@/lib/authGuard";
+import { OrderStatus } from "@/lib/constants";
 
 export const dynamic = "force-dynamic";
 
@@ -13,8 +12,15 @@ export async function POST(
 ) {
   try {
     const { id } = await params;
-    const body = await req.json();
 
+    // Enforce verified staff role from Supabase session
+    const authResult = await enforceRole(["ADMIN", "KITCHEN_STAFF", "RIDER"]);
+    if (authResult.errorResponse) {
+      return authResult.errorResponse;
+    }
+    const staffSession = authResult.session;
+
+    const body = await req.json();
     const parseResult = updateOrderStatusInputSchema.safeParse(body);
     if (!parseResult.success) {
       return NextResponse.json(
@@ -31,82 +37,37 @@ export async function POST(
 
     const { targetStatus, assignedRiderId, cancellationReason, note } = parseResult.data;
 
-    // Optional role header for operations / staff PIN authentication
-    const role = (req.headers.get("x-user-role") || "ADMIN") as UserRole;
-    const userId = req.headers.get("x-user-id") || null;
+    const result = await updateOrderStatusInPostgres(
+      id,
+      targetStatus as OrderStatus,
+      staffSession,
+      { assignedRiderId, cancellationReason, note }
+    );
 
-    // Fetch existing order
-    const order = sqlite
-      .prepare("SELECT id, order_number, status, order_type FROM orders WHERE id = ?")
-      .get(id) as { id: string; order_number: string; status: OrderStatus; order_type: OrderType } | undefined;
-
-    if (!order) {
-      return NextResponse.json(
-        { success: false, error: { code: "NOT_FOUND", message: "Order not found" } },
-        { status: 404 }
-      );
-    }
-
-    // Check transition validity
-    const check = validateStatusTransition(order.status, targetStatus, order.order_type, role);
-    if (!check.allowed) {
+    if (!result.success) {
       return NextResponse.json(
         {
           success: false,
-          error: {
-            code: "INVALID_TRANSITION",
-            message: check.reason || "Transition not permitted",
-          },
+          error: result.error,
         },
-        { status: 400 }
+        { status: result.status || 400 }
       );
     }
 
-    const now = new Date().toISOString();
-
-    runInTransaction(() => {
-      sqlite
-        .prepare(
-          `UPDATE orders
-           SET status = ?,
-               assigned_rider_id = COALESCE(?, assigned_rider_id),
-               cancellation_reason = COALESCE(?, cancellation_reason),
-               updated_at = ?
-           WHERE id = ?`
-        )
-        .run(targetStatus, assignedRiderId || null, cancellationReason || null, now, order.id);
-
-      sqlite
-        .prepare(
-          `INSERT INTO order_status_history (
-            id, order_id, from_status, to_status, changed_by_user_id, note, created_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?)`
-        )
-        .run(
-          `hist_${crypto.randomBytes(8).toString("hex")}`,
-          order.id,
-          order.status,
-          targetStatus,
-          userId,
-          note || `Status changed from ${order.status} to ${targetStatus}`,
-          now
-        );
-    });
-
     return NextResponse.json({
       success: true,
-      data: {
-        orderId: order.id,
-        orderNumber: order.order_number,
-        previousStatus: order.status,
-        newStatus: targetStatus,
-        updatedAt: now,
-      },
+      data: result.data,
     });
   } catch (err: any) {
-    console.error("Update order status API error:", err);
+    console.error("Update order status API error:", err?.message || "Internal database transaction failure");
     return NextResponse.json(
-      { success: false, error: { code: "SERVER_ERROR", message: err.message } },
+      {
+        success: false,
+        error: {
+          code: "SERVER_ERROR",
+          message: "Unable to update order status.",
+        },
+      },
       { status: 500 }
     );
   }

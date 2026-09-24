@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { sqlite } from "@/db";
+import { getStoreSettings } from "@/db/postgres/repositories/storeRepository";
 import { checkRestaurantOpen } from "@/lib/time";
 import { BRAND } from "@/lib/constants";
 
@@ -7,15 +7,7 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    // Read dynamic settings from database
-    const settingsRows = sqlite
-      .prepare("SELECT key, value FROM restaurant_settings")
-      .all() as { key: string; value: string }[];
-
-    const settingsMap: Record<string, string> = {};
-    for (const r of settingsRows) {
-      settingsMap[r.key] = r.value;
-    }
+    const settingsMap = await getStoreSettings();
 
     const manualOverride = (settingsMap["manual_override_status"] || "AUTO") as
       | "AUTO"
@@ -51,9 +43,15 @@ export async function GET() {
       },
     });
   } catch (err: any) {
-    console.error("Store status API error:", err);
+    console.error("Store status API error:", err?.message || "Database query failure");
     return NextResponse.json(
-      { success: false, error: { code: "SERVER_ERROR", message: err.message } },
+      {
+        success: false,
+        error: {
+          code: "SERVER_ERROR",
+          message: "Unable to retrieve store operational status.",
+        },
+      },
       { status: 500 }
     );
   }

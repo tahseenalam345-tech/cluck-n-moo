@@ -2,8 +2,10 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Order, DeliveryArea, OrderStatus } from "@/types";
 import { ORDER_STATUSES, BRAND } from "@/lib/constants";
+import { createClient } from "@/lib/supabase/client";
 import {
   ShieldCheck,
   Phone,
@@ -22,6 +24,8 @@ import {
 import { BrandLogo } from "@/components/BrandLogo";
 
 export default function AdminPage() {
+  const router = useRouter();
+  const [authStatus, setAuthStatus] = useState<"loading" | "authorized" | "unauthorized">("loading");
   const [activeTab, setActiveTab] = useState<"orders" | "areas" | "settings">("orders");
   const [orders, setOrders] = useState<Order[]>([]);
   const [deliveryAreas, setDeliveryAreas] = useState<DeliveryArea[]>([]);
@@ -34,7 +38,34 @@ export default function AdminPage() {
   const [newAreaName, setNewAreaName] = useState<string>("");
   const [newAreaFee, setNewAreaFee] = useState<number>(100);
 
+  // Check Supabase Auth and verify ADMIN role
+  useEffect(() => {
+    const checkAdminAuth = async () => {
+      try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          router.push("/staff/login");
+          return;
+        }
+
+        const res = await fetch("/api/v1/account/profile");
+        const data = await res.json();
+        if (data.success && data.data?.profile?.role === "ADMIN") {
+          setAuthStatus("authorized");
+        } else {
+          setAuthStatus("unauthorized");
+        }
+      } catch {
+        setAuthStatus("unauthorized");
+      }
+    };
+
+    checkAdminAuth();
+  }, [router]);
+
   const loadData = async () => {
+    if (authStatus !== "authorized") return;
     setIsLoading(true);
     try {
       const ordersRes = await fetch(`/api/v1/ops/orders?status=${orderStatusFilter}`);
@@ -56,10 +87,12 @@ export default function AdminPage() {
   };
 
   useEffect(() => {
-    loadData();
-    const interval = setInterval(loadData, 10000);
-    return () => clearInterval(interval);
-  }, [orderStatusFilter]);
+    if (authStatus === "authorized") {
+      loadData();
+      const interval = setInterval(loadData, 10000);
+      return () => clearInterval(interval);
+    }
+  }, [authStatus, orderStatusFilter]);
 
   const handleUpdateOrderStatus = async (orderId: string, targetStatus: OrderStatus) => {
     setIsUpdating(true);
@@ -69,7 +102,6 @@ export default function AdminPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-user-role": "ADMIN",
         },
         body: JSON.stringify({ targetStatus }),
       });
@@ -154,6 +186,39 @@ export default function AdminPage() {
       }
     } catch {}
   };
+
+  if (authStatus === "loading") {
+    return (
+      <div style={{ backgroundColor: "#080808", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff" }}>
+        <div style={{ textAlign: "center" }}>
+          <RefreshCw className="spin" size={32} style={{ color: "var(--cnm-orange)", margin: "0 auto 16px" }} />
+          <p style={{ color: "var(--cnm-text-muted)" }}>Verifying Administrator Credentials...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (authStatus === "unauthorized") {
+    return (
+      <div style={{ backgroundColor: "#080808", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", padding: "24px" }}>
+        <div style={{ maxWidth: "460px", textAlign: "center", backgroundColor: "#111", padding: "36px", borderRadius: "var(--radius-md)", border: "1px solid #222" }}>
+          <ShieldCheck size={48} style={{ color: "var(--cnm-orange)", margin: "0 auto 16px" }} />
+          <h2 style={{ fontSize: "22px", fontWeight: 800, marginBottom: "8px" }}>403 — Access Forbidden</h2>
+          <p style={{ color: "var(--cnm-text-muted)", fontSize: "14px", marginBottom: "24px" }}>
+            Your account does not have administrator privileges to access the Cluck N Moo command center.
+          </p>
+          <div style={{ display: "flex", gap: "12px", justifyContent: "center" }}>
+            <Link href="/staff/login" className="btn btn-primary" style={{ padding: "10px 18px", fontSize: "13px" }}>
+              STAFF LOGIN
+            </Link>
+            <Link href="/" className="btn btn-secondary" style={{ padding: "10px 18px", fontSize: "13px" }}>
+              STOREFRONT
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ backgroundColor: "var(--cnm-black)", minHeight: "100vh", color: "var(--cnm-white)" }}>

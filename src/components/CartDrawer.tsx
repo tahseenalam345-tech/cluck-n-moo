@@ -195,12 +195,12 @@ export function CartDrawer({
         .join(", ");
 
       saveLocalOrder({
-        orderId: data.data.id,
+        orderId: data.data.orderId || data.data.id,
         trackingToken: data.data.trackingToken,
         orderNumber: data.data.orderNumber,
         createdAt: data.data.createdAt || new Date().toISOString(),
         orderType: currentOrderType.toLowerCase() as "delivery" | "takeaway" | "dine_in",
-        currentStatus: data.data.currentStatus || "PLACED",
+        currentStatus: data.data.status || data.data.currentStatus || "New",
         finalTotalPkr: data.data.totalPkr || totalPkr,
         itemCount: cartItems.reduce((acc, i) => acc + i.quantity, 0),
         itemsSummary: itemsSummary.length > 120 ? itemsSummary.slice(0, 117) + "..." : itemsSummary,

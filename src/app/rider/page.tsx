@@ -2,16 +2,47 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Order } from "@/types";
 import { ORDER_STATUSES, BRAND } from "@/lib/constants";
-import { Bike, ArrowLeft, RefreshCw, Phone, MapPin, CheckCircle2, DollarSign } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
+import { Bike, ArrowLeft, RefreshCw, Phone, MapPin, CheckCircle2, DollarSign, AlertTriangle } from "lucide-react";
 import { BrandLogo } from "@/components/BrandLogo";
 
 export default function RiderPage() {
+  const router = useRouter();
+  const [authStatus, setAuthStatus] = useState<"loading" | "authorized" | "unauthorized">("loading");
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
+  // Check Supabase Auth and verify RIDER or ADMIN role
+  useEffect(() => {
+    const checkRiderAuth = async () => {
+      try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          router.push("/staff/login");
+          return;
+        }
+
+        const res = await fetch("/api/v1/account/profile");
+        const data = await res.json();
+        if (data.success && (data.data?.profile?.role === "RIDER" || data.data?.profile?.role === "ADMIN")) {
+          setAuthStatus("authorized");
+        } else {
+          setAuthStatus("unauthorized");
+        }
+      } catch {
+        setAuthStatus("unauthorized");
+      }
+    };
+
+    checkRiderAuth();
+  }, [router]);
+
   const loadRiderOrders = async () => {
+    if (authStatus !== "authorized") return;
     try {
       const res = await fetch("/api/v1/ops/orders?orderType=DELIVERY");
       const data = await res.json();
@@ -30,10 +61,12 @@ export default function RiderPage() {
   };
 
   useEffect(() => {
-    loadRiderOrders();
-    const interval = setInterval(loadRiderOrders, 8000);
-    return () => clearInterval(interval);
-  }, []);
+    if (authStatus === "authorized") {
+      loadRiderOrders();
+      const interval = setInterval(loadRiderOrders, 8000);
+      return () => clearInterval(interval);
+    }
+  }, [authStatus]);
 
   const handleStatusUpdate = async (orderId: string, targetStatus: string) => {
     try {
@@ -41,13 +74,45 @@ export default function RiderPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-user-role": "RIDER",
         },
         body: JSON.stringify({ targetStatus }),
       });
       if (res.ok) loadRiderOrders();
     } catch {}
   };
+
+  if (authStatus === "loading") {
+    return (
+      <div style={{ backgroundColor: "#080808", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff" }}>
+        <div style={{ textAlign: "center" }}>
+          <RefreshCw className="spin" size={32} style={{ color: "var(--cnm-orange)", margin: "0 auto 16px" }} />
+          <p style={{ color: "var(--cnm-text-muted)" }}>Connecting to Rider Delivery Dispatch...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (authStatus === "unauthorized") {
+    return (
+      <div style={{ backgroundColor: "#080808", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", padding: "24px" }}>
+        <div style={{ maxWidth: "460px", textAlign: "center", backgroundColor: "#111", padding: "36px", borderRadius: "var(--radius-md)", border: "1px solid #222" }}>
+          <AlertTriangle size={48} style={{ color: "var(--cnm-orange)", margin: "0 auto 16px" }} />
+          <h2 style={{ fontSize: "22px", fontWeight: 800, marginBottom: "8px" }}>403 — Unauthorized Access</h2>
+          <p style={{ color: "var(--cnm-text-muted)", fontSize: "14px", marginBottom: "24px" }}>
+            The Delivery Portal is restricted to active riders and dispatch administrators.
+          </p>
+          <div style={{ display: "flex", gap: "12px", justifyContent: "center" }}>
+            <Link href="/staff/login" className="btn btn-primary" style={{ padding: "10px 18px", fontSize: "13px" }}>
+              STAFF LOGIN
+            </Link>
+            <Link href="/" className="btn btn-secondary" style={{ padding: "10px 18px", fontSize: "13px" }}>
+              STOREFRONT
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="app-container" style={{ minHeight: "100vh", backgroundColor: "var(--cnm-black)", paddingBottom: "40px" }}>

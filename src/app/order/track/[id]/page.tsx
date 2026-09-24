@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Order, OrderStatus } from "@/types";
 import { ORDER_STATUSES, BRAND } from "@/lib/constants";
@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 import { BrandLogo } from "@/components/BrandLogo";
 import { NotificationOptInPrompt } from "@/components/NotificationOptInPrompt";
-import { updateLocalOrderStatus } from "@/lib/orderHistory";
+import { getLocalOrders, updateLocalOrderStatus } from "@/lib/orderHistory";
 
 const STATUS_STEPS: OrderStatus[] = [
   ORDER_STATUSES.NEW,
@@ -33,6 +33,7 @@ const STATUS_STEPS: OrderStatus[] = [
 
 export default function OrderTrackingPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const id = params.id as string;
 
   const [order, setOrder] = useState<Order | null>(null);
@@ -43,7 +44,20 @@ export default function OrderTrackingPage() {
   const fetchOrder = async (isManual = false) => {
     if (isManual) setIsRefreshing(true);
     try {
-      const res = await fetch(`/api/v1/orders/${id}/track`);
+      let token = searchParams.get("token");
+      if (!token && typeof window !== "undefined") {
+        const local = getLocalOrders();
+        const found = local.find(
+          (o) => o.orderNumber === id || o.orderId === id || o.trackingToken === id
+        );
+        if (found) token = found.trackingToken;
+      }
+
+      const url = token
+        ? `/api/v1/orders/${id}/track?token=${encodeURIComponent(token)}`
+        : `/api/v1/orders/${id}/track`;
+
+      const res = await fetch(url);
       const data = await res.json();
       if (data.success && data.data) {
         setOrder(data.data);

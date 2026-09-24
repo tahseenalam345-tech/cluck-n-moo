@@ -1,33 +1,35 @@
 import { NextResponse } from "next/server";
-import { sqlite, runInTransaction } from "@/db";
+import {
+  getAdminSettingsAndSchedules,
+  updateAdminSettingsAndSchedules,
+} from "@/db/postgres/repositories/storeAdminRepository";
+import { enforceRole } from "@/lib/authGuard";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    const rows = sqlite.prepare("SELECT key, value FROM restaurant_settings").all() as {
-      key: string;
-      value: string;
-    }[];
-    const settings: Record<string, string> = {};
-    for (const r of rows) {
-      settings[r.key] = r.value;
+    const authResult = await enforceRole(["ADMIN"]);
+    if (authResult.errorResponse) {
+      return authResult.errorResponse;
     }
 
-    const schedules = sqlite
-      .prepare("SELECT day_of_week as dayOfWeek, open_time as openTime, close_time as closeTime, is_closed as isClosed FROM restaurant_schedules ORDER BY day_of_week ASC")
-      .all();
+    const data = await getAdminSettingsAndSchedules();
 
     return NextResponse.json({
       success: true,
-      data: {
-        settings,
-        schedules,
-      },
+      data,
     });
   } catch (err: any) {
+    console.error("Admin settings GET error:", err?.message || "Internal database query failure");
     return NextResponse.json(
-      { success: false, error: { code: "SERVER_ERROR", message: err.message } },
+      {
+        success: false,
+        error: {
+          code: "SERVER_ERROR",
+          message: "Unable to retrieve settings.",
+        },
+      },
       { status: 500 }
     );
   }
@@ -35,37 +37,28 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
+    const authResult = await enforceRole(["ADMIN"]);
+    if (authResult.errorResponse) {
+      return authResult.errorResponse;
+    }
+
     const body = await req.json();
-    const now = new Date().toISOString();
+    await updateAdminSettingsAndSchedules(body.settings || {}, body.schedules);
 
-    const upsertStmt = sqlite.prepare(
-      `INSERT INTO restaurant_settings (key, value, updated_at) VALUES (?, ?, ?)
-       ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`
-    );
-
-    runInTransaction(() => {
-      for (const [key, value] of Object.entries(body.settings || {})) {
-        if (typeof value === "string" || typeof value === "number") {
-          upsertStmt.run(key, value.toString(), now);
-        }
-      }
-
-      if (Array.isArray(body.schedules)) {
-        const schedStmt = sqlite.prepare(
-          `UPDATE restaurant_schedules
-           SET open_time = ?, close_time = ?, is_closed = ?
-           WHERE day_of_week = ?`
-        );
-        for (const s of body.schedules) {
-          schedStmt.run(s.openTime, s.closeTime, s.isClosed ? 1 : 0, s.dayOfWeek);
-        }
-      }
+    return NextResponse.json({
+      success: true,
+      message: "Settings and schedules updated successfully.",
     });
-
-    return NextResponse.json({ success: true, message: "Settings updated successfully" });
   } catch (err: any) {
+    console.error("Admin settings POST error:", err?.message || "Internal database transaction failure");
     return NextResponse.json(
-      { success: false, error: { code: "SERVER_ERROR", message: err.message } },
+      {
+        success: false,
+        error: {
+          code: "SERVER_ERROR",
+          message: "Unable to update settings.",
+        },
+      },
       { status: 500 }
     );
   }
