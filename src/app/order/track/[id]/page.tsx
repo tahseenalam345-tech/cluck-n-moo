@@ -38,7 +38,7 @@ export default function OrderTrackingPage() {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [isReceiptOpen, setIsReceiptOpen] = useState<boolean>(false);
+  const [isReceiptOpen, setIsReceiptOpen] = useState<boolean>(true);
   const [copySuccess, setCopySuccess] = useState<boolean>(false);
 
   const fetchOrder = useCallback(
