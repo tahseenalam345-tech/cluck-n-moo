@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Order, DeliveryArea, OrderStatus } from "@/types";
 import { ORDER_STATUSES, BRAND } from "@/lib/constants";
 import { createClient } from "@/lib/supabase/client";
+import { useTheme } from "@/context/ThemeContext";
 import {
   ShieldCheck,
   Phone,
@@ -20,20 +21,31 @@ import {
   AlertCircle,
   Plus,
   Flame,
+  Search,
+  X,
+  Sun,
+  Moon,
+  Utensils,
+  ShoppingBag,
 } from "lucide-react";
 import { BrandLogo } from "@/components/BrandLogo";
 
 export default function AdminPage() {
   const router = useRouter();
+  const { theme, toggleTheme } = useTheme();
+
   const [authStatus, setAuthStatus] = useState<"loading" | "authorized" | "unauthorized">("loading");
   const [activeTab, setActiveTab] = useState<"orders" | "areas" | "settings">("orders");
   const [orders, setOrders] = useState<Order[]>([]);
   const [deliveryAreas, setDeliveryAreas] = useState<DeliveryArea[]>([]);
   const [settings, setSettings] = useState<Record<string, string>>({});
   const [orderStatusFilter, setOrderStatusFilter] = useState<string>("active");
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
+
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isUpdating, setIsUpdating] = useState<boolean>(false);
-  const [message, setMessage] = useState<string | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const [newAreaName, setNewAreaName] = useState<string>("");
   const [newAreaFee, setNewAreaFee] = useState<number>(100);
@@ -43,7 +55,9 @@ export default function AdminPage() {
     const checkAdminAuth = async () => {
       try {
         const supabase = createClient();
-        const { data: { user } } = await supabase.auth.getUser();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
         if (!user) {
           router.push("/staff/login");
           return;
@@ -64,9 +78,9 @@ export default function AdminPage() {
     checkAdminAuth();
   }, [router]);
 
-  const loadData = async () => {
+  const loadData = async (silent = false) => {
     if (authStatus !== "authorized") return;
-    setIsLoading(true);
+    if (!silent) setIsLoading(true);
     try {
       const ordersRes = await fetch(`/api/v1/ops/orders?status=${orderStatusFilter}`);
       const ordersData = await ordersRes.json();
@@ -82,33 +96,36 @@ export default function AdminPage() {
     } catch (err) {
       console.error(err);
     } finally {
-      setIsLoading(false);
+      if (!silent) setIsLoading(false);
     }
   };
 
   useEffect(() => {
     if (authStatus === "authorized") {
       loadData();
-      const interval = setInterval(loadData, 10000);
+      // Fast 5-second polling for live operations
+      const interval = setInterval(() => loadData(true), 5000);
       return () => clearInterval(interval);
     }
   }, [authStatus, orderStatusFilter]);
 
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
+
   const handleUpdateOrderStatus = async (orderId: string, targetStatus: OrderStatus) => {
     setIsUpdating(true);
-    setMessage(null);
     try {
       const res = await fetch(`/api/v1/orders/${orderId}/status`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ targetStatus }),
       });
       const data = await res.json();
       if (data.success) {
-        setMessage(`Order status updated to ${targetStatus}`);
-        loadData();
+        showToast(`Order status updated to ${targetStatus}`);
+        loadData(true);
       } else {
         alert(data.error?.message || "Failed to update order status");
       }
@@ -126,7 +143,7 @@ export default function AdminPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: areaId, isActive: currentActive === 1 ? false : true }),
       });
-      if (res.ok) loadData();
+      if (res.ok) loadData(true);
     } catch {}
   };
 
@@ -139,7 +156,7 @@ export default function AdminPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: areaId, deliveryFeePkr: fee }),
       });
-      if (res.ok) loadData();
+      if (res.ok) loadData(true);
     } catch {}
   };
 
@@ -161,7 +178,8 @@ export default function AdminPage() {
       const data = await res.json();
       if (data.success) {
         setNewAreaName("");
-        loadData();
+        showToast("Delivery area added successfully!");
+        loadData(true);
       } else {
         alert(data.error?.message || "Failed to add delivery area");
       }
@@ -181,18 +199,71 @@ export default function AdminPage() {
         }),
       });
       if (res.ok) {
-        alert("Settings saved successfully!");
-        loadData();
+        showToast("Settings saved successfully!");
+        loadData(true);
       }
     } catch {}
   };
 
+  const handleStaffLogout = async () => {
+    try {
+      const supabase = createClient();
+      await supabase.auth.signOut();
+      router.push("/staff/login");
+    } catch {
+      router.push("/staff/login");
+    }
+  };
+
+  // Filtered orders based on search query
+  const filteredOrders = useMemo(() => {
+    if (!searchQuery.trim()) return orders;
+    const q = searchQuery.toLowerCase().trim();
+    return orders.filter((o) => {
+      const num = (o.orderNumber || "").toLowerCase();
+      const name = (o.customerNameSnapshot || o.customerName || "").toLowerCase();
+      const phone = (o.customerPhoneSnapshot || o.customerPhone || "").toLowerCase();
+      const area = (o.deliveryAreaNameSnapshot || o.deliveryAreaName || "").toLowerCase();
+      return num.includes(q) || name.includes(q) || phone.includes(q) || area.includes(q);
+    });
+  }, [orders, searchQuery]);
+
+  // Operational KPI metrics
+  const kpiMetrics = useMemo(() => {
+    const active = orders.filter(
+      (o) => o.status !== ORDER_STATUSES.COMPLETED && o.status !== ORDER_STATUSES.CANCELLED
+    );
+    const newCount = orders.filter((o) => o.status === ORDER_STATUSES.NEW).length;
+    const kitchenCount = orders.filter((o) => o.status === ORDER_STATUSES.PREPARING).length;
+    const riderCount = orders.filter((o) => o.status === ORDER_STATUSES.OUT_FOR_DELIVERY).length;
+    const totalCash = active.reduce((sum, o) => sum + (o.totalPkr || 0), 0);
+
+    return {
+      activeCount: active.length,
+      newCount,
+      kitchenCount,
+      riderCount,
+      totalCash,
+    };
+  }, [orders]);
+
   if (authStatus === "loading") {
     return (
-      <div style={{ backgroundColor: "var(--cnm-bg)", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--cnm-text-primary)" }}>
+      <div
+        style={{
+          backgroundColor: "var(--cnm-bg)",
+          minHeight: "100vh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          color: "var(--cnm-text-primary)",
+        }}
+      >
         <div style={{ textAlign: "center" }}>
           <RefreshCw className="spin" size={32} style={{ color: "var(--cnm-orange)", margin: "0 auto 16px" }} />
-          <p style={{ color: "var(--cnm-text-muted)" }}>Verifying Administrator Credentials...</p>
+          <p style={{ color: "var(--cnm-text-muted)", fontSize: "14px", fontWeight: 700 }}>
+            Verifying Administrator Credentials...
+          </p>
         </div>
       </div>
     );
@@ -200,10 +271,32 @@ export default function AdminPage() {
 
   if (authStatus === "unauthorized") {
     return (
-      <div style={{ backgroundColor: "var(--cnm-bg)", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--cnm-text-primary)", padding: "24px" }}>
-        <div style={{ maxWidth: "460px", textAlign: "center", backgroundColor: "var(--cnm-surface)", padding: "36px", borderRadius: "var(--radius-md)", border: "1px solid var(--cnm-border)", boxShadow: "var(--shadow-elevated)" }}>
+      <div
+        style={{
+          backgroundColor: "var(--cnm-bg)",
+          minHeight: "100vh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          color: "var(--cnm-text-primary)",
+          padding: "24px",
+        }}
+      >
+        <div
+          style={{
+            maxWidth: "460px",
+            textAlign: "center",
+            backgroundColor: "var(--cnm-surface)",
+            padding: "36px",
+            borderRadius: "var(--radius-md)",
+            border: "1px solid var(--cnm-border)",
+            boxShadow: "var(--shadow-elevated)",
+          }}
+        >
           <ShieldCheck size={48} style={{ color: "var(--cnm-orange)", margin: "0 auto 16px" }} />
-          <h2 style={{ fontSize: "22px", fontWeight: 800, marginBottom: "8px", color: "var(--cnm-text-primary)" }}>403 — Access Forbidden</h2>
+          <h2 style={{ fontSize: "22px", fontWeight: 800, marginBottom: "8px", color: "var(--cnm-text-primary)" }}>
+            403 — Access Forbidden
+          </h2>
           <p style={{ color: "var(--cnm-text-muted)", fontSize: "14px", marginBottom: "24px" }}>
             Your account does not have administrator privileges to access the Cluck N Moo command center.
           </p>
@@ -222,359 +315,939 @@ export default function AdminPage() {
 
   return (
     <div style={{ backgroundColor: "var(--cnm-bg)", minHeight: "100vh", color: "var(--cnm-text-primary)" }}>
-      {/* Top Admin Nav */}
+      {/* 1. TOP EXECUTIVE HEADER */}
       <header
         style={{
           borderBottom: "1px solid var(--cnm-border)",
           backgroundColor: "var(--cnm-surface)",
-          padding: "12px 20px",
+          padding: "10px 20px",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
           boxShadow: "var(--shadow-xs)",
+          position: "sticky",
+          top: 0,
+          zIndex: 50,
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
-          <Link href="/" style={{ color: "var(--cnm-text-muted)" }}>
-            <ArrowLeft size={18} />
+        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+          <Link
+            href="/"
+            title="Return to Storefront"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "5px",
+              color: "var(--cnm-text-secondary)",
+              fontSize: "13px",
+              fontWeight: 700,
+              textDecoration: "none",
+            }}
+          >
+            <ArrowLeft size={16} />
+            <span>Store</span>
           </Link>
+
           <BrandLogo size="sm" showTagline={false} />
+
           <span
             style={{
-              backgroundColor: "var(--cnm-surface-elevated)",
+              backgroundColor: "rgba(255, 130, 67, 0.12)",
               color: "var(--cnm-orange)",
-              border: "1px solid var(--cnm-border)",
-              padding: "4px 10px",
+              border: "1px solid rgba(255, 130, 67, 0.3)",
+              padding: "3px 9px",
               borderRadius: "var(--radius-xs)",
               fontFamily: "var(--font-display)",
               fontSize: "11px",
               fontWeight: 800,
-              letterSpacing: "0.05em",
+              letterSpacing: "0.06em",
             }}
           >
             COMMAND CENTER
           </span>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-          <button onClick={loadData} className="btn btn-sm btn-secondary" title="Refresh">
+        {/* Center Live Badge */}
+        <div style={{ display: "none", alignItems: "center", gap: "6px" }} className="admin-desktop-live">
+          <span
+            style={{
+              width: "7px",
+              height: "7px",
+              borderRadius: "50%",
+              backgroundColor: "var(--status-ready)",
+              boxShadow: "0 0 8px var(--status-ready)",
+            }}
+          />
+          <span style={{ fontSize: "12px", fontWeight: 700, color: "var(--cnm-text-secondary)" }}>
+            Live Ops • Auto-refresh 5s
+          </span>
+        </div>
+
+        {/* Right Corner Controls: Theme Toggle, Refresh, Logout */}
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          {/* Theme Switcher Button */}
+          <button
+            onClick={toggleTheme}
+            aria-label="Toggle Theme"
+            title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+            style={{
+              width: "36px",
+              height: "36px",
+              borderRadius: "50%",
+              backgroundColor: "var(--cnm-surface-elevated)",
+              border: "1px solid var(--cnm-border)",
+              color: "var(--cnm-text-primary)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: "pointer",
+            }}
+          >
+            {theme === "dark" ? <Sun size={16} color="#FBBF24" /> : <Moon size={16} color="var(--cnm-text-secondary)" />}
+          </button>
+
+          {/* Refresh Button */}
+          <button
+            onClick={() => loadData(false)}
+            className="btn btn-sm btn-secondary"
+            title="Refresh Data"
+            style={{ padding: "8px 12px", display: "flex", alignItems: "center", gap: "6px" }}
+          >
             <RefreshCw size={14} className={isLoading ? "spin" : ""} />
             <span>Refresh</span>
+          </button>
+
+          {/* Staff Logout */}
+          <button
+            onClick={handleStaffLogout}
+            style={{
+              padding: "7px 12px",
+              borderRadius: "var(--radius-sm)",
+              backgroundColor: "transparent",
+              border: "1px solid var(--cnm-border)",
+              color: "var(--cnm-text-muted)",
+              fontSize: "12px",
+              fontWeight: 700,
+              cursor: "pointer",
+            }}
+          >
+            Logout
           </button>
         </div>
       </header>
 
-      {/* Main Container */}
-      <div className="desktop-full-container" style={{ paddingTop: "20px", paddingBottom: "40px" }}>
-        {/* Navigation Tabs */}
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div
+          style={{
+            position: "fixed",
+            bottom: "24px",
+            right: "24px",
+            backgroundColor: "var(--cnm-text-primary)",
+            color: "var(--cnm-surface)",
+            padding: "10px 18px",
+            borderRadius: "var(--radius-md)",
+            fontSize: "13px",
+            fontWeight: 800,
+            zIndex: 9999,
+            boxShadow: "var(--shadow-elevated)",
+            animation: "fadeIn 0.2s ease-in-out",
+          }}
+        >
+          {toastMessage}
+        </div>
+      )}
+
+      {/* 2. MAIN CONTAINER */}
+      <div style={{ maxWidth: "1440px", margin: "0 auto", padding: "16px 20px 48px" }}>
+        {/* Navigation Tabs Bar */}
         <div
           style={{
             display: "flex",
-            gap: "8px",
+            alignItems: "center",
+            justifyContent: "space-between",
             borderBottom: "1px solid var(--cnm-border)",
             paddingBottom: "12px",
-            marginBottom: "20px",
+            marginBottom: "16px",
+            flexWrap: "wrap",
+            gap: "12px",
           }}
         >
-          <button
-            onClick={() => setActiveTab("orders")}
-            className={`btn btn-sm ${activeTab === "orders" ? "btn-primary" : "btn-secondary"}`}
-          >
-            Live Pipeline ({orders.length})
-          </button>
-          <button
-            onClick={() => setActiveTab("areas")}
-            className={`btn btn-sm ${activeTab === "areas" ? "btn-primary" : "btn-secondary"}`}
-          >
-            Delivery Areas ({deliveryAreas.length})
-          </button>
-          <button
-            onClick={() => setActiveTab("settings")}
-            className={`btn btn-sm ${activeTab === "settings" ? "btn-primary" : "btn-secondary"}`}
-          >
-            Store Schedule & Banner
-          </button>
+          <div style={{ display: "flex", gap: "8px" }}>
+            <button
+              onClick={() => setActiveTab("orders")}
+              style={{
+                padding: "8px 16px",
+                borderRadius: "var(--radius-md)",
+                fontSize: "13px",
+                fontFamily: "var(--font-display)",
+                fontWeight: 800,
+                cursor: "pointer",
+                backgroundColor: activeTab === "orders" ? "var(--cnm-orange)" : "var(--cnm-surface)",
+                color: activeTab === "orders" ? "#ffffff" : "var(--cnm-text-secondary)",
+                border: `1px solid ${activeTab === "orders" ? "var(--cnm-orange)" : "var(--cnm-border)"}`,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+              }}
+            >
+              <Flame size={15} />
+              <span>Live Pipeline ({orders.length})</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab("areas")}
+              style={{
+                padding: "8px 16px",
+                borderRadius: "var(--radius-md)",
+                fontSize: "13px",
+                fontFamily: "var(--font-display)",
+                fontWeight: 800,
+                cursor: "pointer",
+                backgroundColor: activeTab === "areas" ? "var(--cnm-orange)" : "var(--cnm-surface)",
+                color: activeTab === "areas" ? "#ffffff" : "var(--cnm-text-secondary)",
+                border: `1px solid ${activeTab === "areas" ? "var(--cnm-orange)" : "var(--cnm-border)"}`,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+              }}
+            >
+              <MapPin size={15} />
+              <span>Delivery Areas ({deliveryAreas.length})</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab("settings")}
+              style={{
+                padding: "8px 16px",
+                borderRadius: "var(--radius-md)",
+                fontSize: "13px",
+                fontFamily: "var(--font-display)",
+                fontWeight: 800,
+                cursor: "pointer",
+                backgroundColor: activeTab === "settings" ? "var(--cnm-orange)" : "var(--cnm-surface)",
+                color: activeTab === "settings" ? "#ffffff" : "var(--cnm-text-secondary)",
+                border: `1px solid ${activeTab === "settings" ? "var(--cnm-orange)" : "var(--cnm-border)"}`,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+              }}
+            >
+              <Clock size={15} />
+              <span>Store Schedule & Banner</span>
+            </button>
+          </div>
         </div>
 
-        {/* Tab 1: Orders Pipeline */}
+        {/* TAB 1: LIVE ORDERS PIPELINE */}
         {activeTab === "orders" && (
           <div>
-            {/* Filter pills */}
-            <div style={{ display: "flex", gap: "6px", marginBottom: "16px", flexWrap: "wrap" }}>
-              {["active", "New", "Confirmed", "Preparing", "Ready", "Out for delivery", "Completed", "Cancelled"].map(
-                (f) => (
-                  <button
-                    key={f}
-                    onClick={() => setOrderStatusFilter(f)}
-                    style={{
-                      padding: "6px 14px",
-                      borderRadius: "var(--radius-full)",
-                      fontSize: "12px",
-                      fontFamily: "var(--font-display)",
-                      fontWeight: 800,
-                      textTransform: "uppercase",
-                      backgroundColor:
-                        orderStatusFilter === f ? "var(--cnm-orange)" : "var(--cnm-surface-elevated)",
-                      color: orderStatusFilter === f ? "var(--cnm-white)" : "var(--cnm-text-secondary)",
-                      border: `1px solid ${
-                        orderStatusFilter === f ? "var(--cnm-orange)" : "var(--cnm-border)"
-                      }`,
-                    }}
-                  >
-                    {f}
-                  </button>
-                )
-              )}
-            </div>
-
-            {/* Orders Grid */}
-            {orders.length === 0 ? (
+            {/* 3. EXECUTIVE KPI METRICS BAR */}
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+                gap: "12px",
+                marginBottom: "18px",
+              }}
+            >
+              {/* Metric 1 */}
               <div
-                className="card"
                 style={{
-                  textAlign: "center",
-                  padding: "50px",
-                  color: "var(--cnm-text-muted)",
-                  border: "1px dashed var(--cnm-border)",
+                  backgroundColor: "var(--cnm-surface)",
+                  border: "1px solid var(--cnm-border)",
+                  borderRadius: "var(--radius-md)",
+                  padding: "14px 16px",
+                  boxShadow: "var(--shadow-xs)",
                 }}
               >
-                No orders match filter "{orderStatusFilter}".
+                <div style={{ fontSize: "11px", fontWeight: 800, textTransform: "uppercase", color: "var(--cnm-text-muted)" }}>
+                  Active Orders
+                </div>
+                <div style={{ fontFamily: "var(--font-display)", fontSize: "24px", fontWeight: 900, color: "var(--cnm-text-primary)", marginTop: "2px" }}>
+                  {kpiMetrics.activeCount}
+                </div>
               </div>
-            ) : (
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(360px, 1fr))", gap: "16px" }}>
-                {orders.map((ord) => (
-                  <div
-                    key={ord.id}
-                    className="card"
+
+              {/* Metric 2 */}
+              <div
+                style={{
+                  backgroundColor: "var(--cnm-surface)",
+                  border: "1px solid var(--cnm-border)",
+                  borderRadius: "var(--radius-md)",
+                  padding: "14px 16px",
+                  borderLeft: "4px solid var(--status-new)",
+                  boxShadow: "var(--shadow-xs)",
+                }}
+              >
+                <div style={{ fontSize: "11px", fontWeight: 800, textTransform: "uppercase", color: "var(--status-new)" }}>
+                  Needs Phone Call
+                </div>
+                <div style={{ fontFamily: "var(--font-display)", fontSize: "24px", fontWeight: 900, color: "var(--cnm-text-primary)", marginTop: "2px" }}>
+                  {kpiMetrics.newCount}
+                </div>
+              </div>
+
+              {/* Metric 3 */}
+              <div
+                style={{
+                  backgroundColor: "var(--cnm-surface)",
+                  border: "1px solid var(--cnm-border)",
+                  borderRadius: "var(--radius-md)",
+                  padding: "14px 16px",
+                  borderLeft: "4px solid var(--cnm-orange)",
+                  boxShadow: "var(--shadow-xs)",
+                }}
+              >
+                <div style={{ fontSize: "11px", fontWeight: 800, textTransform: "uppercase", color: "var(--cnm-orange)" }}>
+                  Kitchen Cooking
+                </div>
+                <div style={{ fontFamily: "var(--font-display)", fontSize: "24px", fontWeight: 900, color: "var(--cnm-text-primary)", marginTop: "2px" }}>
+                  {kpiMetrics.kitchenCount}
+                </div>
+              </div>
+
+              {/* Metric 4 */}
+              <div
+                style={{
+                  backgroundColor: "var(--cnm-surface)",
+                  border: "1px solid var(--cnm-border)",
+                  borderRadius: "var(--radius-md)",
+                  padding: "14px 16px",
+                  borderLeft: "4px solid var(--status-delivery)",
+                  boxShadow: "var(--shadow-xs)",
+                }}
+              >
+                <div style={{ fontSize: "11px", fontWeight: 800, textTransform: "uppercase", color: "var(--status-delivery)" }}>
+                  Rider In-Transit
+                </div>
+                <div style={{ fontFamily: "var(--font-display)", fontSize: "24px", fontWeight: 900, color: "var(--cnm-text-primary)", marginTop: "2px" }}>
+                  {kpiMetrics.riderCount}
+                </div>
+              </div>
+
+              {/* Metric 5 */}
+              <div
+                style={{
+                  backgroundColor: "var(--cnm-surface)",
+                  border: "1px solid var(--cnm-border)",
+                  borderRadius: "var(--radius-md)",
+                  padding: "14px 16px",
+                  boxShadow: "var(--shadow-xs)",
+                }}
+              >
+                <div style={{ fontSize: "11px", fontWeight: 800, textTransform: "uppercase", color: "var(--cnm-text-muted)" }}>
+                  Active Cash Pipeline
+                </div>
+                <div style={{ fontFamily: "var(--font-display)", fontSize: "22px", fontWeight: 900, color: "var(--cnm-text-primary)", marginTop: "2px" }}>
+                  {kpiMetrics.totalCash.toLocaleString()} PKR
+                </div>
+              </div>
+            </div>
+
+            {/* 4. CONTROLS BAR: SEARCH, STATUS FILTER PILLS & VIEW TOGGLE */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: "12px",
+                marginBottom: "16px",
+                flexWrap: "wrap",
+              }}
+            >
+              {/* Search Bar */}
+              <div
+                style={{
+                  position: "relative",
+                  width: "320px",
+                  maxWidth: "100%",
+                }}
+              >
+                <Search
+                  size={15}
+                  style={{
+                    position: "absolute",
+                    left: "12px",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    color: "var(--cnm-text-muted)",
+                  }}
+                />
+                <input
+                  type="text"
+                  placeholder="Search order #, customer, phone..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "8px 32px 8px 34px",
+                    backgroundColor: "var(--cnm-surface)",
+                    border: "1px solid var(--cnm-border)",
+                    borderRadius: "var(--radius-full)",
+                    fontSize: "12.5px",
+                    color: "var(--cnm-text-primary)",
+                    outline: "none",
+                  }}
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery("")}
                     style={{
-                      backgroundColor: "var(--cnm-surface)",
-                      border: "1px solid var(--cnm-border)",
-                      borderLeft:
-                        ord.status === "New"
-                          ? "4px solid var(--status-new)"
-                          : ord.status === "Confirmed"
-                          ? "4px solid var(--status-confirmed)"
-                          : ord.status === "Preparing"
-                          ? "4px solid var(--cnm-orange)"
-                          : ord.status === "Ready"
-                          ? "4px solid var(--status-ready)"
-                          : "1px solid var(--cnm-border)",
-                      boxShadow: "var(--shadow-sm)",
+                      position: "absolute",
+                      right: "10px",
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      background: "transparent",
+                      border: "none",
+                      color: "var(--cnm-text-muted)",
+                      cursor: "pointer",
                     }}
                   >
-                    {/* Header */}
-                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "10px" }}>
-                      <div>
-                        <span
-                          style={{
-                            fontFamily: "var(--font-display)",
-                            fontSize: "17px",
-                            fontWeight: 900,
-                            color: "var(--cnm-text-primary)",
-                          }}
-                        >
-                          {ord.orderNumber}
-                        </span>
-                        <span
-                          style={{
-                            display: "block",
-                            fontSize: "11px",
-                            color: "var(--cnm-text-muted)",
-                          }}
-                        >
-                          {new Date(ord.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} PKT
-                        </span>
-                      </div>
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
 
-                      <div style={{ display: "flex", gap: "6px" }}>
-                        <span
-                          className="badge"
-                          style={{
-                            backgroundColor: "rgba(255,130,67,0.15)",
-                            color: "var(--cnm-orange)",
-                            fontSize: "10px",
-                            fontWeight: 800,
-                          }}
-                        >
-                          {ord.orderType}
-                        </span>
-                        <span
-                          className="badge"
-                          style={{
-                            backgroundColor: "var(--cnm-surface-elevated)",
-                            color: "var(--cnm-text-primary)",
-                            border: "1px solid var(--cnm-border)",
-                            fontSize: "10px",
-                            fontWeight: 800,
-                          }}
-                        >
-                          {ord.status}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Customer Info Box */}
-                    <div
+              {/* Status Filter Pills */}
+              <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", alignItems: "center" }}>
+                {[
+                  { key: "active", label: "All Active" },
+                  { key: "New", label: "New" },
+                  { key: "Confirmed", label: "Confirmed" },
+                  { key: "Preparing", label: "Kitchen" },
+                  { key: "Ready", label: "Ready" },
+                  { key: "Out for delivery", label: "Dispatched" },
+                  { key: "Completed", label: "Completed" },
+                  { key: "Cancelled", label: "Cancelled" },
+                ].map((f) => {
+                  const isSelected = orderStatusFilter === f.key;
+                  return (
+                    <button
+                      key={f.key}
+                      onClick={() => setOrderStatusFilter(f.key)}
                       style={{
-                        backgroundColor: "var(--cnm-surface-elevated)",
-                        border: "1px solid var(--cnm-border)",
-                        padding: "10px 12px",
-                        borderRadius: "var(--radius-sm)",
-                        fontSize: "13px",
-                        marginBottom: "12px",
+                        padding: "5px 12px",
+                        borderRadius: "var(--radius-full)",
+                        fontSize: "11.5px",
+                        fontFamily: "var(--font-display)",
+                        fontWeight: 800,
+                        textTransform: "uppercase",
+                        cursor: "pointer",
+                        backgroundColor: isSelected ? "var(--cnm-orange)" : "var(--cnm-surface)",
+                        color: isSelected ? "#ffffff" : "var(--cnm-text-secondary)",
+                        border: `1px solid ${isSelected ? "var(--cnm-orange)" : "var(--cnm-border)"}`,
+                        transition: "all 0.15s ease",
                       }}
                     >
-                      <div style={{ fontWeight: 800, color: "var(--cnm-text-primary)" }}>
-                        {ord.customerNameSnapshot || ord.customerName} •{" "}
-                        <a href={`tel:${ord.customerPhoneSnapshot || ord.customerPhone}`} style={{ color: "var(--cnm-orange)", fontWeight: 800 }}>
-                          {ord.customerPhoneSnapshot || ord.customerPhone}
-                        </a>
+                      {f.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* View Mode Toggle: Grid vs Table */}
+              <div
+                style={{
+                  display: "inline-flex",
+                  borderRadius: "var(--radius-sm)",
+                  border: "1px solid var(--cnm-border)",
+                  backgroundColor: "var(--cnm-surface)",
+                  padding: "2px",
+                }}
+              >
+                <button
+                  onClick={() => setViewMode("grid")}
+                  style={{
+                    padding: "4px 10px",
+                    fontSize: "12px",
+                    fontWeight: 800,
+                    borderRadius: "var(--radius-xs)",
+                    backgroundColor: viewMode === "grid" ? "var(--cnm-surface-elevated)" : "transparent",
+                    color: viewMode === "grid" ? "var(--cnm-orange)" : "var(--cnm-text-muted)",
+                    border: "none",
+                    cursor: "pointer",
+                  }}
+                >
+                  Cards
+                </button>
+                <button
+                  onClick={() => setViewMode("table")}
+                  style={{
+                    padding: "4px 10px",
+                    fontSize: "12px",
+                    fontWeight: 800,
+                    borderRadius: "var(--radius-xs)",
+                    backgroundColor: viewMode === "table" ? "var(--cnm-surface-elevated)" : "transparent",
+                    color: viewMode === "table" ? "var(--cnm-orange)" : "var(--cnm-text-muted)",
+                    border: "none",
+                    cursor: "pointer",
+                  }}
+                >
+                  Table
+                </button>
+              </div>
+            </div>
+
+            {/* 5. ORDERS RENDER AREA */}
+            {filteredOrders.length === 0 ? (
+              <div
+                style={{
+                  textAlign: "center",
+                  padding: "60px 20px",
+                  backgroundColor: "var(--cnm-surface)",
+                  border: "1px dashed var(--cnm-border)",
+                  borderRadius: "var(--radius-lg)",
+                  color: "var(--cnm-text-muted)",
+                }}
+              >
+                <Clock size={40} style={{ margin: "0 auto 12px", opacity: 0.4 }} />
+                <h3 style={{ fontSize: "16px", fontWeight: 800, color: "var(--cnm-text-primary)", marginBottom: "4px" }}>
+                  No Orders Found
+                </h3>
+                <p style={{ fontSize: "13px" }}>
+                  {searchQuery ? `No orders matching query "${searchQuery}"` : `No orders with status "${orderStatusFilter}"`}
+                </p>
+              </div>
+            ) : viewMode === "grid" ? (
+              /* A. UNIFORM CARD GRID (Max 3-4 columns, uniform height, clean alignment) */
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fill, minmax(380px, 1fr))",
+                  gap: "16px",
+                  alignItems: "stretch",
+                }}
+              >
+                {filteredOrders.map((ord) => {
+                  const getStatusAccent = () => {
+                    switch (ord.status) {
+                      case "New":
+                        return "var(--status-new)";
+                      case "Confirmed":
+                        return "var(--status-confirmed)";
+                      case "Preparing":
+                        return "var(--cnm-orange)";
+                      case "Ready":
+                        return "var(--status-ready)";
+                      case "Out for delivery":
+                        return "var(--status-delivery)";
+                      case "Completed":
+                        return "var(--status-ready)";
+                      case "Cancelled":
+                        return "var(--status-cancelled)";
+                      default:
+                        return "var(--cnm-border)";
+                    }
+                  };
+
+                  const accentColor = getStatusAccent();
+
+                  return (
+                    <div
+                      key={ord.id}
+                      style={{
+                        backgroundColor: "var(--cnm-surface)",
+                        border: "1px solid var(--cnm-border)",
+                        borderTop: `4px solid ${accentColor}`,
+                        borderRadius: "14px",
+                        boxShadow: "var(--shadow-sm)",
+                        padding: "16px",
+                        display: "flex",
+                        flexDirection: "column",
+                        height: "100%",
+                        position: "relative",
+                      }}
+                    >
+                      {/* Top Header */}
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "flex-start",
+                          marginBottom: "12px",
+                          gap: "8px",
+                        }}
+                      >
+                        <div>
+                          <div
+                            style={{
+                              fontFamily: "var(--font-display)",
+                              fontSize: "17px",
+                              fontWeight: 900,
+                              color: "var(--cnm-text-primary)",
+                              letterSpacing: "0.02em",
+                              lineHeight: 1.2,
+                            }}
+                          >
+                            {ord.orderNumber}
+                          </div>
+                          <span
+                            style={{
+                              display: "inline-block",
+                              fontSize: "11px",
+                              color: "var(--cnm-text-muted)",
+                              fontWeight: 600,
+                              marginTop: "2px",
+                            }}
+                          >
+                            {new Date(ord.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} PKT
+                          </span>
+                        </div>
+
+                        <div style={{ display: "flex", gap: "5px", flexWrap: "wrap", justifyContent: "flex-end" }}>
+                          <span
+                            style={{
+                              fontSize: "10px",
+                              fontWeight: 800,
+                              padding: "2px 8px",
+                              borderRadius: "var(--radius-xs)",
+                              backgroundColor: "rgba(255, 130, 67, 0.12)",
+                              color: "var(--cnm-orange)",
+                              textTransform: "uppercase",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "3px",
+                            }}
+                          >
+                            {ord.orderType === "DELIVERY" ? <Bike size={11} /> : ord.orderType === "DINE_IN" ? <Utensils size={11} /> : <ShoppingBag size={11} />}
+                            <span>{ord.orderType}</span>
+                          </span>
+
+                          <span
+                            style={{
+                              fontSize: "10px",
+                              fontWeight: 800,
+                              padding: "2px 8px",
+                              borderRadius: "var(--radius-xs)",
+                              backgroundColor: "var(--cnm-surface-elevated)",
+                              color: "var(--cnm-text-primary)",
+                              border: "1px solid var(--cnm-border)",
+                              textTransform: "uppercase",
+                            }}
+                          >
+                            {ord.status}
+                          </span>
+                        </div>
                       </div>
 
-                      {ord.orderType === "DELIVERY" && (
-                        <div style={{ fontSize: "12px", color: "var(--cnm-text-secondary)", marginTop: "4px" }}>
-                          📍 {ord.deliveryAreaNameSnapshot || ord.deliveryAreaName}: {ord.deliveryAddressSnapshot || ord.deliveryAddress}
+                      {/* Customer & Location Box (Standardized height) */}
+                      <div
+                        style={{
+                          backgroundColor: "var(--cnm-surface-elevated)",
+                          border: "1px solid var(--cnm-border)",
+                          padding: "10px 12px",
+                          borderRadius: "var(--radius-sm)",
+                          fontSize: "12.5px",
+                          marginBottom: "12px",
+                          minHeight: "56px",
+                          display: "flex",
+                          flexDirection: "column",
+                          justifyContent: "center",
+                        }}
+                      >
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <span style={{ fontWeight: 800, color: "var(--cnm-text-primary)" }}>
+                            {ord.customerNameSnapshot || ord.customerName}
+                          </span>
+                          <a
+                            href={`tel:${ord.customerPhoneSnapshot || ord.customerPhone}`}
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "4px",
+                              color: "var(--cnm-orange)",
+                              fontWeight: 800,
+                              fontSize: "12px",
+                              textDecoration: "none",
+                            }}
+                          >
+                            <Phone size={12} />
+                            <span>{ord.customerPhoneSnapshot || ord.customerPhone}</span>
+                          </a>
                         </div>
-                      )}
 
-                      {ord.orderType === "DINE_IN" && (
-                        <div style={{ fontSize: "12px", color: "var(--status-confirmed)", marginTop: "4px" }}>
-                          🍽️ Dine-in: {ord.dineInPreferredTime} ({ord.paymentLocation})
-                        </div>
-                      )}
-                    </div>
+                        {ord.orderType === "DELIVERY" && (
+                          <div style={{ fontSize: "11.5px", color: "var(--cnm-text-secondary)", marginTop: "4px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            📍 <span style={{ fontWeight: 700 }}>{ord.deliveryAreaNameSnapshot || ord.deliveryAreaName}:</span> {ord.deliveryAddressSnapshot || ord.deliveryAddress}
+                          </div>
+                        )}
 
-                    {/* Items */}
-                    <div style={{ display: "flex", flexDirection: "column", gap: "5px", marginBottom: "12px" }}>
-                      {ord.items?.map((item, idx) => (
+                        {ord.orderType === "DINE_IN" && (
+                          <div style={{ fontSize: "11.5px", color: "var(--status-confirmed)", marginTop: "4px" }}>
+                            🍽️ Dine-in: {ord.dineInPreferredTime} ({ord.paymentLocation})
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Items List (Standardized Scrollable Height - eliminates uneven card heights) */}
+                      <div
+                        style={{
+                          height: "90px",
+                          overflowY: "auto",
+                          paddingRight: "4px",
+                          marginBottom: "12px",
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "5px",
+                        }}
+                      >
+                        {ord.items?.map((item, idx) => (
+                          <div
+                            key={idx}
+                            style={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              fontSize: "12px",
+                              color: "var(--cnm-text-primary)",
+                              lineHeight: 1.3,
+                            }}
+                          >
+                            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", paddingRight: "6px" }}>
+                              <span style={{ fontWeight: 800, color: "var(--cnm-orange)" }}>{item.quantity}x</span>{" "}
+                              {item.productNameSnapshot || item.productName}{" "}
+                              {(item.variantNameSnapshot || item.variantName) && (
+                                <span style={{ color: "var(--cnm-text-muted)" }}>({item.variantNameSnapshot || item.variantName})</span>
+                              )}
+                            </span>
+                            <span style={{ fontWeight: 800, flexShrink: 0 }}>{item.lineTotalPkr} PKR</span>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Card Footer (Pinned to bottom) */}
+                      <div style={{ marginTop: "auto", paddingTop: "10px", borderTop: "1px dashed var(--cnm-border)" }}>
+                        {/* Total Amount Cash */}
                         <div
-                          key={idx}
                           style={{
                             display: "flex",
                             justifyContent: "space-between",
-                            fontSize: "13px",
-                            color: "var(--cnm-text-primary)",
+                            alignItems: "center",
+                            marginBottom: "10px",
                           }}
                         >
-                          <span>
-                            {item.quantity}x {item.productNameSnapshot || item.productName}{" "}
-                            {(item.variantNameSnapshot || item.variantName) ? `(${item.variantNameSnapshot || item.variantName})` : ""}
+                          <span style={{ fontSize: "12px", color: "var(--cnm-text-muted)", fontWeight: 700, textTransform: "uppercase" }}>
+                            Total Cash
                           </span>
-                          <span style={{ fontWeight: 800 }}>{item.lineTotalPkr} PKR</span>
+                          <span style={{ fontFamily: "var(--font-display)", fontSize: "16px", fontWeight: 900, color: "var(--cnm-text-primary)" }}>
+                            {ord.totalPkr.toLocaleString()} PKR
+                          </span>
                         </div>
-                      ))}
+
+                        {/* Action Buttons */}
+                        <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+                          {ord.status === "New" && (
+                            <button
+                              onClick={() => handleUpdateOrderStatus(ord.id, ORDER_STATUSES.CONFIRMED)}
+                              className="btn btn-sm btn-primary"
+                              disabled={isUpdating}
+                              style={{ flex: 1, backgroundColor: "var(--status-new)", color: "#000", fontWeight: 800, padding: "7px 10px" }}
+                            >
+                              <Phone size={13} />
+                              <span>CONFIRM CALL</span>
+                            </button>
+                          )}
+
+                          {ord.status === "Confirmed" && (
+                            <button
+                              onClick={() => handleUpdateOrderStatus(ord.id, ORDER_STATUSES.PREPARING)}
+                              className="btn btn-sm btn-primary"
+                              disabled={isUpdating}
+                              style={{ flex: 1, padding: "7px 10px" }}
+                            >
+                              <ChefHat size={14} />
+                              <span>SEND KITCHEN</span>
+                            </button>
+                          )}
+
+                          {ord.status === "Preparing" && (
+                            <button
+                              onClick={() => handleUpdateOrderStatus(ord.id, ORDER_STATUSES.READY)}
+                              className="btn btn-sm btn-primary"
+                              disabled={isUpdating}
+                              style={{ flex: 1, backgroundColor: "var(--status-ready)", padding: "7px 10px" }}
+                            >
+                              <CheckCircle size={14} />
+                              <span>MARK READY</span>
+                            </button>
+                          )}
+
+                          {ord.status === "Ready" && ord.orderType === "DELIVERY" && (
+                            <button
+                              onClick={() => handleUpdateOrderStatus(ord.id, ORDER_STATUSES.OUT_FOR_DELIVERY)}
+                              className="btn btn-sm btn-primary"
+                              disabled={isUpdating}
+                              style={{ flex: 1, padding: "7px 10px" }}
+                            >
+                              <Bike size={14} />
+                              <span>DISPATCH RIDER</span>
+                            </button>
+                          )}
+
+                          {ord.status === "Ready" && ord.orderType !== "DELIVERY" && (
+                            <button
+                              onClick={() => handleUpdateOrderStatus(ord.id, ORDER_STATUSES.COMPLETED)}
+                              className="btn btn-sm btn-primary"
+                              disabled={isUpdating}
+                              style={{ flex: 1, backgroundColor: "var(--status-ready)", padding: "7px 10px" }}
+                            >
+                              <CheckCircle size={14} />
+                              <span>HAND OVER</span>
+                            </button>
+                          )}
+
+                          {ord.status === "Out for delivery" && (
+                            <button
+                              onClick={() => handleUpdateOrderStatus(ord.id, ORDER_STATUSES.COMPLETED)}
+                              className="btn btn-sm btn-primary"
+                              disabled={isUpdating}
+                              style={{ flex: 1, backgroundColor: "var(--status-ready)", padding: "7px 10px" }}
+                            >
+                              <CheckCircle size={14} />
+                              <span>SETTLE & COMPLETE</span>
+                            </button>
+                          )}
+
+                          {ord.status !== "Completed" && ord.status !== "Cancelled" && (
+                            <button
+                              onClick={() => {
+                                const reason = prompt("Enter cancellation reason:");
+                                if (reason) handleUpdateOrderStatus(ord.id, ORDER_STATUSES.CANCELLED);
+                              }}
+                              className="btn btn-sm btn-secondary"
+                              style={{ color: "var(--status-cancelled)", padding: "7px 10px" }}
+                            >
+                              <XCircle size={13} />
+                              <span>Cancel</span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
                     </div>
-
-                    {/* Total */}
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        paddingTop: "8px",
-                        borderTop: "1px dashed var(--cnm-border)",
-                        fontSize: "15px",
-                        fontWeight: 900,
-                        marginBottom: "14px",
-                        color: "var(--cnm-text-primary)",
-                      }}
-                    >
-                      <span>Total Amount (Cash)</span>
-                      <span style={{ color: "var(--cnm-text-primary)", fontWeight: 900 }}>{ord.totalPkr.toLocaleString()} PKR</span>
-                    </div>
-
-                    {/* Action Buttons */}
-                    <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
-                      {ord.status === "New" && (
-                        <button
-                          onClick={() => handleUpdateOrderStatus(ord.id, ORDER_STATUSES.CONFIRMED)}
-                          className="btn btn-sm btn-primary"
-                          style={{ flex: 1, backgroundColor: "var(--status-new)", color: "#000" }}
-                        >
-                          <Phone size={14} />
-                          <span>CONFIRM BY PHONE</span>
-                        </button>
-                      )}
-
-                      {ord.status === "Confirmed" && (
-                        <button
-                          onClick={() => handleUpdateOrderStatus(ord.id, ORDER_STATUSES.PREPARING)}
-                          className="btn btn-sm btn-primary"
-                          style={{ flex: 1 }}
-                        >
-                          <ChefHat size={14} />
-                          <span>SEND TO KITCHEN</span>
-                        </button>
-                      )}
-
-                      {ord.status === "Preparing" && (
-                        <button
-                          onClick={() => handleUpdateOrderStatus(ord.id, ORDER_STATUSES.READY)}
-                          className="btn btn-sm btn-primary"
-                          style={{ flex: 1, backgroundColor: "var(--status-ready)" }}
-                        >
-                          <CheckCircle size={14} />
-                          <span>MARK READY</span>
-                        </button>
-                      )}
-
-                      {ord.status === "Ready" && ord.orderType === "DELIVERY" && (
-                        <button
-                          onClick={() => handleUpdateOrderStatus(ord.id, ORDER_STATUSES.OUT_FOR_DELIVERY)}
-                          className="btn btn-sm btn-primary"
-                          style={{ flex: 1 }}
-                        >
-                          <Bike size={14} />
-                          <span>DISPATCH RIDER</span>
-                        </button>
-                      )}
-
-                      {ord.status === "Ready" && ord.orderType !== "DELIVERY" && (
-                        <button
-                          onClick={() => handleUpdateOrderStatus(ord.id, ORDER_STATUSES.COMPLETED)}
-                          className="btn btn-sm btn-primary"
-                          style={{ flex: 1, backgroundColor: "var(--status-ready)" }}
-                        >
-                          <CheckCircle size={14} />
-                          <span>HAND OVER</span>
-                        </button>
-                      )}
-
-                      {ord.status === "Out for delivery" && (
-                        <button
-                          onClick={() => handleUpdateOrderStatus(ord.id, ORDER_STATUSES.COMPLETED)}
-                          className="btn btn-sm btn-primary"
-                          style={{ flex: 1, backgroundColor: "var(--status-ready)" }}
-                        >
-                          <CheckCircle size={14} />
-                          <span>SETTLE & COMPLETE</span>
-                        </button>
-                      )}
-
-                      {ord.status !== "Completed" && ord.status !== "Cancelled" && (
-                        <button
-                          onClick={() => {
-                            const reason = prompt("Enter cancellation reason:");
-                            if (reason) handleUpdateOrderStatus(ord.id, ORDER_STATUSES.CANCELLED);
-                          }}
-                          className="btn btn-sm btn-secondary"
-                          style={{ color: "var(--status-cancelled)" }}
-                        >
-                          <XCircle size={14} />
-                          <span>Cancel</span>
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
+              </div>
+            ) : (
+              /* B. DENSE DATA TABLE VIEW (Alternative high-density view) */
+              <div
+                style={{
+                  backgroundColor: "var(--cnm-surface)",
+                  border: "1px solid var(--cnm-border)",
+                  borderRadius: "14px",
+                  overflowX: "auto",
+                  boxShadow: "var(--shadow-sm)",
+                }}
+              >
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px", textAlign: "left" }}>
+                  <thead>
+                    <tr style={{ backgroundColor: "var(--cnm-surface-elevated)", borderBottom: "1px solid var(--cnm-border)" }}>
+                      <th style={{ padding: "12px 14px", fontWeight: 800 }}>Order #</th>
+                      <th style={{ padding: "12px 14px", fontWeight: 800 }}>Time</th>
+                      <th style={{ padding: "12px 14px", fontWeight: 800 }}>Customer</th>
+                      <th style={{ padding: "12px 14px", fontWeight: 800 }}>Type & Area</th>
+                      <th style={{ padding: "12px 14px", fontWeight: 800 }}>Items</th>
+                      <th style={{ padding: "12px 14px", fontWeight: 800 }}>Cash Total</th>
+                      <th style={{ padding: "12px 14px", fontWeight: 800 }}>Status</th>
+                      <th style={{ padding: "12px 14px", fontWeight: 800, textAlign: "right" }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredOrders.map((ord) => (
+                      <tr key={ord.id} style={{ borderBottom: "1px solid var(--cnm-border)" }}>
+                        <td style={{ padding: "12px 14px", fontWeight: 900, fontFamily: "var(--font-display)" }}>
+                          {ord.orderNumber}
+                        </td>
+                        <td style={{ padding: "12px 14px", color: "var(--cnm-text-muted)", fontSize: "12px" }}>
+                          {new Date(ord.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                        </td>
+                        <td style={{ padding: "12px 14px" }}>
+                          <div style={{ fontWeight: 700 }}>{ord.customerNameSnapshot || ord.customerName}</div>
+                          <a href={`tel:${ord.customerPhoneSnapshot || ord.customerPhone}`} style={{ color: "var(--cnm-orange)", fontSize: "12px" }}>
+                            {ord.customerPhoneSnapshot || ord.customerPhone}
+                          </a>
+                        </td>
+                        <td style={{ padding: "12px 14px", fontSize: "12px" }}>
+                          <span style={{ fontWeight: 700 }}>{ord.orderType}</span>
+                          <div style={{ color: "var(--cnm-text-muted)" }}>{ord.deliveryAreaNameSnapshot || ord.deliveryAreaName || "Branch"}</div>
+                        </td>
+                        <td style={{ padding: "12px 14px", fontSize: "12px" }}>
+                          {ord.items?.map((it) => `${it.quantity}x ${it.productNameSnapshot || it.productName}`).join(", ")}
+                        </td>
+                        <td style={{ padding: "12px 14px", fontWeight: 900 }}>{ord.totalPkr} PKR</td>
+                        <td style={{ padding: "12px 14px" }}>
+                          <span
+                            style={{
+                              fontSize: "11px",
+                              fontWeight: 800,
+                              padding: "3px 8px",
+                              borderRadius: "var(--radius-xs)",
+                              backgroundColor: "var(--cnm-surface-elevated)",
+                              border: "1px solid var(--cnm-border)",
+                            }}
+                          >
+                            {ord.status}
+                          </span>
+                        </td>
+                        <td style={{ padding: "12px 14px", textAlign: "right" }}>
+                          {ord.status === "New" && (
+                            <button
+                              onClick={() => handleUpdateOrderStatus(ord.id, ORDER_STATUSES.CONFIRMED)}
+                              className="btn btn-sm btn-primary"
+                              style={{ backgroundColor: "var(--status-new)", color: "#000", fontSize: "11px" }}
+                            >
+                              Confirm
+                            </button>
+                          )}
+                          {ord.status === "Confirmed" && (
+                            <button
+                              onClick={() => handleUpdateOrderStatus(ord.id, ORDER_STATUSES.PREPARING)}
+                              className="btn btn-sm btn-primary"
+                              style={{ fontSize: "11px" }}
+                            >
+                              Kitchen
+                            </button>
+                          )}
+                          {ord.status === "Preparing" && (
+                            <button
+                              onClick={() => handleUpdateOrderStatus(ord.id, ORDER_STATUSES.READY)}
+                              className="btn btn-sm btn-primary"
+                              style={{ backgroundColor: "var(--status-ready)", fontSize: "11px" }}
+                            >
+                              Ready
+                            </button>
+                          )}
+                          {ord.status === "Ready" && ord.orderType === "DELIVERY" && (
+                            <button
+                              onClick={() => handleUpdateOrderStatus(ord.id, ORDER_STATUSES.OUT_FOR_DELIVERY)}
+                              className="btn btn-sm btn-primary"
+                              style={{ fontSize: "11px" }}
+                            >
+                              Dispatch
+                            </button>
+                          )}
+                          {ord.status === "Out for delivery" && (
+                            <button
+                              onClick={() => handleUpdateOrderStatus(ord.id, ORDER_STATUSES.COMPLETED)}
+                              className="btn btn-sm btn-primary"
+                              style={{ backgroundColor: "var(--status-ready)", fontSize: "11px" }}
+                            >
+                              Settle
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
           </div>
         )}
 
-        {/* Tab 2: Delivery Areas Manager */}
+        {/* TAB 2: DELIVERY AREAS MANAGER */}
         {activeTab === "areas" && (
           <div>
-            <div className="card" style={{ marginBottom: "20px" }}>
+            <div className="card" style={{ marginBottom: "20px", backgroundColor: "var(--cnm-surface)", borderRadius: "14px" }}>
               <h3
                 style={{
                   fontFamily: "var(--font-display)",
@@ -618,11 +1291,11 @@ export default function AdminPage() {
               </form>
             </div>
 
-            <div className="card">
+            <div className="card" style={{ backgroundColor: "var(--cnm-surface)", borderRadius: "14px" }}>
               <h3 style={{ fontFamily: "var(--font-display)", fontSize: "16px", marginBottom: "12px" }}>
-                Active Delivery Coverage (Kharian Region)
+                Active Delivery Coverage ({deliveryAreas.length} Areas Configured)
               </h3>
-              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: "10px" }}>
                 {deliveryAreas.map((area) => (
                   <div
                     key={area.id}
@@ -637,39 +1310,41 @@ export default function AdminPage() {
                     }}
                   >
                     <div>
-                      <span style={{ fontWeight: 800, fontSize: "15px", color: "var(--cnm-text-primary)" }}>
+                      <span style={{ fontWeight: 800, fontSize: "14px", color: "var(--cnm-text-primary)" }}>
                         {area.name}
                       </span>
                       <span style={{ display: "block", fontSize: "11px", color: "var(--cnm-text-muted)" }}>
-                        Est. Delivery: ~{area.estimatedDeliveryMins} mins
+                        Est: ~{area.estimatedDeliveryMins} mins
                       </span>
                     </div>
 
-                    <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                        <span style={{ fontSize: "12px", color: "var(--cnm-text-secondary)" }}>Fee:</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
                         <input
                           type="number"
                           style={{
-                            width: "80px",
-                            padding: "6px 8px",
+                            width: "70px",
+                            padding: "5px 6px",
                             backgroundColor: "var(--cnm-surface)",
                             border: "1px solid var(--cnm-border)",
                             borderRadius: "var(--radius-sm)",
                             color: "var(--cnm-text-primary)",
                             fontWeight: 900,
+                            fontSize: "12px",
                           }}
                           defaultValue={area.deliveryFeePkr}
                           onBlur={(e) => handleUpdateAreaFee(area.id, e.target.value)}
                         />
-                        <span style={{ fontSize: "12px", color: "var(--cnm-text-secondary)" }}>PKR</span>
+                        <span style={{ fontSize: "11px", color: "var(--cnm-text-secondary)" }}>PKR</span>
                       </div>
 
                       <button
                         onClick={() => handleToggleArea(area.id, area.isActive)}
                         className={`btn btn-sm ${area.isActive ? "btn-outline" : "btn-secondary"}`}
                         style={{
-                          minWidth: "90px",
+                          minWidth: "75px",
+                          fontSize: "11px",
+                          padding: "5px 8px",
                           color: area.isActive ? "var(--status-ready)" : "var(--status-cancelled)",
                           borderColor: area.isActive ? "var(--status-ready)" : "var(--status-cancelled)",
                         }}
@@ -684,9 +1359,9 @@ export default function AdminPage() {
           </div>
         )}
 
-        {/* Tab 3: Settings & Schedules */}
+        {/* TAB 3: SETTINGS & SCHEDULES */}
         {activeTab === "settings" && (
-          <div className="card" style={{ maxWidth: "600px" }}>
+          <div className="card" style={{ maxWidth: "600px", backgroundColor: "var(--cnm-surface)", borderRadius: "14px" }}>
             <h3
               style={{
                 fontFamily: "var(--font-display)",
