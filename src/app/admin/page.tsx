@@ -32,6 +32,22 @@ import {
 } from "lucide-react";
 import { BrandLogo } from "@/components/BrandLogo";
 
+// Safe helper to check if an order is for DELIVERY
+const isDeliveryOrder = (type?: string | null) => {
+  if (!type) return false;
+  return String(type).trim().toUpperCase() === "DELIVERY";
+};
+
+// Preset cancellation reasons
+const CANCELLATION_PRESETS = [
+  "Customer requested cancellation",
+  "Kitchen out of stock / unable to prepare",
+  "Rider unavailable for this sector",
+  "Customer unreachable / fake call",
+  "Incorrect delivery address / out of zone",
+  "Payment / change issue",
+];
+
 export default function AdminPage() {
   const router = useRouter();
   const { theme, toggleTheme } = useTheme();
@@ -50,6 +66,10 @@ export default function AdminPage() {
 
   // Optimistic UI animation tracker
   const [animatingOrders, setAnimatingOrders] = useState<Record<string, { targetStatus: OrderStatus; timestamp: number }>>({});
+
+  // Cancellation Modal state
+  const [cancelModalOrder, setCancelModalOrder] = useState<Order | null>(null);
+  const [cancelReasonText, setCancelReasonText] = useState<string>("");
 
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isUpdating, setIsUpdating] = useState<boolean>(false);
@@ -157,8 +177,12 @@ export default function AdminPage() {
     }
   };
 
-  // Microsecond Optimistic Update with Smooth Animation
-  const handleUpdateOrderStatus = async (orderId: string, targetStatus: OrderStatus) => {
+  // Microsecond Optimistic Update with Smooth Animation & Cancellation Reason Support
+  const handleUpdateOrderStatus = async (
+    orderId: string,
+    targetStatus: OrderStatus,
+    options?: { cancellationReason?: string; note?: string; assignedRiderId?: string }
+  ) => {
     // 1. Snapshot previous state for rollback on error
     const previousOrders = [...orders];
 
@@ -169,6 +193,10 @@ export default function AdminPage() {
           ? {
               ...o,
               status: targetStatus,
+              cancellationReason:
+                targetStatus === ORDER_STATUSES.CANCELLED
+                  ? options?.cancellationReason || "Cancelled by staff"
+                  : o.cancellationReason,
               updatedAt: new Date().toISOString(),
             }
           : o
@@ -197,7 +225,12 @@ export default function AdminPage() {
       const res = await fetch(`/api/v1/orders/${orderId}/status`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ targetStatus }),
+        body: JSON.stringify({
+          targetStatus,
+          cancellationReason: options?.cancellationReason,
+          note: options?.note,
+          assignedRiderId: options?.assignedRiderId,
+        }),
       });
       const data = await res.json();
       if (!data.success) {
@@ -210,6 +243,17 @@ export default function AdminPage() {
       setOrders(previousOrders);
       alert("Network connection error. Reverted order status.");
     }
+  };
+
+  // Submit cancellation from modal
+  const handleConfirmCancellation = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!cancelModalOrder) return;
+    const orderId = cancelModalOrder.id;
+    const reason = cancelReasonText.trim() || "Cancelled by staff";
+    setCancelModalOrder(null);
+    setCancelReasonText("");
+    await handleUpdateOrderStatus(orderId, ORDER_STATUSES.CANCELLED, { cancellationReason: reason });
   };
 
   const handleToggleArea = async (areaId: string, currentActive: number) => {
@@ -313,6 +357,7 @@ export default function AdminPage() {
         const phone = (o.customerPhoneSnapshot || o.customerPhone || "").toLowerCase();
         const area = (o.deliveryAreaNameSnapshot || o.deliveryAreaName || "").toLowerCase();
         const addr = (o.deliveryAddressSnapshot || o.deliveryAddress || "").toLowerCase();
+        const cancelReason = (o.cancellationReason || "").toLowerCase();
         const itemsMatch = o.items?.some(
           (it: any) =>
             it.productName?.toLowerCase().includes(q) ||
@@ -320,7 +365,15 @@ export default function AdminPage() {
             it.variantName?.toLowerCase().includes(q) ||
             it.variantNameSnapshot?.toLowerCase().includes(q)
         );
-        return num.includes(q) || name.includes(q) || phone.includes(q) || area.includes(q) || addr.includes(q) || itemsMatch;
+        return (
+          num.includes(q) ||
+          name.includes(q) ||
+          phone.includes(q) ||
+          area.includes(q) ||
+          addr.includes(q) ||
+          cancelReason.includes(q) ||
+          itemsMatch
+        );
       });
     }
 
@@ -591,6 +644,122 @@ export default function AdminPage() {
         </div>
       )}
 
+      {/* Cancellation Modal */}
+      {cancelModalOrder && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.65)",
+            backdropFilter: "blur(3px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 10000,
+            padding: "16px",
+          }}
+          onClick={() => setCancelModalOrder(null)}
+        >
+          <div
+            style={{
+              backgroundColor: "var(--cnm-surface)",
+              borderRadius: "var(--radius-lg)",
+              border: "1px solid var(--cnm-border)",
+              padding: "24px",
+              maxWidth: "480px",
+              width: "100%",
+              boxShadow: "var(--shadow-elevated)",
+              animation: "fadeInFast 0.15s ease",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", color: "var(--status-cancelled)" }}>
+                <XCircle size={22} />
+                <h3 style={{ fontFamily: "var(--font-display)", fontSize: "18px", fontWeight: 900, margin: 0 }}>
+                  Cancel Order #{cancelModalOrder.orderNumber}
+                </h3>
+              </div>
+              <button
+                onClick={() => setCancelModalOrder(null)}
+                style={{ background: "none", border: "none", color: "var(--cnm-text-muted)", cursor: "pointer" }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <p style={{ fontSize: "13px", color: "var(--cnm-text-secondary)", marginBottom: "14px" }}>
+              Please specify the cancellation reason. This will be permanently recorded and displayed in the cancelled orders audit log:
+            </p>
+
+            {/* Quick Reason Chips */}
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "14px" }}>
+              {CANCELLATION_PRESETS.map((preset, pIdx) => (
+                <button
+                  key={pIdx}
+                  type="button"
+                  onClick={() => setCancelReasonText(preset)}
+                  style={{
+                    fontSize: "11.5px",
+                    fontWeight: 700,
+                    padding: "4px 10px",
+                    borderRadius: "var(--radius-full)",
+                    border: `1px solid ${cancelReasonText === preset ? "var(--status-cancelled)" : "var(--cnm-border)"}`,
+                    backgroundColor: cancelReasonText === preset ? "rgba(239, 68, 68, 0.12)" : "var(--cnm-surface-elevated)",
+                    color: cancelReasonText === preset ? "var(--status-cancelled)" : "var(--cnm-text-secondary)",
+                    cursor: "pointer",
+                  }}
+                >
+                  {preset}
+                </button>
+              ))}
+            </div>
+
+            <form onSubmit={handleConfirmCancellation}>
+              <div style={{ marginBottom: "18px" }}>
+                <label className="form-label" style={{ fontSize: "12px" }}>
+                  Cancellation Reason / Notes
+                </label>
+                <textarea
+                  required
+                  rows={3}
+                  className="form-input"
+                  placeholder="e.g. Customer cancelled via phone call due to delay"
+                  value={cancelReasonText}
+                  onChange={(e) => setCancelReasonText(e.target.value)}
+                  style={{ width: "100%", resize: "vertical", fontSize: "13px" }}
+                />
+              </div>
+
+              <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end" }}>
+                <button
+                  type="button"
+                  onClick={() => setCancelModalOrder(null)}
+                  className="btn btn-secondary"
+                  style={{ padding: "8px 16px", fontSize: "13px" }}
+                >
+                  Don&apos;t Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  style={{
+                    backgroundColor: "var(--status-cancelled)",
+                    borderColor: "var(--status-cancelled)",
+                    color: "#ffffff",
+                    padding: "8px 18px",
+                    fontSize: "13px",
+                    fontWeight: 800,
+                  }}
+                >
+                  Confirm Cancellation
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* 2. MAIN CONTAINER */}
       <div style={{ maxWidth: "1440px", margin: "0 auto", padding: "16px 20px 48px" }}>
         {/* Navigation Tabs Bar */}
@@ -812,7 +981,7 @@ export default function AdminPage() {
                 />
                 <input
                   type="text"
-                  placeholder="Search order #, customer, item, phone..."
+                  placeholder="Search order #, customer, item, reason..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   style={{
@@ -1008,6 +1177,7 @@ export default function AdminPage() {
                 {filteredOrders.map((ord) => {
                   const isExpanded = expandedOrderIds.has(ord.id);
                   const isAnimating = !!animatingOrders[ord.id];
+                  const isDelivery = isDeliveryOrder(ord.orderType);
 
                   const getStatusAccent = () => {
                     switch (ord.status) {
@@ -1100,7 +1270,7 @@ export default function AdminPage() {
                               gap: "3px",
                             }}
                           >
-                            {ord.orderType === "DELIVERY" ? <Bike size={11} /> : ord.orderType === "DINE_IN" ? <Utensils size={11} /> : <ShoppingBag size={11} />}
+                            {isDelivery ? <Bike size={11} /> : String(ord.orderType).toUpperCase() === "DINE_IN" ? <Utensils size={11} /> : <ShoppingBag size={11} />}
                             <span>{ord.orderType}</span>
                           </span>
 
@@ -1110,9 +1280,9 @@ export default function AdminPage() {
                               fontWeight: 800,
                               padding: "2px 8px",
                               borderRadius: "var(--radius-xs)",
-                              backgroundColor: isAnimating ? "rgba(46, 204, 113, 0.2)" : "var(--cnm-surface-elevated)",
-                              color: isAnimating ? "var(--status-ready)" : "var(--cnm-text-primary)",
-                              border: "1px solid var(--cnm-border)",
+                              backgroundColor: ord.status === "Cancelled" ? "rgba(239, 68, 68, 0.15)" : isAnimating ? "rgba(46, 204, 113, 0.2)" : "var(--cnm-surface-elevated)",
+                              color: ord.status === "Cancelled" ? "var(--status-cancelled)" : isAnimating ? "var(--status-ready)" : "var(--cnm-text-primary)",
+                              border: `1px solid ${ord.status === "Cancelled" ? "var(--status-cancelled)" : "var(--cnm-border)"}`,
                               textTransform: "uppercase",
                               transition: "all 0.2s ease",
                             }}
@@ -1157,7 +1327,7 @@ export default function AdminPage() {
                           </a>
                         </div>
 
-                        {ord.orderType === "DELIVERY" && (
+                        {isDelivery && (
                           <div style={{ fontSize: "11.5px", color: "var(--cnm-text-secondary)" }}>
                             📍 <span style={{ fontWeight: 700 }}>{ord.deliveryAreaNameSnapshot || ord.deliveryAreaName}:</span>{" "}
                             {ord.deliveryAddressSnapshot || ord.deliveryAddress}
@@ -1167,12 +1337,36 @@ export default function AdminPage() {
                           </div>
                         )}
 
-                        {ord.orderType === "DINE_IN" && (
+                        {String(ord.orderType).toUpperCase() === "DINE_IN" && (
                           <div style={{ fontSize: "11.5px", color: "var(--status-confirmed)" }}>
                             🍽️ Dine-in: {ord.dineInPreferredTime} ({ord.paymentLocation || "On Table"})
                           </div>
                         )}
                       </div>
+
+                      {/* Prominent Cancellation Reason Banner (when cancelled) */}
+                      {ord.status === "Cancelled" && (
+                        <div
+                          style={{
+                            backgroundColor: "rgba(239, 68, 68, 0.12)",
+                            border: "1px solid rgba(239, 68, 68, 0.35)",
+                            borderRadius: "var(--radius-xs)",
+                            padding: "8px 12px",
+                            fontSize: "12px",
+                            color: "var(--status-cancelled)",
+                            marginBottom: "10px",
+                            display: "flex",
+                            alignItems: "flex-start",
+                            gap: "8px",
+                          }}
+                        >
+                          <XCircle size={15} style={{ flexShrink: 0, marginTop: "2px", color: "var(--status-cancelled)" }} />
+                          <div>
+                            <span style={{ fontWeight: 800 }}>Cancellation Reason: </span>
+                            <span style={{ fontWeight: 600 }}>{ord.cancellationReason || "No specific reason provided"}</span>
+                          </div>
+                        </div>
+                      )}
 
                       {/* Customer Special Instructions Alert (If present) */}
                       {ord.specialInstructions && (
@@ -1353,8 +1547,9 @@ export default function AdminPage() {
                           </span>
                         </div>
 
-                        {/* Action Buttons with Microsecond Optimistic Triggers */}
+                        {/* Action Buttons: Strict State Machine Workflow */}
                         <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+                          {/* 1. NEW -> CONFIRMED */}
                           {ord.status === "New" && (
                             <button
                               onClick={() => handleUpdateOrderStatus(ord.id, ORDER_STATUSES.CONFIRMED)}
@@ -1367,6 +1562,7 @@ export default function AdminPage() {
                             </button>
                           )}
 
+                          {/* 2. CONFIRMED -> PREPARING (Send to Kitchen) */}
                           {ord.status === "Confirmed" && (
                             <button
                               onClick={() => handleUpdateOrderStatus(ord.id, ORDER_STATUSES.PREPARING)}
@@ -1379,6 +1575,7 @@ export default function AdminPage() {
                             </button>
                           )}
 
+                          {/* 3. PREPARING (Kitchen) -> READY */}
                           {ord.status === "Preparing" && (
                             <button
                               onClick={() => handleUpdateOrderStatus(ord.id, ORDER_STATUSES.READY)}
@@ -1391,19 +1588,21 @@ export default function AdminPage() {
                             </button>
                           )}
 
-                          {ord.status === "Ready" && ord.orderType === "DELIVERY" && (
+                          {/* 4A. READY + DELIVERY -> OUT FOR DELIVERY (Rider Dispatch ONLY) */}
+                          {ord.status === "Ready" && isDelivery && (
                             <button
                               onClick={() => handleUpdateOrderStatus(ord.id, ORDER_STATUSES.OUT_FOR_DELIVERY)}
                               className="btn btn-sm btn-primary"
                               disabled={isUpdating}
-                              style={{ flex: 1, padding: "7px 10px" }}
+                              style={{ flex: 1, padding: "7px 10px", backgroundColor: "var(--status-delivery)" }}
                             >
                               <Bike size={14} />
                               <span>DISPATCH RIDER</span>
                             </button>
                           )}
 
-                          {ord.status === "Ready" && ord.orderType !== "DELIVERY" && (
+                          {/* 4B. READY + PICKUP/DINE_IN -> COMPLETED (Handover to customer at counter/table) */}
+                          {ord.status === "Ready" && !isDelivery && (
                             <button
                               onClick={() => handleUpdateOrderStatus(ord.id, ORDER_STATUSES.COMPLETED)}
                               className="btn btn-sm btn-primary"
@@ -1411,10 +1610,11 @@ export default function AdminPage() {
                               style={{ flex: 1, backgroundColor: "var(--status-ready)", padding: "7px 10px" }}
                             >
                               <CheckCircle size={14} />
-                              <span>HAND OVER</span>
+                              <span>HAND OVER ({ord.orderType})</span>
                             </button>
                           )}
 
+                          {/* 5. OUT FOR DELIVERY -> COMPLETED (Rider delivered and settled) */}
                           {ord.status === "Out for delivery" && (
                             <button
                               onClick={() => handleUpdateOrderStatus(ord.id, ORDER_STATUSES.COMPLETED)}
@@ -1427,11 +1627,12 @@ export default function AdminPage() {
                             </button>
                           )}
 
+                          {/* CANCEL BUTTON */}
                           {ord.status !== "Completed" && ord.status !== "Cancelled" && (
                             <button
                               onClick={() => {
-                                const reason = prompt("Enter cancellation reason:");
-                                if (reason) handleUpdateOrderStatus(ord.id, ORDER_STATUSES.CANCELLED);
+                                setCancelModalOrder(ord);
+                                setCancelReasonText("");
                               }}
                               className="btn btn-sm btn-secondary"
                               style={{ color: "var(--status-cancelled)", padding: "7px 10px" }}
@@ -1476,6 +1677,7 @@ export default function AdminPage() {
                     {filteredOrders.map((ord) => {
                       const isExpanded = expandedOrderIds.has(ord.id);
                       const isAnimating = !!animatingOrders[ord.id];
+                      const isDelivery = isDeliveryOrder(ord.orderType);
 
                       return (
                         <React.Fragment key={ord.id}>
@@ -1534,13 +1736,18 @@ export default function AdminPage() {
                                   fontWeight: 800,
                                   padding: "3px 8px",
                                   borderRadius: "var(--radius-xs)",
-                                  backgroundColor: isAnimating ? "rgba(46, 204, 113, 0.2)" : "var(--cnm-surface-elevated)",
-                                  color: isAnimating ? "var(--status-ready)" : "var(--cnm-text-primary)",
-                                  border: "1px solid var(--cnm-border)",
+                                  backgroundColor: ord.status === "Cancelled" ? "rgba(239, 68, 68, 0.15)" : isAnimating ? "rgba(46, 204, 113, 0.2)" : "var(--cnm-surface-elevated)",
+                                  color: ord.status === "Cancelled" ? "var(--status-cancelled)" : isAnimating ? "var(--status-ready)" : "var(--cnm-text-primary)",
+                                  border: `1px solid ${ord.status === "Cancelled" ? "var(--status-cancelled)" : "var(--cnm-border)"}`,
                                 }}
                               >
                                 {ord.status}
                               </span>
+                              {ord.status === "Cancelled" && ord.cancellationReason && (
+                                <div style={{ fontSize: "11px", color: "var(--status-cancelled)", marginTop: "3px", maxWidth: "160px", lineHeight: 1.2 }}>
+                                  Reason: {ord.cancellationReason}
+                                </div>
+                              )}
                             </td>
                             <td style={{ padding: "12px 14px", textAlign: "right" }} onClick={(e) => e.stopPropagation()}>
                               {ord.status === "New" && (
@@ -1570,16 +1777,18 @@ export default function AdminPage() {
                                   Ready
                                 </button>
                               )}
-                              {ord.status === "Ready" && ord.orderType === "DELIVERY" && (
+                              {/* DELIVERY goes to Out for delivery */}
+                              {ord.status === "Ready" && isDelivery && (
                                 <button
                                   onClick={() => handleUpdateOrderStatus(ord.id, ORDER_STATUSES.OUT_FOR_DELIVERY)}
                                   className="btn btn-sm btn-primary"
-                                  style={{ fontSize: "11px" }}
+                                  style={{ fontSize: "11px", backgroundColor: "var(--status-delivery)" }}
                                 >
                                   Dispatch
                                 </button>
                               )}
-                              {ord.status === "Ready" && ord.orderType !== "DELIVERY" && (
+                              {/* PICKUP / DINE-IN completes on handover */}
+                              {ord.status === "Ready" && !isDelivery && (
                                 <button
                                   onClick={() => handleUpdateOrderStatus(ord.id, ORDER_STATUSES.COMPLETED)}
                                   className="btn btn-sm btn-primary"
@@ -1597,6 +1806,18 @@ export default function AdminPage() {
                                   Settle
                                 </button>
                               )}
+                              {ord.status !== "Completed" && ord.status !== "Cancelled" && (
+                                <button
+                                  onClick={() => {
+                                    setCancelModalOrder(ord);
+                                    setCancelReasonText("");
+                                  }}
+                                  className="btn btn-sm btn-secondary"
+                                  style={{ color: "var(--status-cancelled)", fontSize: "11px", marginLeft: "4px" }}
+                                >
+                                  Cancel
+                                </button>
+                              )}
                             </td>
                           </tr>
 
@@ -1612,6 +1833,24 @@ export default function AdminPage() {
                                     padding: "14px",
                                   }}
                                 >
+                                  {/* Cancellation reason callout if cancelled */}
+                                  {ord.status === "Cancelled" && (
+                                    <div
+                                      style={{
+                                        backgroundColor: "rgba(239, 68, 68, 0.12)",
+                                        border: "1px solid rgba(239, 68, 68, 0.35)",
+                                        borderRadius: "var(--radius-xs)",
+                                        padding: "8px 12px",
+                                        fontSize: "12px",
+                                        color: "var(--status-cancelled)",
+                                        marginBottom: "12px",
+                                      }}
+                                    >
+                                      <span style={{ fontWeight: 800 }}>⚠️ Cancellation Reason: </span>
+                                      <span style={{ fontWeight: 600 }}>{ord.cancellationReason || "No specific reason provided"}</span>
+                                    </div>
+                                  )}
+
                                   {/* Special Instructions callout */}
                                   {ord.specialInstructions && (
                                     <div

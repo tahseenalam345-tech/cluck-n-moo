@@ -705,6 +705,7 @@ export async function updateOrderStatusInPostgres(
       status: orders.status,
       orderType: orders.orderType,
       assignedRiderId: orders.assignedRiderId,
+      cancellationReason: orders.cancellationReason,
     })
     .from(orders)
     .where(eq(orders.id, orderId))
@@ -743,7 +744,10 @@ export async function updateOrderStatusInPostgres(
       .set({
         status: targetStatus as any,
         assignedRiderId: riderToAssign !== undefined ? riderToAssign : order.assignedRiderId,
-        cancellationReason: options?.cancellationReason || null,
+        cancellationReason:
+          targetStatus === ORDER_STATUSES.CANCELLED
+            ? options?.cancellationReason || order.cancellationReason || "Cancelled by staff"
+            : (options?.cancellationReason !== undefined ? options.cancellationReason : order.cancellationReason),
         confirmedByStaffId: staff.role === "ADMIN" ? staff.userId : undefined,
         updatedAt: now,
       })

@@ -361,21 +361,31 @@ export default function KitchenPage() {
                         <span>START COOKING</span>
                       </button>
                     ) : (
-                      <button
-                        onClick={() => handleAdvance(ticket.id, ORDER_STATUSES.READY)}
-                        className="btn btn-block"
-                        style={{
-                          backgroundColor: "var(--status-ready)",
-                          color: "#fff",
-                          fontSize: "17px",
-                          minHeight: "56px",
-                          fontWeight: 900,
-                          boxShadow: "0 6px 20px rgba(16, 185, 129, 0.3)",
-                        }}
-                      >
-                        <CheckCircle2 size={20} />
-                        <span>MARK ORDER READY</span>
-                      </button>
+                        <button
+                          onClick={() => handleAdvance(ticket.id, ORDER_STATUSES.READY)}
+                          className="btn btn-block"
+                          style={{
+                            backgroundColor: "var(--status-ready)",
+                            color: "#fff",
+                            fontSize: "16px",
+                            minHeight: "56px",
+                            fontWeight: 900,
+                            boxShadow: "0 6px 20px rgba(16, 185, 129, 0.3)",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            gap: "8px",
+                          }}
+                        >
+                          <CheckCircle2 size={20} />
+                          <span>
+                            {String(ticket.orderType || "").toUpperCase() === "DELIVERY"
+                              ? "MARK READY (PASS TO RIDER)"
+                              : String(ticket.orderType || "").toUpperCase() === "DINE_IN"
+                              ? "MARK READY (SERVE TABLE)"
+                              : "MARK READY (COUNTER PICKUP)"}
+                          </span>
+                        </button>
                     )}
                   </div>
                 </div>
