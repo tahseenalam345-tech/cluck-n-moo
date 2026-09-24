@@ -334,41 +334,15 @@ export default function AccountPage() {
               </div>
 
               {authError && (
-                <div
-                  style={{
-                    backgroundColor: "rgba(239, 68, 68, 0.15)",
-                    border: "1px solid rgba(239, 68, 68, 0.3)",
-                    color: "#fca5a5",
-                    padding: "12px 14px",
-                    borderRadius: "var(--radius-sm)",
-                    fontSize: "13px",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "8px",
-                    marginBottom: "20px",
-                  }}
-                >
-                  <AlertTriangle size={16} />
+                <div className="alert alert-error" style={{ marginBottom: "20px" }}>
+                  <AlertTriangle size={16} style={{ flexShrink: 0 }} />
                   <span>{authError}</span>
                 </div>
               )}
 
               {authSuccess && (
-                <div
-                  style={{
-                    backgroundColor: "rgba(34, 197, 94, 0.15)",
-                    border: "1px solid rgba(34, 197, 94, 0.3)",
-                    color: "#86efac",
-                    padding: "12px 14px",
-                    borderRadius: "var(--radius-sm)",
-                    fontSize: "13px",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "8px",
-                    marginBottom: "20px",
-                  }}
-                >
-                  <CheckCircle2 size={16} />
+                <div className="alert alert-success" style={{ marginBottom: "20px" }}>
+                  <CheckCircle2 size={16} style={{ flexShrink: 0 }} />
                   <span>{authSuccess}</span>
                 </div>
               )}

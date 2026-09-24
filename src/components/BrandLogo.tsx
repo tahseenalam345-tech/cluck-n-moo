@@ -133,14 +133,15 @@ export function BrandLogo({ size = "md", showTagline = true, layout = "horizonta
             style={{
               fontFamily: "var(--font-hand)",
               fontSize: dim.tagline,
-              color: "var(--cnm-orange)",
-              marginTop: "2px",
+              color: "var(--cnm-text-secondary)",
+              fontWeight: 700,
+              marginTop: "1px",
               letterSpacing: "0.02em",
               whiteSpace: "nowrap",
               lineHeight: 1.1,
             }}
           >
-            juiciest in town • Kharian
+            juiciest in town <span style={{ color: "var(--cnm-orange)" }}>•</span> Kharian
           </span>
         )}
       </div>

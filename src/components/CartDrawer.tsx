@@ -364,7 +364,7 @@ export function CartDrawer({
                           )}
                         </div>
 
-                        <span style={{ fontFamily: "var(--font-display)", fontSize: "15px", fontWeight: 900, color: "var(--cnm-orange)" }}>
+                        <span style={{ fontFamily: "var(--font-display)", fontSize: "15px", fontWeight: 800, color: "var(--cnm-text-primary)" }}>
                           {item.lineTotalPkr.toLocaleString()} PKR
                         </span>
                       </div>
@@ -785,9 +785,9 @@ export function CartDrawer({
                 </div>
               </div>
 
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "12px", fontSize: "14px" }}>
-                <span style={{ fontWeight: 700, color: "var(--cnm-text-muted)" }}>Total Cash to Pay</span>
-                <span style={{ fontFamily: "var(--font-display)", fontSize: "18px", fontWeight: 900, color: "var(--cnm-orange)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "12px", fontSize: "14px" }}>
+                <span style={{ fontWeight: 700, color: "var(--cnm-text-secondary)" }}>Total Cash to Pay</span>
+                <span style={{ fontFamily: "var(--font-display)", fontSize: "20px", fontWeight: 900, color: "var(--cnm-text-primary)" }}>
                   {totalPkr.toLocaleString()} PKR
                 </span>
               </div>

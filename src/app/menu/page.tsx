@@ -83,14 +83,48 @@ export default function FullMenuPage() {
           {isLoading ? (
             <div className="product-grid">
               {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
-                <div key={n} className="card" style={{ minHeight: "260px", opacity: 0.5 }} />
+                <div
+                  key={n}
+                  className="card"
+                  style={{
+                    padding: "16px",
+                    minHeight: "260px",
+                    backgroundColor: "var(--cnm-surface)",
+                    borderRadius: "var(--radius-md)",
+                    display: "flex",
+                    flexDirection: "column",
+                    justifyContent: "space-between",
+                  }}
+                >
+                  <div>
+                    <div
+                      className="skeleton-shimmer"
+                      style={{ width: "100%", height: "140px", marginBottom: "12px" }}
+                    />
+                    <div className="skeleton-shimmer" style={{ width: "35%", height: "12px", marginBottom: "8px" }} />
+                    <div className="skeleton-shimmer" style={{ width: "70%", height: "16px", marginBottom: "8px" }} />
+                    <div className="skeleton-shimmer" style={{ width: "90%", height: "12px" }} />
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "14px" }}>
+                    <div className="skeleton-shimmer" style={{ width: "40%", height: "18px" }} />
+                    <div className="skeleton-shimmer" style={{ width: "30%", height: "32px", borderRadius: "var(--radius-sm)" }} />
+                  </div>
+                </div>
               ))}
             </div>
           ) : filteredCategories.length === 0 ? (
             <div style={{ textAlign: "center", padding: "64px 20px" }}>
-              <p style={{ fontSize: "15px", color: "var(--cnm-text-muted)" }}>
-                No dishes found matching &quot;{searchQuery}&quot;. Try searching for &quot;smash&quot; or &quot;zinger&quot;.
+              <p style={{ fontSize: "15px", color: "var(--cnm-text-muted)", marginBottom: "12px" }}>
+                No dishes found matching &quot;{searchQuery}&quot;.
               </p>
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="btn btn-secondary"
+                style={{ fontSize: "13px" }}
+              >
+                Clear Search
+              </button>
             </div>
           ) : (
             filteredCategories.map((cat) => (

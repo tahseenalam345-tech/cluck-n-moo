@@ -207,13 +207,14 @@ export function ProductCard({ product, onSelect, priority = false }: ProductCard
             <span
               style={{
                 fontFamily: "var(--font-display)",
-                fontSize: "15px",
-                fontWeight: 900,
-                color: "var(--cnm-orange)",
+                fontSize: "16px",
+                fontWeight: 800,
+                color: "var(--cnm-text-primary)",
                 lineHeight: 1,
+                letterSpacing: "-0.01em",
               }}
             >
-              {displayPrice.toLocaleString()} <span style={{ fontSize: "11px", fontWeight: 700 }}>PKR</span>
+              {displayPrice.toLocaleString()} <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--cnm-text-muted)" }}>PKR</span>
             </span>
           </div>
 

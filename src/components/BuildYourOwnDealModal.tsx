@@ -861,8 +861,8 @@ export function BuildYourOwnDealModal({
                     style={{
                       fontFamily: "var(--font-display)",
                       fontSize: "17px",
-                      fontWeight: 800,
-                      color: "var(--cnm-orange)",
+                      fontWeight: 850,
+                      color: "var(--cnm-text-primary)",
                     }}
                   >
                     {dealDiscount.finalTotalPkr.toLocaleString()} PKR

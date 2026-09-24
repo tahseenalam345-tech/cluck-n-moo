@@ -184,8 +184,9 @@ export function PromoCarousel({ onSelectPromotion }: PromoCarouselProps) {
                         <div
                           style={{
                             fontSize: "12.5px",
-                            color: "rgba(255, 255, 255, 0.75)",
+                            color: "#F3EAE0",
                             maxWidth: "480px",
+                            lineHeight: 1.4,
                           }}
                         >
                           {promo.subtitle}

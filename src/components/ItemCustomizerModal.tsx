@@ -351,7 +351,7 @@ export function ItemCustomizerModal({
                       fontSize: "12px",
                       fontWeight: 700,
                       backgroundColor: isSelected ? "var(--cnm-orange)" : "var(--cnm-surface-elevated)",
-                      color: isSelected ? "#ffffff" : "var(--cnm-text-muted)",
+                      color: isSelected ? "#ffffff" : "var(--cnm-text-primary)",
                       border: `1px solid ${isSelected ? "var(--cnm-orange)" : "var(--cnm-border)"}`,
                       cursor: "pointer",
                       transition: "all 0.15s ease",
@@ -451,6 +451,17 @@ export function ItemCustomizerModal({
           </button>
         </div>
       </div>
+
+      <style jsx>{`
+        @media (max-width: 640px) {
+          :global(.customizer-modal-box) {
+            max-height: 92vh !important;
+            border-bottom-left-radius: 0 !important;
+            border-bottom-right-radius: 0 !important;
+            padding: 20px 16px 20px !important;
+          }
+        }
+      `}</style>
     </div>
   );
 }

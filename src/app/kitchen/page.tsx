@@ -82,7 +82,7 @@ export default function KitchenPage() {
 
   if (authStatus === "loading") {
     return (
-      <div style={{ backgroundColor: "#080808", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff" }}>
+      <div style={{ backgroundColor: "var(--cnm-bg)", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--cnm-text-primary)" }}>
         <div style={{ textAlign: "center" }}>
           <RefreshCw className="spin" size={32} style={{ color: "var(--cnm-orange)", margin: "0 auto 16px" }} />
           <p style={{ color: "var(--cnm-text-muted)" }}>Connecting to Kitchen Display System...</p>
@@ -93,10 +93,10 @@ export default function KitchenPage() {
 
   if (authStatus === "unauthorized") {
     return (
-      <div style={{ backgroundColor: "#080808", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", padding: "24px" }}>
-        <div style={{ maxWidth: "460px", textAlign: "center", backgroundColor: "#111", padding: "36px", borderRadius: "var(--radius-md)", border: "1px solid #222" }}>
+      <div style={{ backgroundColor: "var(--cnm-bg)", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--cnm-text-primary)", padding: "24px" }}>
+        <div style={{ maxWidth: "460px", textAlign: "center", backgroundColor: "var(--cnm-surface)", padding: "36px", borderRadius: "var(--radius-md)", border: "1px solid var(--cnm-border)", boxShadow: "var(--shadow-elevated)" }}>
           <AlertTriangle size={48} style={{ color: "var(--cnm-orange)", margin: "0 auto 16px" }} />
-          <h2 style={{ fontSize: "22px", fontWeight: 800, marginBottom: "8px" }}>403 — Unauthorized Access</h2>
+          <h2 style={{ fontSize: "22px", fontWeight: 800, marginBottom: "8px", color: "var(--cnm-text-primary)" }}>403 — Unauthorized Access</h2>
           <p style={{ color: "var(--cnm-text-muted)", fontSize: "14px", marginBottom: "24px" }}>
             Kitchen Display System is restricted to active kitchen personnel and administrators.
           </p>
@@ -114,20 +114,21 @@ export default function KitchenPage() {
   }
 
   return (
-    <div style={{ backgroundColor: "#080808", minHeight: "100vh", color: "var(--cnm-white)" }}>
+    <div style={{ backgroundColor: "var(--cnm-bg)", minHeight: "100vh", color: "var(--cnm-text-primary)" }}>
       {/* Top KDS Header */}
       <header
         style={{
-          backgroundColor: "#111111",
-          borderBottom: "2px solid #242424",
+          backgroundColor: "var(--cnm-surface)",
+          borderBottom: "1px solid var(--cnm-border)",
           padding: "12px 24px",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
+          boxShadow: "var(--shadow-xs)",
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-          <Link href="/" style={{ color: "var(--cnm-gray-400)" }}>
+          <Link href="/" style={{ color: "var(--cnm-text-muted)" }}>
             <ArrowLeft size={22} />
           </Link>
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
@@ -138,6 +139,7 @@ export default function KitchenPage() {
                 fontSize: "22px",
                 fontWeight: 900,
                 letterSpacing: "0.04em",
+                color: "var(--cnm-text-primary)",
               }}
             >
               KITCHEN DISPLAY SYSTEM (KDS)
@@ -152,7 +154,7 @@ export default function KitchenPage() {
               fontWeight: 900,
               fontFamily: "var(--font-display)",
               backgroundColor: "var(--cnm-orange)",
-              color: "var(--cnm-black)",
+              color: "var(--cnm-white)",
               padding: "5px 14px",
               borderRadius: "var(--radius-sm)",
               letterSpacing: "0.04em",
@@ -170,19 +172,19 @@ export default function KitchenPage() {
       {/* Ticket Grid */}
       <div style={{ padding: "24px" }}>
         {orders.length === 0 ? (
-          <div style={{ textAlign: "center", padding: "120px 20px", color: "var(--cnm-gray-500)" }}>
-            <ChefHat size={64} style={{ margin: "0 auto 16px", opacity: 0.25 }} />
+          <div style={{ textAlign: "center", padding: "120px 20px", color: "var(--cnm-text-muted)" }}>
+            <ChefHat size={64} style={{ margin: "0 auto 16px", opacity: 0.3, color: "var(--cnm-orange)" }} />
             <h2
               style={{
                 fontFamily: "var(--font-display)",
                 fontSize: "28px",
-                color: "var(--cnm-white)",
+                color: "var(--cnm-text-primary)",
                 letterSpacing: "0.02em",
               }}
             >
               ALL ORDERS COOKED & READY!
             </h2>
-            <p style={{ marginTop: "6px", fontSize: "14px", color: "var(--cnm-gray-400)" }}>
+            <p style={{ marginTop: "6px", fontSize: "14px", color: "var(--cnm-text-muted)" }}>
               Waiting for new orders from the front counter & website.
             </p>
           </div>
@@ -200,13 +202,13 @@ export default function KitchenPage() {
                 <div
                   key={ticket.id}
                   style={{
-                    backgroundColor: "#141414",
-                    borderRadius: "16px",
-                    border: isCooking ? "2.5px solid var(--cnm-orange)" : "2px solid #282828",
+                    backgroundColor: "var(--cnm-surface)",
+                    borderRadius: "var(--radius-lg)",
+                    border: isCooking ? "2.5px solid var(--cnm-orange)" : "1px solid var(--cnm-border)",
                     overflow: "hidden",
                     display: "flex",
                     flexDirection: "column",
-                    boxShadow: isCooking ? "0 4px 25px rgba(255, 130, 67, 0.25)" : "none",
+                    boxShadow: isCooking ? "0 4px 25px rgba(255, 130, 67, 0.25)" : "var(--shadow-card)",
                   }}
                 >
                   {/* Big Color-Coded Order Type Banner */}
@@ -240,17 +242,17 @@ export default function KitchenPage() {
                   <div
                     style={{
                       padding: "12px 16px",
-                      borderBottom: "1px solid #242424",
+                      borderBottom: "1px solid var(--cnm-border)",
                       display: "flex",
                       justifyContent: "space-between",
                       alignItems: "center",
                     }}
                   >
                     <div>
-                      <h3 style={{ fontFamily: "var(--font-display)", fontSize: "22px", fontWeight: 900 }}>
+                      <h3 style={{ fontFamily: "var(--font-display)", fontSize: "22px", fontWeight: 900, color: "var(--cnm-text-primary)" }}>
                         {ticket.orderNumber}
                       </h3>
-                      <span style={{ fontSize: "12px", color: "var(--cnm-gray-400)", fontWeight: 600 }}>
+                      <span style={{ fontSize: "12px", color: "var(--cnm-text-muted)", fontWeight: 600 }}>
                         Customer: {ticket.customerNameSnapshot || ticket.customerName}
                       </span>
                     </div>
@@ -260,9 +262,10 @@ export default function KitchenPage() {
                       style={{
                         padding: "5px 12px",
                         fontSize: "12px",
-                        backgroundColor: isCooking ? "rgba(255,130,67,0.2)" : "rgba(255,255,255,0.1)",
-                        color: isCooking ? "var(--cnm-orange)" : "var(--cnm-white)",
-                        border: `1px solid ${isCooking ? "var(--cnm-orange)" : "#444"}`,
+                        backgroundColor: isCooking ? "rgba(255,130,67,0.15)" : "var(--cnm-surface-elevated)",
+                        color: isCooking ? "var(--cnm-orange)" : "var(--cnm-text-primary)",
+                        border: `1px solid ${isCooking ? "var(--cnm-orange)" : "var(--cnm-border)"}`,
+                        fontWeight: 800,
                       }}
                     >
                       {ticket.status}
@@ -275,9 +278,10 @@ export default function KitchenPage() {
                       <div
                         key={idx}
                         style={{
-                          backgroundColor: "#1e1e1e",
+                          backgroundColor: "var(--cnm-surface-elevated)",
                           padding: "12px 14px",
-                          borderRadius: "10px",
+                          borderRadius: "var(--radius-sm)",
+                          border: "1px solid var(--cnm-border)",
                           borderLeft: "4px solid var(--cnm-orange)",
                         }}
                       >
@@ -298,7 +302,7 @@ export default function KitchenPage() {
                               fontFamily: "var(--font-display)",
                               fontSize: "18px",
                               fontWeight: 900,
-                              color: "var(--cnm-white)",
+                              color: "var(--cnm-text-primary)",
                               textTransform: "uppercase",
                             }}
                           >
@@ -312,7 +316,7 @@ export default function KitchenPage() {
                               display: "block",
                               fontSize: "14px",
                               fontWeight: 800,
-                              color: "var(--cnm-cream)",
+                              color: "var(--cnm-text-secondary)",
                               marginTop: "4px",
                             }}
                           >
@@ -321,7 +325,7 @@ export default function KitchenPage() {
                         )}
 
                         {item.modifiers && item.modifiers.length > 0 && (
-                          <div style={{ fontSize: "12px", color: "var(--cnm-cream-dim)", marginTop: "4px" }}>
+                          <div style={{ fontSize: "12px", color: "var(--cnm-text-muted)", marginTop: "4px", fontWeight: 600 }}>
                             {item.modifiers.map((m: any) => `+ ${m.modifierNameSnapshot || m.name}`).join(", ")}
                           </div>
                         )}
@@ -334,7 +338,7 @@ export default function KitchenPage() {
                           padding: "10px 14px",
                           backgroundColor: "rgba(255, 130, 67, 0.12)",
                           border: "1px dashed var(--cnm-orange)",
-                          borderRadius: "10px",
+                          borderRadius: "var(--radius-sm)",
                           fontSize: "13px",
                           color: "var(--cnm-orange)",
                           fontWeight: 800,
@@ -346,12 +350,12 @@ export default function KitchenPage() {
                   </div>
 
                   {/* Big Touch Action Buttons */}
-                  <div style={{ padding: "14px 16px", borderTop: "1px solid #242424", backgroundColor: "#0e0e0e" }}>
+                  <div style={{ padding: "14px 16px", borderTop: "1px solid var(--cnm-border)", backgroundColor: "var(--cnm-surface-elevated)" }}>
                     {!isCooking ? (
                       <button
                         onClick={() => handleAdvance(ticket.id, ORDER_STATUSES.PREPARING)}
                         className="btn btn-primary btn-block"
-                        style={{ fontSize: "17px", minHeight: "56px" }}
+                        style={{ fontSize: "17px", minHeight: "56px", fontWeight: 800 }}
                       >
                         <Flame size={20} />
                         <span>START COOKING</span>

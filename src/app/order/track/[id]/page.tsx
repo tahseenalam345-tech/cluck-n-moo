@@ -136,9 +136,9 @@ export default function OrderTrackingPage() {
         return {
           title: "SIZZLING IN THE KITCHEN",
           desc: "Our grill master is smashing patties and frying chicken fresh to order right now!",
-          borderColor: "var(--cnm-orange)",
-          bgColor: "var(--cnm-orange-glow)",
-          icon: <Flame size={20} color="var(--cnm-orange)" />,
+          borderColor: "var(--status-preparing)",
+          bgColor: "var(--status-preparing-bg)",
+          icon: <Flame size={20} color="var(--status-preparing)" />,
         };
       case ORDER_STATUSES.READY:
         return {

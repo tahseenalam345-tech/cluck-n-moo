@@ -34,8 +34,8 @@ export function Header({ cartCount, cartSubtotal, onOpenCart }: HeaderProps) {
   return (
     <header
       style={{
-        backgroundColor: "var(--cnm-black)",
-        borderBottom: "1px solid var(--cnm-dark-700)",
+        backgroundColor: "var(--cnm-surface)",
+        borderBottom: "1px solid var(--cnm-border)",
         position: "sticky",
         top: 0,
         zIndex: 50,
@@ -46,7 +46,7 @@ export function Header({ cartCount, cartSubtotal, onOpenCart }: HeaderProps) {
         <div
           style={{
             backgroundColor: "var(--cnm-orange)",
-            color: "var(--cnm-black)",
+            color: "var(--cnm-white)",
             padding: "6px 16px",
             fontSize: "12px",
             fontWeight: 800,
@@ -66,9 +66,9 @@ export function Header({ cartCount, cartSubtotal, onOpenCart }: HeaderProps) {
           alignItems: "center",
           justifyContent: "space-between",
           padding: "6px 16px",
-          borderBottom: "1px solid #181818",
+          borderBottom: "1px solid var(--cnm-border)",
           fontSize: "12px",
-          color: "var(--cnm-gray-400)",
+          color: "var(--cnm-text-secondary)",
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
@@ -85,7 +85,7 @@ export function Header({ cartCount, cartSubtotal, onOpenCart }: HeaderProps) {
               >
                 {storeStatus.isOpen ? "OPEN NOW" : "CLOSED"}
               </span>
-              <span style={{ color: "#444" }}>•</span>
+              <span style={{ color: "var(--cnm-border)" }}>•</span>
               <span style={{ fontSize: "11px" }}>12:01 PM – 02:00 AM PKT</span>
             </span>
           ) : (
@@ -128,9 +128,9 @@ export function Header({ cartCount, cartSubtotal, onOpenCart }: HeaderProps) {
           aria-label="View Cart"
           style={{
             position: "relative",
-            backgroundColor: cartCount > 0 ? "var(--cnm-orange)" : "var(--cnm-dark-800)",
-            color: cartCount > 0 ? "var(--cnm-white)" : "var(--cnm-gray-400)",
-            border: cartCount > 0 ? "none" : "1px solid var(--cnm-dark-700)",
+            backgroundColor: cartCount > 0 ? "var(--cnm-orange)" : "var(--cnm-surface-elevated)",
+            color: cartCount > 0 ? "var(--cnm-white)" : "var(--cnm-text-secondary)",
+            border: cartCount > 0 ? "none" : "1px solid var(--cnm-border)",
             padding: "8px 14px",
             borderRadius: "var(--radius-md)",
             display: "flex",

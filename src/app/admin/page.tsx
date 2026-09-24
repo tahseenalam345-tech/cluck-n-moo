@@ -189,7 +189,7 @@ export default function AdminPage() {
 
   if (authStatus === "loading") {
     return (
-      <div style={{ backgroundColor: "#080808", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff" }}>
+      <div style={{ backgroundColor: "var(--cnm-bg)", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--cnm-text-primary)" }}>
         <div style={{ textAlign: "center" }}>
           <RefreshCw className="spin" size={32} style={{ color: "var(--cnm-orange)", margin: "0 auto 16px" }} />
           <p style={{ color: "var(--cnm-text-muted)" }}>Verifying Administrator Credentials...</p>
@@ -200,10 +200,10 @@ export default function AdminPage() {
 
   if (authStatus === "unauthorized") {
     return (
-      <div style={{ backgroundColor: "#080808", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", padding: "24px" }}>
-        <div style={{ maxWidth: "460px", textAlign: "center", backgroundColor: "#111", padding: "36px", borderRadius: "var(--radius-md)", border: "1px solid #222" }}>
+      <div style={{ backgroundColor: "var(--cnm-bg)", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--cnm-text-primary)", padding: "24px" }}>
+        <div style={{ maxWidth: "460px", textAlign: "center", backgroundColor: "var(--cnm-surface)", padding: "36px", borderRadius: "var(--radius-md)", border: "1px solid var(--cnm-border)", boxShadow: "var(--shadow-elevated)" }}>
           <ShieldCheck size={48} style={{ color: "var(--cnm-orange)", margin: "0 auto 16px" }} />
-          <h2 style={{ fontSize: "22px", fontWeight: 800, marginBottom: "8px" }}>403 — Access Forbidden</h2>
+          <h2 style={{ fontSize: "22px", fontWeight: 800, marginBottom: "8px", color: "var(--cnm-text-primary)" }}>403 — Access Forbidden</h2>
           <p style={{ color: "var(--cnm-text-muted)", fontSize: "14px", marginBottom: "24px" }}>
             Your account does not have administrator privileges to access the Cluck N Moo command center.
           </p>
@@ -221,32 +221,35 @@ export default function AdminPage() {
   }
 
   return (
-    <div style={{ backgroundColor: "var(--cnm-black)", minHeight: "100vh", color: "var(--cnm-white)" }}>
+    <div style={{ backgroundColor: "var(--cnm-bg)", minHeight: "100vh", color: "var(--cnm-text-primary)" }}>
       {/* Top Admin Nav */}
       <header
         style={{
-          borderBottom: "1px solid var(--cnm-dark-700)",
-          backgroundColor: "var(--cnm-dark-900)",
+          borderBottom: "1px solid var(--cnm-border)",
+          backgroundColor: "var(--cnm-surface)",
           padding: "12px 20px",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
+          boxShadow: "var(--shadow-xs)",
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
-          <Link href="/" style={{ color: "var(--cnm-gray-400)" }}>
+          <Link href="/" style={{ color: "var(--cnm-text-muted)" }}>
             <ArrowLeft size={18} />
           </Link>
           <BrandLogo size="sm" showTagline={false} />
           <span
             style={{
-              backgroundColor: "var(--cnm-dark-800)",
+              backgroundColor: "var(--cnm-surface-elevated)",
               color: "var(--cnm-orange)",
-              padding: "3px 8px",
-              borderRadius: "4px",
+              border: "1px solid var(--cnm-border)",
+              padding: "4px 10px",
+              borderRadius: "var(--radius-xs)",
               fontFamily: "var(--font-display)",
               fontSize: "11px",
-              fontWeight: 900,
+              fontWeight: 800,
+              letterSpacing: "0.05em",
             }}
           >
             COMMAND CENTER
@@ -268,7 +271,7 @@ export default function AdminPage() {
           style={{
             display: "flex",
             gap: "8px",
-            borderBottom: "1px solid var(--cnm-dark-700)",
+            borderBottom: "1px solid var(--cnm-border)",
             paddingBottom: "12px",
             marginBottom: "20px",
           }}
@@ -311,10 +314,10 @@ export default function AdminPage() {
                       fontWeight: 800,
                       textTransform: "uppercase",
                       backgroundColor:
-                        orderStatusFilter === f ? "var(--cnm-orange)" : "var(--cnm-dark-800)",
-                      color: orderStatusFilter === f ? "var(--cnm-white)" : "var(--cnm-gray-400)",
+                        orderStatusFilter === f ? "var(--cnm-orange)" : "var(--cnm-surface-elevated)",
+                      color: orderStatusFilter === f ? "var(--cnm-white)" : "var(--cnm-text-secondary)",
                       border: `1px solid ${
-                        orderStatusFilter === f ? "var(--cnm-orange)" : "var(--cnm-dark-700)"
+                        orderStatusFilter === f ? "var(--cnm-orange)" : "var(--cnm-border)"
                       }`,
                     }}
                   >
@@ -331,8 +334,8 @@ export default function AdminPage() {
                 style={{
                   textAlign: "center",
                   padding: "50px",
-                  color: "var(--cnm-gray-400)",
-                  border: "1px dashed var(--cnm-dark-700)",
+                  color: "var(--cnm-text-muted)",
+                  border: "1px dashed var(--cnm-border)",
                 }}
               >
                 No orders match filter "{orderStatusFilter}".
@@ -344,8 +347,8 @@ export default function AdminPage() {
                     key={ord.id}
                     className="card"
                     style={{
-                      backgroundColor: "var(--cnm-dark-900)",
-                      border: "1px solid var(--cnm-dark-700)",
+                      backgroundColor: "var(--cnm-surface)",
+                      border: "1px solid var(--cnm-border)",
                       borderLeft:
                         ord.status === "New"
                           ? "4px solid var(--status-new)"
@@ -355,7 +358,8 @@ export default function AdminPage() {
                           ? "4px solid var(--cnm-orange)"
                           : ord.status === "Ready"
                           ? "4px solid var(--status-ready)"
-                          : "1px solid var(--cnm-dark-700)",
+                          : "1px solid var(--cnm-border)",
+                      boxShadow: "var(--shadow-sm)",
                     }}
                   >
                     {/* Header */}
@@ -366,7 +370,7 @@ export default function AdminPage() {
                             fontFamily: "var(--font-display)",
                             fontSize: "17px",
                             fontWeight: 900,
-                            color: "var(--cnm-white)",
+                            color: "var(--cnm-text-primary)",
                           }}
                         >
                           {ord.orderNumber}
@@ -375,7 +379,7 @@ export default function AdminPage() {
                           style={{
                             display: "block",
                             fontSize: "11px",
-                            color: "var(--cnm-gray-400)",
+                            color: "var(--cnm-text-muted)",
                           }}
                         >
                           {new Date(ord.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} PKT
@@ -389,6 +393,7 @@ export default function AdminPage() {
                             backgroundColor: "rgba(255,130,67,0.15)",
                             color: "var(--cnm-orange)",
                             fontSize: "10px",
+                            fontWeight: 800,
                           }}
                         >
                           {ord.orderType}
@@ -396,9 +401,11 @@ export default function AdminPage() {
                         <span
                           className="badge"
                           style={{
-                            backgroundColor: "var(--cnm-dark-800)",
-                            color: "var(--cnm-white)",
+                            backgroundColor: "var(--cnm-surface-elevated)",
+                            color: "var(--cnm-text-primary)",
+                            border: "1px solid var(--cnm-border)",
                             fontSize: "10px",
+                            fontWeight: 800,
                           }}
                         >
                           {ord.status}
@@ -409,22 +416,23 @@ export default function AdminPage() {
                     {/* Customer Info Box */}
                     <div
                       style={{
-                        backgroundColor: "var(--cnm-dark-800)",
+                        backgroundColor: "var(--cnm-surface-elevated)",
+                        border: "1px solid var(--cnm-border)",
                         padding: "10px 12px",
                         borderRadius: "var(--radius-sm)",
                         fontSize: "13px",
                         marginBottom: "12px",
                       }}
                     >
-                      <div style={{ fontWeight: 800, color: "var(--cnm-white)" }}>
+                      <div style={{ fontWeight: 800, color: "var(--cnm-text-primary)" }}>
                         {ord.customerNameSnapshot || ord.customerName} •{" "}
-                        <a href={`tel:${ord.customerPhoneSnapshot || ord.customerPhone}`} style={{ color: "var(--cnm-orange)" }}>
+                        <a href={`tel:${ord.customerPhoneSnapshot || ord.customerPhone}`} style={{ color: "var(--cnm-orange)", fontWeight: 800 }}>
                           {ord.customerPhoneSnapshot || ord.customerPhone}
                         </a>
                       </div>
 
                       {ord.orderType === "DELIVERY" && (
-                        <div style={{ fontSize: "12px", color: "var(--cnm-gray-400)", marginTop: "4px" }}>
+                        <div style={{ fontSize: "12px", color: "var(--cnm-text-secondary)", marginTop: "4px" }}>
                           📍 {ord.deliveryAreaNameSnapshot || ord.deliveryAreaName}: {ord.deliveryAddressSnapshot || ord.deliveryAddress}
                         </div>
                       )}
@@ -445,14 +453,14 @@ export default function AdminPage() {
                             display: "flex",
                             justifyContent: "space-between",
                             fontSize: "13px",
-                            color: "var(--cnm-white)",
+                            color: "var(--cnm-text-primary)",
                           }}
                         >
                           <span>
                             {item.quantity}x {item.productNameSnapshot || item.productName}{" "}
                             {(item.variantNameSnapshot || item.variantName) ? `(${item.variantNameSnapshot || item.variantName})` : ""}
                           </span>
-                          <span style={{ fontWeight: 700 }}>{item.lineTotalPkr} PKR</span>
+                          <span style={{ fontWeight: 800 }}>{item.lineTotalPkr} PKR</span>
                         </div>
                       ))}
                     </div>
@@ -463,14 +471,15 @@ export default function AdminPage() {
                         display: "flex",
                         justifyContent: "space-between",
                         paddingTop: "8px",
-                        borderTop: "1px dashed var(--cnm-dark-700)",
+                        borderTop: "1px dashed var(--cnm-border)",
                         fontSize: "15px",
                         fontWeight: 900,
                         marginBottom: "14px",
+                        color: "var(--cnm-text-primary)",
                       }}
                     >
                       <span>Total Amount (Cash)</span>
-                      <span style={{ color: "var(--cnm-orange)" }}>{ord.totalPkr.toLocaleString()} PKR</span>
+                      <span style={{ color: "var(--cnm-text-primary)", fontWeight: 900 }}>{ord.totalPkr.toLocaleString()} PKR</span>
                     </div>
 
                     {/* Action Buttons */}
@@ -622,38 +631,38 @@ export default function AdminPage() {
                       alignItems: "center",
                       justifyContent: "space-between",
                       padding: "12px 14px",
-                      backgroundColor: "var(--cnm-dark-800)",
+                      backgroundColor: "var(--cnm-surface-elevated)",
                       borderRadius: "var(--radius-md)",
-                      border: "1px solid var(--cnm-dark-700)",
+                      border: "1px solid var(--cnm-border)",
                     }}
                   >
                     <div>
-                      <span style={{ fontWeight: 800, fontSize: "15px", color: "var(--cnm-white)" }}>
+                      <span style={{ fontWeight: 800, fontSize: "15px", color: "var(--cnm-text-primary)" }}>
                         {area.name}
                       </span>
-                      <span style={{ display: "block", fontSize: "11px", color: "var(--cnm-gray-400)" }}>
+                      <span style={{ display: "block", fontSize: "11px", color: "var(--cnm-text-muted)" }}>
                         Est. Delivery: ~{area.estimatedDeliveryMins} mins
                       </span>
                     </div>
 
                     <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                        <span style={{ fontSize: "12px", color: "var(--cnm-gray-400)" }}>Fee:</span>
+                        <span style={{ fontSize: "12px", color: "var(--cnm-text-secondary)" }}>Fee:</span>
                         <input
                           type="number"
                           style={{
                             width: "80px",
                             padding: "6px 8px",
-                            backgroundColor: "var(--cnm-dark-900)",
-                            border: "1px solid var(--cnm-dark-700)",
+                            backgroundColor: "var(--cnm-surface)",
+                            border: "1px solid var(--cnm-border)",
                             borderRadius: "var(--radius-sm)",
-                            color: "var(--cnm-orange)",
+                            color: "var(--cnm-text-primary)",
                             fontWeight: 900,
                           }}
                           defaultValue={area.deliveryFeePkr}
                           onBlur={(e) => handleUpdateAreaFee(area.id, e.target.value)}
                         />
-                        <span style={{ fontSize: "12px" }}>PKR</span>
+                        <span style={{ fontSize: "12px", color: "var(--cnm-text-secondary)" }}>PKR</span>
                       </div>
 
                       <button

@@ -168,10 +168,10 @@ export function SignatureNavigationStrip({
                       backgroundColor: "#171717",
                       border: isActive
                         ? "2.5px solid var(--cnm-orange)"
-                        : "2px solid rgba(255, 255, 255, 0.12)",
+                        : "2px solid var(--cnm-border)",
                       boxShadow: isActive
-                        ? "0 0 18px rgba(255, 130, 67, 0.38), 0 4px 14px rgba(0, 0, 0, 0.45)"
-                        : "0 4px 12px rgba(0, 0, 0, 0.25)",
+                        ? "0 0 16px rgba(255, 130, 67, 0.35), 0 4px 14px rgba(35, 25, 15, 0.15)"
+                        : "0 2px 8px rgba(35, 25, 15, 0.08)",
                       display: "flex",
                       flexDirection: "column",
                       alignItems: "center",
@@ -183,7 +183,7 @@ export function SignatureNavigationStrip({
                       padding: 0,
                     }}
                   >
-                    {/* Inner Glass Specular Edge */}
+                    {/* Inner Specular Edge */}
                     <div
                       style={{
                         position: "absolute",
@@ -256,13 +256,17 @@ export function SignatureNavigationStrip({
                     style={{
                       fontFamily: "var(--font-display)",
                       fontSize: "12px",
-                      fontWeight: isActive ? 700 : 600,
-                      color: isActive ? "var(--cnm-orange)" : "var(--cnm-text-primary)",
+                      fontWeight: isActive ? 800 : 600,
+                      color: "var(--cnm-text-primary)",
+                      backgroundColor: isActive ? "var(--cnm-surface-elevated)" : "transparent",
+                      border: isActive ? "1px solid var(--cnm-border)" : "1px solid transparent",
+                      padding: "2px 8px",
+                      borderRadius: "var(--radius-full)",
                       textAlign: "center",
                       whiteSpace: "nowrap",
                       letterSpacing: "0.01em",
-                      transition: "color 0.15s ease",
-                      textTransform: "lowercase",
+                      transition: "all 0.15s ease",
+                      textTransform: "capitalize",
                     }}
                   >
                     {sec.displayName}

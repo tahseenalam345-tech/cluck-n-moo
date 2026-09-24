@@ -83,7 +83,7 @@ export default function RiderPage() {
 
   if (authStatus === "loading") {
     return (
-      <div style={{ backgroundColor: "#080808", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff" }}>
+      <div style={{ backgroundColor: "var(--cnm-bg)", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--cnm-text-primary)" }}>
         <div style={{ textAlign: "center" }}>
           <RefreshCw className="spin" size={32} style={{ color: "var(--cnm-orange)", margin: "0 auto 16px" }} />
           <p style={{ color: "var(--cnm-text-muted)" }}>Connecting to Rider Delivery Dispatch...</p>
@@ -94,10 +94,10 @@ export default function RiderPage() {
 
   if (authStatus === "unauthorized") {
     return (
-      <div style={{ backgroundColor: "#080808", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", padding: "24px" }}>
-        <div style={{ maxWidth: "460px", textAlign: "center", backgroundColor: "#111", padding: "36px", borderRadius: "var(--radius-md)", border: "1px solid #222" }}>
+      <div style={{ backgroundColor: "var(--cnm-bg)", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--cnm-text-primary)", padding: "24px" }}>
+        <div style={{ maxWidth: "460px", textAlign: "center", backgroundColor: "var(--cnm-surface)", padding: "36px", borderRadius: "var(--radius-md)", border: "1px solid var(--cnm-border)", boxShadow: "var(--shadow-elevated)" }}>
           <AlertTriangle size={48} style={{ color: "var(--cnm-orange)", margin: "0 auto 16px" }} />
-          <h2 style={{ fontSize: "22px", fontWeight: 800, marginBottom: "8px" }}>403 — Unauthorized Access</h2>
+          <h2 style={{ fontSize: "22px", fontWeight: 800, marginBottom: "8px", color: "var(--cnm-text-primary)" }}>403 — Unauthorized Access</h2>
           <p style={{ color: "var(--cnm-text-muted)", fontSize: "14px", marginBottom: "24px" }}>
             The Delivery Portal is restricted to active riders and dispatch administrators.
           </p>
@@ -115,25 +115,26 @@ export default function RiderPage() {
   }
 
   return (
-    <div className="app-container" style={{ minHeight: "100vh", backgroundColor: "var(--cnm-black)", paddingBottom: "40px" }}>
+    <div className="app-container" style={{ minHeight: "100vh", backgroundColor: "var(--cnm-bg)", paddingBottom: "40px" }}>
       {/* Top Header */}
       <header
         style={{
-          backgroundColor: "var(--cnm-dark-900)",
-          borderBottom: "1px solid var(--cnm-dark-700)",
+          backgroundColor: "var(--cnm-surface)",
+          borderBottom: "1px solid var(--cnm-border)",
           padding: "14px 16px",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
+          boxShadow: "var(--shadow-xs)",
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-          <Link href="/" style={{ color: "var(--cnm-gray-400)" }}>
+          <Link href="/" style={{ color: "var(--cnm-text-muted)" }}>
             <ArrowLeft size={20} />
           </Link>
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
             <Bike size={24} color="var(--cnm-orange)" />
-            <h1 style={{ fontFamily: "var(--font-display)", fontSize: "18px", fontWeight: 900 }}>
+            <h1 style={{ fontFamily: "var(--font-display)", fontSize: "18px", fontWeight: 900, color: "var(--cnm-text-primary)" }}>
               RIDER DISPATCH
             </h1>
           </div>
@@ -151,7 +152,7 @@ export default function RiderPage() {
           <span
             style={{
               fontSize: "12px",
-              color: "var(--cnm-gray-400)",
+              color: "var(--cnm-text-secondary)",
               textTransform: "uppercase",
               fontWeight: 800,
               letterSpacing: "0.04em",
@@ -159,7 +160,7 @@ export default function RiderPage() {
           >
             ACTIVE RUNS ({orders.length})
           </span>
-          <span className="badge badge-orange" style={{ fontSize: "11px" }}>
+          <span className="badge badge-orange" style={{ fontSize: "11px", fontWeight: 800 }}>
             Kharian Branch
           </span>
         </div>
@@ -170,13 +171,13 @@ export default function RiderPage() {
             style={{
               textAlign: "center",
               padding: "60px 20px",
-              color: "var(--cnm-gray-400)",
-              backgroundColor: "var(--cnm-dark-900)",
-              border: "1px dashed var(--cnm-dark-700)",
+              color: "var(--cnm-text-muted)",
+              backgroundColor: "var(--cnm-surface)",
+              border: "1px dashed var(--cnm-border)",
             }}
           >
-            <Bike size={48} style={{ margin: "0 auto 12px", opacity: 0.3 }} />
-            <h3 style={{ fontFamily: "var(--font-display)", fontSize: "20px", color: "var(--cnm-white)" }}>
+            <Bike size={48} style={{ margin: "0 auto 12px", opacity: 0.4, color: "var(--cnm-orange)" }} />
+            <h3 style={{ fontFamily: "var(--font-display)", fontSize: "20px", color: "var(--cnm-text-primary)" }}>
               No Pending Deliveries
             </h3>
             <p style={{ marginTop: "4px", fontSize: "13px" }}>
@@ -193,8 +194,9 @@ export default function RiderPage() {
                   key={ord.id}
                   className="card"
                   style={{
-                    backgroundColor: "var(--cnm-dark-900)",
-                    border: "1px solid var(--cnm-dark-700)",
+                    backgroundColor: "var(--cnm-surface)",
+                    border: "1px solid var(--cnm-border)",
+                    boxShadow: "var(--shadow-card)",
                     borderLeft: isInTransit
                       ? "4px solid var(--cnm-orange)"
                       : "4px solid var(--status-ready)",
@@ -208,12 +210,12 @@ export default function RiderPage() {
                           fontFamily: "var(--font-display)",
                           fontSize: "18px",
                           fontWeight: 900,
-                          color: "var(--cnm-white)",
+                          color: "var(--cnm-text-primary)",
                         }}
                       >
                         {ord.orderNumber}
                       </span>
-                      <span style={{ display: "block", fontSize: "11px", color: "var(--cnm-gray-400)" }}>
+                      <span style={{ display: "block", fontSize: "11px", color: "var(--cnm-text-muted)" }}>
                         Ready:{" "}
                         {new Date(ord.updatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                       </span>
@@ -227,6 +229,7 @@ export default function RiderPage() {
                           : "rgba(16,185,129,0.18)",
                         color: isInTransit ? "var(--cnm-orange)" : "var(--status-ready)",
                         border: "1px solid currentColor",
+                        fontWeight: 800,
                       }}
                     >
                       {ord.status}
@@ -236,7 +239,8 @@ export default function RiderPage() {
                   {/* Customer Card */}
                   <div
                     style={{
-                      backgroundColor: "var(--cnm-dark-800)",
+                      backgroundColor: "var(--cnm-surface-elevated)",
+                      border: "1px solid var(--cnm-border)",
                       padding: "14px",
                       borderRadius: "var(--radius-md)",
                       marginBottom: "14px",
@@ -246,13 +250,13 @@ export default function RiderPage() {
                     }}
                   >
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                      <span style={{ fontWeight: 800, fontSize: "16px", color: "var(--cnm-white)" }}>
+                      <span style={{ fontWeight: 800, fontSize: "16px", color: "var(--cnm-text-primary)" }}>
                         {ord.customerNameSnapshot || ord.customerName}
                       </span>
                       <a
                         href={`tel:${ord.customerPhoneSnapshot || ord.customerPhone}`}
                         className="btn btn-sm btn-primary"
-                        style={{ padding: "8px 14px", fontSize: "13px" }}
+                        style={{ padding: "8px 14px", fontSize: "13px", fontWeight: 800 }}
                       >
                         <Phone size={14} />
                         <span>Call Customer</span>
@@ -265,11 +269,11 @@ export default function RiderPage() {
                         <span style={{ fontWeight: 800, color: "var(--cnm-orange)" }}>
                           {ord.deliveryAreaNameSnapshot || ord.deliveryAreaName}:
                         </span>{" "}
-                        <span style={{ color: "var(--cnm-white)" }}>
+                        <span style={{ color: "var(--cnm-text-primary)", fontWeight: 600 }}>
                           {ord.deliveryAddressSnapshot || ord.deliveryAddress}
                         </span>
                         {(ord.deliveryLandmarkSnapshot || ord.deliveryLandmark) && (
-                          <span style={{ display: "block", fontSize: "12px", color: "var(--cnm-cream-dim)", marginTop: "3px" }}>
+                          <span style={{ display: "block", fontSize: "12px", color: "var(--cnm-text-muted)", marginTop: "3px" }}>
                             Landmark: {ord.deliveryLandmarkSnapshot || ord.deliveryLandmark}
                           </span>
                         )}
@@ -290,7 +294,7 @@ export default function RiderPage() {
                       marginBottom: "14px",
                     }}
                   >
-                    <span style={{ fontSize: "12px", fontWeight: 800, color: "var(--cnm-white)", textTransform: "uppercase" }}>
+                    <span style={{ fontSize: "12px", fontWeight: 800, color: "var(--cnm-text-primary)", textTransform: "uppercase" }}>
                       CASH TO COLLECT FROM CUSTOMER
                     </span>
                     <span
@@ -298,7 +302,7 @@ export default function RiderPage() {
                         fontFamily: "var(--font-display)",
                         fontSize: "20px",
                         fontWeight: 900,
-                        color: "var(--cnm-orange)",
+                        color: "var(--cnm-text-primary)",
                       }}
                     >
                       {ord.totalPkr.toLocaleString()} PKR
@@ -311,7 +315,7 @@ export default function RiderPage() {
                       <button
                         onClick={() => handleStatusUpdate(ord.id, ORDER_STATUSES.OUT_FOR_DELIVERY)}
                         className="btn btn-primary btn-block"
-                        style={{ padding: "15px", fontSize: "16px" }}
+                        style={{ padding: "15px", fontSize: "16px", minHeight: "56px", fontWeight: 800 }}
                       >
                         <Bike size={18} />
                         <span>PICK UP & START DELIVERY</span>
@@ -324,6 +328,7 @@ export default function RiderPage() {
                           backgroundColor: "var(--status-ready)",
                           color: "#fff",
                           padding: "15px",
+                          minHeight: "56px",
                           fontWeight: 900,
                           fontSize: "16px",
                           boxShadow: "0 6px 20px rgba(16, 185, 129, 0.35)",

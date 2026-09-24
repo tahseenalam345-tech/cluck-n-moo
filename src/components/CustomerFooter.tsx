@@ -101,10 +101,10 @@ export function CustomerFooter() {
                     backgroundColor: "var(--cnm-surface-elevated)",
                     border: "1px solid var(--cnm-border)",
                     fontSize: "11px",
-                    fontWeight: 600,
-                    padding: "3px 7px",
-                    borderRadius: "4px",
-                    color: "var(--cnm-text-muted)",
+                    fontWeight: 700,
+                    padding: "3px 8px",
+                    borderRadius: "var(--radius-xs)",
+                    color: "var(--cnm-text-primary)",
                   }}
                 >
                   {area}
@@ -124,8 +124,8 @@ export function CustomerFooter() {
             justifyContent: "space-between",
             flexWrap: "wrap",
             gap: "12px",
-            fontSize: "12px",
-            color: "var(--cnm-text-subtle)",
+            fontSize: "12.5px",
+            color: "var(--cnm-text-muted)",
           }}
         >
           <p>© {new Date().getFullYear()} Cluck N Moo (CNM). All rights reserved. &bull; Cash-on-Delivery Only.</p>
