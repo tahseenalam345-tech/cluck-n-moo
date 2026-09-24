@@ -1,0 +1,22 @@
+{
+  "name": "Cluck N Moo (CNM)",
+  "short_name": "Cluck N Moo",
+  "description": "Cluck N Moo — juiciest in town. Fast-food restaurant in Kharian, Pakistan.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0C0C0C",
+  "theme_color": "#FF8243",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

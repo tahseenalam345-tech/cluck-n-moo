@@ -1,0 +1,352 @@
+"use client";
+
+import React, { useRef, useState, useEffect } from "react";
+import { SIGNATURE_SECTIONS, SignatureSectionConfig } from "@/lib/signatureSections";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+
+interface SignatureNavigationStripProps {
+  activeSectionSlug: string;
+  onSelectSection: (slug: string) => void;
+  stickyTop?: number;
+}
+
+export function SignatureNavigationStrip({
+  activeSectionSlug,
+  onSelectSection,
+  stickyTop,
+}: SignatureNavigationStripProps) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+
+  const checkScroll = () => {
+    if (!scrollRef.current) return;
+    const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
+    setCanScrollLeft(scrollLeft > 4);
+    setCanScrollRight(scrollLeft + clientWidth < scrollWidth - 4);
+  };
+
+  useEffect(() => {
+    checkScroll();
+    window.addEventListener("resize", checkScroll);
+    return () => window.removeEventListener("resize", checkScroll);
+  }, []);
+
+  const handleScroll = (direction: "left" | "right") => {
+    if (!scrollRef.current) return;
+    const offset = 220;
+    scrollRef.current.scrollBy({
+      left: direction === "left" ? -offset : offset,
+      behavior: "smooth",
+    });
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent, index: number, slug: string) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      onSelectSection(slug);
+    } else if (e.key === "ArrowRight") {
+      e.preventDefault();
+      const nextIdx = (index + 1) % SIGNATURE_SECTIONS.length;
+      const nextBtn = document.getElementById(`sig-btn-${SIGNATURE_SECTIONS[nextIdx].slug}`);
+      nextBtn?.focus();
+    } else if (e.key === "ArrowLeft") {
+      e.preventDefault();
+      const prevIdx = (index - 1 + SIGNATURE_SECTIONS.length) % SIGNATURE_SECTIONS.length;
+      const prevBtn = document.getElementById(`sig-btn-${SIGNATURE_SECTIONS[prevIdx].slug}`);
+      prevBtn?.focus();
+    }
+  };
+
+  return (
+    <nav
+      aria-label="CNM Signature Sections"
+      className="signature-navigation-wrapper"
+      style={{
+        width: "100%",
+        padding: "8px 0 12px",
+        position: "sticky",
+        top: typeof stickyTop === "number" ? `${stickyTop}px` : "68px",
+        zIndex: 35,
+        backgroundColor: "var(--cnm-bg)",
+        borderBottom: "1px solid var(--cnm-border)",
+        boxShadow: "0 4px 16px rgba(0, 0, 0, 0.08)",
+        backdropFilter: "blur(10px)",
+        transition: "top 0.15s ease, background-color 0.2s ease",
+      }}
+    >
+      <div className="container">
+        {/* Desktop Container with subtle overflow arrows if needed */}
+        <div
+          style={{
+            position: "relative",
+            display: "flex",
+            alignItems: "center",
+            width: "100%",
+            maxWidth: "960px",
+            margin: "0 auto",
+          }}
+        >
+          {/* Left Arrow (Appears only if actual overflow exists on desktop) */}
+          {canScrollLeft && (
+            <button
+              type="button"
+              onClick={() => handleScroll("left")}
+              aria-label="Scroll signature sections left"
+              className="signature-scroll-arrow signature-arrow-left"
+              style={{
+                position: "absolute",
+                left: "-18px",
+                zIndex: 10,
+                width: "32px",
+                height: "32px",
+                borderRadius: "50%",
+                backgroundColor: "var(--cnm-surface-elevated)",
+                border: "1px solid var(--cnm-border)",
+                color: "var(--cnm-text-primary)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
+                cursor: "pointer",
+              }}
+            >
+              <ChevronLeft size={17} />
+            </button>
+          )}
+
+          {/* Swipeable / Scrollable Horizontal Strip */}
+          <div
+            ref={scrollRef}
+            onScroll={checkScroll}
+            role="tablist"
+            className="signature-strip-track no-scrollbar"
+            style={{
+              display: "flex",
+              alignItems: "flex-start",
+              gap: "18px",
+              overflowX: "auto",
+              padding: "8px 6px 10px",
+              scrollSnapType: "x mandatory",
+              scrollBehavior: "smooth",
+              width: "100%",
+              justifyContent: "space-between",
+            }}
+          >
+            {SIGNATURE_SECTIONS.filter((s) => s.isActive).map((sec, idx) => {
+              const isActive = activeSectionSlug === sec.slug;
+
+              return (
+                <div
+                  key={sec.id}
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    gap: "8px",
+                    scrollSnapAlign: "center",
+                    flexShrink: 0,
+                    userSelect: "none",
+                  }}
+                >
+                  {/* Black Circular Icon Button (64-76px) */}
+                  <button
+                    id={`sig-btn-${sec.slug}`}
+                    type="button"
+                    role="tab"
+                    aria-selected={isActive}
+                    aria-controls={`section-${sec.slug}`}
+                    tabIndex={isActive ? 0 : -1}
+                    onClick={() => onSelectSection(sec.slug)}
+                    onKeyDown={(e) => handleKeyDown(e, idx, sec.slug)}
+                    title={sec.subtitle}
+                    className={`signature-circle-btn ${isActive ? "active" : ""}`}
+                    style={{
+                      width: "68px",
+                      height: "68px",
+                      borderRadius: "50%",
+                      backgroundColor: "#171717",
+                      border: isActive
+                        ? "2.5px solid var(--cnm-orange)"
+                        : "2px solid rgba(255, 255, 255, 0.12)",
+                      boxShadow: isActive
+                        ? "0 0 18px rgba(255, 130, 67, 0.38), 0 4px 14px rgba(0, 0, 0, 0.45)"
+                        : "0 4px 12px rgba(0, 0, 0, 0.25)",
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      cursor: "pointer",
+                      transition: "all 0.22s cubic-bezier(0.16, 1, 0.3, 1)",
+                      position: "relative",
+                      overflow: "hidden",
+                      padding: 0,
+                    }}
+                  >
+                    {/* Inner Glass Specular Edge */}
+                    <div
+                      style={{
+                        position: "absolute",
+                        inset: 0,
+                        borderRadius: "50%",
+                        background: isActive
+                          ? "radial-gradient(circle at 35% 25%, rgba(255, 130, 67, 0.22), transparent 70%)"
+                          : "radial-gradient(circle at 35% 25%, rgba(255, 255, 255, 0.12), transparent 70%)",
+                        pointerEvents: "none",
+                      }}
+                    />
+
+                    {/* Icon Graphic (Optimized WebP) or Typographic Fallback */}
+                    {sec.iconAsset ? (
+                      <img
+                        src={sec.iconAsset}
+                        alt={sec.altText || `${sec.displayName} signature section`}
+                        width={74}
+                        height={74}
+                        loading="eager"
+                        decoding="async"
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          objectFit: "cover",
+                          borderRadius: "50%",
+                          display: "block",
+                          zIndex: 1,
+                        }}
+                      />
+                    ) : (
+                      <div
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          zIndex: 1,
+                          lineHeight: 1,
+                        }}
+                      >
+                        <span
+                          style={{
+                            fontFamily: "var(--font-display)",
+                            fontSize: "18px",
+                            fontWeight: 800,
+                            letterSpacing: "0.02em",
+                            color: isActive ? "#ffffff" : "var(--cnm-cream)",
+                            textTransform: "uppercase",
+                          }}
+                        >
+                          {sec.glyph}
+                        </span>
+                        <div
+                          style={{
+                            width: "14px",
+                            height: "2px",
+                            backgroundColor: isActive ? "var(--cnm-orange)" : "rgba(255, 130, 67, 0.4)",
+                            borderRadius: "2px",
+                            marginTop: "3px",
+                          }}
+                        />
+                      </div>
+                    )}
+                  </button>
+
+                  {/* Label Below Icon */}
+                  <span
+                    className={`signature-label ${isActive ? "active" : ""}`}
+                    style={{
+                      fontFamily: "var(--font-display)",
+                      fontSize: "12px",
+                      fontWeight: isActive ? 700 : 600,
+                      color: isActive ? "var(--cnm-orange)" : "var(--cnm-text-primary)",
+                      textAlign: "center",
+                      whiteSpace: "nowrap",
+                      letterSpacing: "0.01em",
+                      transition: "color 0.15s ease",
+                      textTransform: "lowercase",
+                    }}
+                  >
+                    {sec.displayName}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Right Arrow (Desktop only if overflow exists) */}
+          {canScrollRight && (
+            <button
+              type="button"
+              onClick={() => handleScroll("right")}
+              aria-label="Scroll signature sections right"
+              className="signature-scroll-arrow signature-arrow-right"
+              style={{
+                position: "absolute",
+                right: "-18px",
+                zIndex: 10,
+                width: "32px",
+                height: "32px",
+                borderRadius: "50%",
+                backgroundColor: "var(--cnm-surface-elevated)",
+                border: "1px solid var(--cnm-border)",
+                color: "var(--cnm-text-primary)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
+                cursor: "pointer",
+              }}
+            >
+              <ChevronRight size={17} />
+            </button>
+          )}
+        </div>
+      </div>
+
+      <style jsx>{`
+        .signature-circle-btn:hover {
+          transform: translateY(-2px);
+          border-color: var(--cnm-orange);
+        }
+        .signature-circle-btn:active {
+          transform: scale(0.95);
+        }
+
+        @media (max-width: 640px) {
+          .signature-scroll-arrow {
+            display: none !important;
+          }
+          .signature-strip-track {
+            justifyContent: flex-start !important;
+            gap: 14px !important;
+            padding-left: 4px !important;
+            padding-right: 28px !important; /* communicates partial next-item reveal */
+          }
+          .signature-circle-btn {
+            width: 64px !important;
+            height: 64px !important;
+          }
+        }
+
+        @media (min-width: 641px) and (max-width: 1024px) {
+          .signature-strip-track {
+            gap: 16px !important;
+          }
+          .signature-circle-btn {
+            width: 68px !important;
+            height: 68px !important;
+          }
+        }
+
+        @media (min-width: 1025px) {
+          .signature-strip-track {
+            justifyContent: space-evenly !important;
+          }
+          .signature-circle-btn {
+            width: 74px !important;
+            height: 74px !important;
+          }
+        }
+      `}</style>
+    </nav>
+  );
+}

@@ -1,0 +1,320 @@
+"use client";
+
+import React, { useState, useEffect } from "react";
+import Link from "next/link";
+import { Order } from "@/types";
+import { ORDER_STATUSES } from "@/lib/constants";
+import { ChefHat, ArrowLeft, RefreshCw, CheckCircle2, Flame, Clock, AlertTriangle } from "lucide-react";
+import { BrandLogo } from "@/components/BrandLogo";
+
+export default function KitchenPage() {
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+
+  const loadKitchenOrders = async () => {
+    try {
+      const res = await fetch("/api/v1/ops/orders?status=active");
+      const data = await res.json();
+      if (data.success) {
+        const kitchenTickets = data.data.filter(
+          (o: Order) => o.status === ORDER_STATUSES.CONFIRMED || o.status === ORDER_STATUSES.PREPARING
+        );
+        setOrders(kitchenTickets);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadKitchenOrders();
+    const interval = setInterval(loadKitchenOrders, 6000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleAdvance = async (orderId: string, targetStatus: string) => {
+    try {
+      const res = await fetch(`/api/v1/orders/${orderId}/status`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-user-role": "KITCHEN_STAFF",
+        },
+        body: JSON.stringify({ targetStatus }),
+      });
+      if (res.ok) loadKitchenOrders();
+    } catch {}
+  };
+
+  return (
+    <div style={{ backgroundColor: "#080808", minHeight: "100vh", color: "var(--cnm-white)" }}>
+      {/* Top KDS Header */}
+      <header
+        style={{
+          backgroundColor: "#111111",
+          borderBottom: "2px solid #242424",
+          padding: "12px 24px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+          <Link href="/" style={{ color: "var(--cnm-gray-400)" }}>
+            <ArrowLeft size={22} />
+          </Link>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <ChefHat size={28} color="var(--cnm-orange)" />
+            <h1
+              style={{
+                fontFamily: "var(--font-display)",
+                fontSize: "22px",
+                fontWeight: 900,
+                letterSpacing: "0.04em",
+              }}
+            >
+              KITCHEN DISPLAY SYSTEM (KDS)
+            </h1>
+          </div>
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+          <span
+            style={{
+              fontSize: "14px",
+              fontWeight: 900,
+              fontFamily: "var(--font-display)",
+              backgroundColor: "var(--cnm-orange)",
+              color: "var(--cnm-black)",
+              padding: "5px 14px",
+              borderRadius: "var(--radius-sm)",
+              letterSpacing: "0.04em",
+            }}
+          >
+            {orders.length} ACTIVE TICKETS
+          </span>
+          <button onClick={loadKitchenOrders} className="btn btn-sm btn-secondary">
+            <RefreshCw size={14} className={isLoading ? "spin" : ""} />
+            <span>Refresh</span>
+          </button>
+        </div>
+      </header>
+
+      {/* Ticket Grid */}
+      <div style={{ padding: "24px" }}>
+        {orders.length === 0 ? (
+          <div style={{ textAlign: "center", padding: "120px 20px", color: "var(--cnm-gray-500)" }}>
+            <ChefHat size={64} style={{ margin: "0 auto 16px", opacity: 0.25 }} />
+            <h2
+              style={{
+                fontFamily: "var(--font-display)",
+                fontSize: "28px",
+                color: "var(--cnm-white)",
+                letterSpacing: "0.02em",
+              }}
+            >
+              ALL ORDERS COOKED & READY!
+            </h2>
+            <p style={{ marginTop: "6px", fontSize: "14px", color: "var(--cnm-gray-400)" }}>
+              Waiting for new orders from the front counter & website.
+            </p>
+          </div>
+        ) : (
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(360px, 1fr))",
+              gap: "20px",
+            }}
+          >
+            {orders.map((ticket) => {
+              const isCooking = ticket.status === ORDER_STATUSES.PREPARING;
+              return (
+                <div
+                  key={ticket.id}
+                  style={{
+                    backgroundColor: "#141414",
+                    borderRadius: "16px",
+                    border: isCooking ? "2.5px solid var(--cnm-orange)" : "2px solid #282828",
+                    overflow: "hidden",
+                    display: "flex",
+                    flexDirection: "column",
+                    boxShadow: isCooking ? "0 4px 25px rgba(255, 130, 67, 0.25)" : "none",
+                  }}
+                >
+                  {/* Big Color-Coded Order Type Banner */}
+                  <div
+                    style={{
+                      padding: "10px 16px",
+                      backgroundColor:
+                        ticket.orderType === "DELIVERY"
+                          ? "var(--cnm-orange)"
+                          : ticket.orderType === "DINE_IN"
+                          ? "#2563eb"
+                          : "#059669",
+                      color: "#fff",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      fontFamily: "var(--font-display)",
+                      fontWeight: 900,
+                      fontSize: "17px",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.05em",
+                    }}
+                  >
+                    <span>{ticket.orderType}</span>
+                    <span style={{ fontSize: "14px", opacity: 0.9 }}>
+                      {new Date(ticket.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                    </span>
+                  </div>
+
+                  {/* Subheader */}
+                  <div
+                    style={{
+                      padding: "12px 16px",
+                      borderBottom: "1px solid #242424",
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                    }}
+                  >
+                    <div>
+                      <h3 style={{ fontFamily: "var(--font-display)", fontSize: "22px", fontWeight: 900 }}>
+                        {ticket.orderNumber}
+                      </h3>
+                      <span style={{ fontSize: "12px", color: "var(--cnm-gray-400)", fontWeight: 600 }}>
+                        Customer: {ticket.customerNameSnapshot || ticket.customerName}
+                      </span>
+                    </div>
+
+                    <span
+                      className="badge"
+                      style={{
+                        padding: "5px 12px",
+                        fontSize: "12px",
+                        backgroundColor: isCooking ? "rgba(255,130,67,0.2)" : "rgba(255,255,255,0.1)",
+                        color: isCooking ? "var(--cnm-orange)" : "var(--cnm-white)",
+                        border: `1px solid ${isCooking ? "var(--cnm-orange)" : "#444"}`,
+                      }}
+                    >
+                      {ticket.status}
+                    </span>
+                  </div>
+
+                  {/* Items List */}
+                  <div style={{ padding: "16px", flex: 1, display: "flex", flexDirection: "column", gap: "12px" }}>
+                    {ticket.items?.map((item, idx) => (
+                      <div
+                        key={idx}
+                        style={{
+                          backgroundColor: "#1e1e1e",
+                          padding: "12px 14px",
+                          borderRadius: "10px",
+                          borderLeft: "4px solid var(--cnm-orange)",
+                        }}
+                      >
+                        <div style={{ display: "flex", alignItems: "baseline", gap: "10px" }}>
+                          <span
+                            style={{
+                              fontFamily: "var(--font-display)",
+                              fontSize: "24px",
+                              fontWeight: 900,
+                              color: "var(--cnm-orange)",
+                              lineHeight: 1,
+                            }}
+                          >
+                            {item.quantity}x
+                          </span>
+                          <span
+                            style={{
+                              fontFamily: "var(--font-display)",
+                              fontSize: "18px",
+                              fontWeight: 900,
+                              color: "var(--cnm-white)",
+                              textTransform: "uppercase",
+                            }}
+                          >
+                            {item.productNameSnapshot || item.productName}
+                          </span>
+                        </div>
+
+                        {(item.variantNameSnapshot || item.variantName) && (
+                          <span
+                            style={{
+                              display: "block",
+                              fontSize: "14px",
+                              fontWeight: 800,
+                              color: "var(--cnm-cream)",
+                              marginTop: "4px",
+                            }}
+                          >
+                            SIZE: {item.variantNameSnapshot || item.variantName}
+                          </span>
+                        )}
+
+                        {item.modifiers && item.modifiers.length > 0 && (
+                          <div style={{ fontSize: "12px", color: "var(--cnm-cream-dim)", marginTop: "4px" }}>
+                            {item.modifiers.map((m: any) => `+ ${m.modifierNameSnapshot || m.name}`).join(", ")}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+
+                    {ticket.specialInstructions && (
+                      <div
+                        style={{
+                          padding: "10px 14px",
+                          backgroundColor: "rgba(255, 130, 67, 0.12)",
+                          border: "1px dashed var(--cnm-orange)",
+                          borderRadius: "10px",
+                          fontSize: "13px",
+                          color: "var(--cnm-orange)",
+                          fontWeight: 800,
+                        }}
+                      >
+                        ⚠️ NOTE: {ticket.specialInstructions}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Big Touch Action Buttons */}
+                  <div style={{ padding: "14px 16px", borderTop: "1px solid #242424", backgroundColor: "#0e0e0e" }}>
+                    {!isCooking ? (
+                      <button
+                        onClick={() => handleAdvance(ticket.id, ORDER_STATUSES.PREPARING)}
+                        className="btn btn-primary btn-block"
+                        style={{ fontSize: "17px", minHeight: "56px" }}
+                      >
+                        <Flame size={20} />
+                        <span>START COOKING</span>
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleAdvance(ticket.id, ORDER_STATUSES.READY)}
+                        className="btn btn-block"
+                        style={{
+                          backgroundColor: "var(--status-ready)",
+                          color: "#fff",
+                          fontSize: "17px",
+                          minHeight: "56px",
+                          fontWeight: 900,
+                          boxShadow: "0 6px 20px rgba(16, 185, 129, 0.3)",
+                        }}
+                      >
+                        <CheckCircle2 size={20} />
+                        <span>MARK ORDER READY</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
