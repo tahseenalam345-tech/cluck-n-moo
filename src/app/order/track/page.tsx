@@ -10,6 +10,7 @@ import { BrandLogo } from "@/components/BrandLogo";
 import { getLocalOrders, LocalOrderRecord, updateLocalOrderStatus } from "@/lib/orderHistory";
 import { CartItem } from "@/types";
 import { ORDER_STATUSES, BRAND } from "@/lib/constants";
+import { OrderTrackTimeline } from "@/components/OrderTrackTimeline";
 import {
   Clock,
   PhoneCall,
@@ -154,10 +155,10 @@ export default function TrackOrderPage() {
     if (selectedToken) {
       loadOrderDetail(selectedToken);
 
-      // Periodic poll every 10 seconds for active orders
+      // Periodic fast poll every 3 seconds for active live orders
       const interval = setInterval(() => {
         loadOrderDetail(selectedToken, true);
-      }, 10000);
+      }, 3000);
 
       return () => clearInterval(interval);
     } else {
@@ -939,106 +940,10 @@ export default function TrackOrderPage() {
                     );
                   })()}
 
-                  {/* STATUS TIMELINE */}
+                  {/* STATUS TIMELINE TRAIN TRACK */}
                   {detailedOrder.status !== ORDER_STATUSES.CANCELLED && (
-                    <div style={{ marginBottom: "28px" }}>
-                      <h4
-                        style={{
-                          fontSize: "12px",
-                          color: "var(--cnm-text-muted)",
-                          textTransform: "uppercase",
-                          letterSpacing: "0.06em",
-                          fontWeight: 800,
-                          marginBottom: "16px",
-                        }}
-                      >
-                        Fulfillment Timeline
-                      </h4>
-
-                      <div
-                        style={{
-                          display: "grid",
-                          gridTemplateColumns: `repeat(${
-                            detailedOrder.orderType === "DELIVERY" ? 5 : 4
-                          }, minmax(0, 1fr))`,
-                          gap: "8px",
-                        }}
-                      >
-                        {TIMELINE_STEPS.filter((step) =>
-                          detailedOrder.orderType === "DELIVERY" ? true : !step.deliveryOnly
-                        ).map((step, idx, arr) => {
-                          const orderStatusIndex = arr.findIndex((s) => s.key === detailedOrder.status);
-                          const isDone = orderStatusIndex >= idx;
-                          const isCurrent = detailedOrder.status === step.key;
-                          const stepTimestamp = getStepTimestamp(step.key, detailedOrder);
-
-                          return (
-                            <div
-                              key={step.key}
-                              style={{
-                                display: "flex",
-                                flexDirection: "column",
-                                alignItems: "center",
-                                textAlign: "center",
-                                position: "relative",
-                              }}
-                            >
-                              {/* Step circle */}
-                              <div
-                                style={{
-                                  width: "32px",
-                                  height: "32px",
-                                  borderRadius: "50%",
-                                  backgroundColor: isCurrent
-                                    ? "var(--cnm-orange)"
-                                    : isDone
-                                    ? "var(--status-ready)"
-                                    : "var(--cnm-surface-elevated)",
-                                  border: `2px solid ${
-                                    isCurrent
-                                      ? "var(--cnm-orange)"
-                                      : isDone
-                                      ? "var(--status-ready)"
-                                      : "var(--cnm-border)"
-                                  }`,
-                                  display: "flex",
-                                  alignItems: "center",
-                                  justifyContent: "center",
-                                  color: isDone || isCurrent ? "#ffffff" : "var(--cnm-text-subtle)",
-                                  fontSize: "12px",
-                                  fontWeight: 900,
-                                  marginBottom: "8px",
-                                  zIndex: 2,
-                                  boxShadow: isCurrent ? "0 0 12px rgba(255, 130, 67, 0.4)" : "none",
-                                }}
-                              >
-                                {isDone && !isCurrent ? <Check size={16} strokeWidth={3} /> : idx + 1}
-                              </div>
-
-                              <span
-                                style={{
-                                  fontSize: "12px",
-                                  fontWeight: isCurrent ? 800 : isDone ? 700 : 500,
-                                  color: isCurrent
-                                    ? "var(--cnm-orange)"
-                                    : isDone
-                                    ? "var(--cnm-text-primary)"
-                                    : "var(--cnm-text-subtle)",
-                                  marginBottom: "2px",
-                                }}
-                              >
-                                {step.short}
-                              </span>
-
-                              {stepTimestamp && (
-                                <span style={{ fontSize: "10px", color: "var(--cnm-text-muted)", lineHeight: 1.2 }}>
-                                  {stepTimestamp}
-                                </span>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
+                    <div style={{ marginBottom: "20px" }}>
+                      <OrderTrackTimeline order={detailedOrder as any} />
                     </div>
                   )}
 
