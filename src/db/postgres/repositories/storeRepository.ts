@@ -44,3 +44,29 @@ export async function getStoreSchedules(): Promise<RestaurantSchedule[]> {
 
   return rows;
 }
+
+export interface SpecialSchedule {
+  id: string;
+  name: string;
+  startDate: string;
+  endDate: string;
+  isClosedAllDay: boolean;
+  openTime: string;
+  closeTime: string;
+  note: string | null;
+  isActive: boolean;
+}
+
+export async function getActiveSpecialSchedules(): Promise<SpecialSchedule[]> {
+  const sql = getPgPoolClient();
+  const rows = await sql<Array<SpecialSchedule>>`
+    SELECT 
+      id, name, start_date as "startDate", end_date as "endDate",
+      is_closed_all_day as "isClosedAllDay", open_time as "openTime",
+      close_time as "closeTime", note, is_active as "isActive"
+    FROM public.special_schedules
+    WHERE is_active = true
+    ORDER BY start_date ASC;
+  `;
+  return rows;
+}

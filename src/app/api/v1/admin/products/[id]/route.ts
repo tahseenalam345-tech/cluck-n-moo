@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { enforceRole } from "@/lib/authGuard";
 import { getPostgresDb } from "@/db/postgres/client";
 import {
@@ -220,6 +221,14 @@ export async function PUT(
     },
   });
 
+  try {
+    revalidatePath("/", "layout");
+    revalidatePath("/menu");
+    revalidatePath("/deals");
+  } catch (err) {
+    console.warn("Revalidation warning:", err);
+  }
+
   return NextResponse.json({
     success: true,
     message: "Product updated successfully.",
@@ -256,6 +265,14 @@ export async function DELETE(
     entityType: "PRODUCT",
     entityId: id,
   });
+
+  try {
+    revalidatePath("/", "layout");
+    revalidatePath("/menu");
+    revalidatePath("/deals");
+  } catch (err) {
+    console.warn("Revalidation warning:", err);
+  }
 
   return NextResponse.json({
     success: true,

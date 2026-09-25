@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { enforceRole } from "@/lib/authGuard";
 import { getPostgresDb } from "@/db/postgres/client";
 import {
@@ -311,6 +312,14 @@ export async function POST(req: NextRequest) {
       entityId: productId,
       details: { name, slug: finalSlug, categoryId, basePricePkr: parsedPrice },
     });
+
+    try {
+      revalidatePath("/", "layout");
+      revalidatePath("/menu");
+      revalidatePath("/deals");
+    } catch (err) {
+      console.warn("Revalidation warning:", err);
+    }
 
     return NextResponse.json({
       success: true,

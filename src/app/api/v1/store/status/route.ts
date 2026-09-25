@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
-import { getStoreSettings } from "@/db/postgres/repositories/storeRepository";
+import {
+  getStoreSettings,
+  getStoreSchedules,
+  getActiveSpecialSchedules,
+} from "@/db/postgres/repositories/storeRepository";
 import { checkRestaurantOpen } from "@/lib/time";
 import { BRAND } from "@/lib/constants";
 
@@ -7,7 +11,11 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    const settingsMap = await getStoreSettings();
+    const [settingsMap, weeklySchedules, specialSchedules] = await Promise.all([
+      getStoreSettings(),
+      getStoreSchedules().catch(() => []),
+      getActiveSpecialSchedules().catch(() => []),
+    ]);
 
     const manualOverride = (settingsMap["manual_override_status"] || "AUTO") as
       | "AUTO"
@@ -15,7 +23,12 @@ export async function GET() {
       | "FORCE_CLOSED";
     const announcement = settingsMap["announcement_banner"] || "";
 
-    const status = checkRestaurantOpen(manualOverride, announcement);
+    const status = checkRestaurantOpen({
+      manualOverrideStatus: manualOverride,
+      announcementText: announcement,
+      weeklySchedules,
+      specialSchedules,
+    });
 
     return NextResponse.json({
       success: true,

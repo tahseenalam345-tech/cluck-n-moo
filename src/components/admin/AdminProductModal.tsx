@@ -92,9 +92,30 @@ export function AdminProductModal({
   const [isSaving, setIsSaving] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
 
-  // Populate state on open / product prop change
+  // Drag & drop and upload progress state
+  const [isDragging, setIsDragging] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+
+  // Stable initialization guards to prevent tab resets and form wipes on parent re-renders/polling
+  const wasOpenRef = useRef(false);
+  const lastInitializedKeyRef = useRef<string | null>(null);
+  const currentKey = product?.id || "__new__";
+
+  // Populate state on open / product prop change ONLY when modal opens or target product switches
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) {
+      wasOpenRef.current = false;
+      lastInitializedKeyRef.current = null;
+      return;
+    }
+
+    // Modal already open for this product? DO NOT reset activeTab or wipe form inputs!
+    if (wasOpenRef.current && lastInitializedKeyRef.current === currentKey) {
+      return;
+    }
+
+    wasOpenRef.current = true;
+    lastInitializedKeyRef.current = currentKey;
     setValidationError(null);
     setUploadError(null);
     setUploadSuccess(null);
@@ -168,7 +189,14 @@ export function AdminProductModal({
       setVariants([]);
       setModifierGroups([]);
     }
-  }, [isOpen, product, categories]);
+  }, [isOpen, currentKey]);
+
+  // If categoryId is empty and categories load late, select the first category without resetting tab
+  useEffect(() => {
+    if (!categoryId && categories.length > 0) {
+      setCategoryId(categories[0].id);
+    }
+  }, [categories, categoryId]);
 
   // Auto-generate slug when name changes (unless manually edited)
   const handleNameChange = (val: string) => {
@@ -268,6 +296,7 @@ export function AdminProductModal({
     }
 
     setIsUploading(true);
+    setUploadProgress(20);
 
     try {
       // 1. Get signed credentials from server
@@ -285,6 +314,7 @@ export function AdminProductModal({
         throw new Error(signData.error?.message || "Failed to generate upload signature.");
       }
 
+      setUploadProgress(45);
       const { cloudName, apiKey, timestamp, signature, folder, publicId } = signData.data;
 
       // 2. Direct Multipart Upload to Cloudinary
@@ -306,6 +336,8 @@ export function AdminProductModal({
         throw new Error(cloudData.error?.message || "Cloudinary direct upload failed.");
       }
 
+      setUploadProgress(80);
+
       // 3. Save into media library table
       await fetch("/api/v1/admin/media/save", {
         method: "POST",
@@ -322,6 +354,8 @@ export function AdminProductModal({
         }),
       });
 
+      setUploadProgress(100);
+
       // 4. Update product form state
       setImageUrl(cloudData.secure_url);
       setCloudinaryPublicId(cloudData.public_id);
@@ -332,6 +366,7 @@ export function AdminProductModal({
       setUploadError(err?.message || "Upload failed. Please try again.");
     } finally {
       setIsUploading(false);
+      setTimeout(() => setUploadProgress(null), 1200);
     }
   };
 
@@ -640,14 +675,42 @@ export function AdminProductModal({
 
                   {/* Drag-and-Drop / File Upload Trigger */}
                   <div
-                    className="admin-dropzone"
-                    onClick={() => fileInputRef.current?.click()}
-                    onDragOver={(e) => e.preventDefault()}
+                    className={`admin-dropzone ${isDragging ? "active-drag" : ""} ${isUploading ? "uploading" : ""}`}
+                    onClick={() => !isUploading && fileInputRef.current?.click()}
+                    onDragEnter={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setIsDragging(true);
+                    }}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setIsDragging(true);
+                    }}
+                    onDragLeave={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setIsDragging(false);
+                    }}
                     onDrop={(e) => {
                       e.preventDefault();
+                      e.stopPropagation();
+                      setIsDragging(false);
                       if (e.dataTransfer.files?.[0]) {
                         handleFileSelected(e.dataTransfer.files[0]);
                       }
+                    }}
+                    style={{
+                      border: isDragging ? "2px dashed #ff6b35" : "2px dashed #cbd5e1",
+                      backgroundColor: isDragging ? "#fff7ed" : isUploading ? "#f8fafc" : "#ffffff",
+                      cursor: isUploading ? "wait" : "pointer",
+                      padding: "24px 16px",
+                      borderRadius: "12px",
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      gap: "6px",
+                      transition: "all 0.2s ease",
                     }}
                   >
                     <input
@@ -661,9 +724,41 @@ export function AdminProductModal({
                         }
                       }}
                     />
-                    <UploadIcon size={22} color="#ff6b35" />
-                    <strong>{isUploading ? "Uploading to Cloudinary..." : "Click or Drag Food Image Here"}</strong>
-                    <span>Supports JPG, PNG, WebP (Auto-optimized on CDN)</span>
+                    <UploadIcon size={24} color={isDragging ? "#ff6b35" : "#64748b"} />
+                    <strong style={{ color: isDragging ? "#ea580c" : "#0f172a", fontSize: "14px" }}>
+                      {isUploading
+                        ? `Uploading to Cloudinary... ${uploadProgress ? `(${uploadProgress}%)` : ""}`
+                        : isDragging
+                        ? "Drop food photo here to upload!"
+                        : "Click or Drag Food Image Here"}
+                    </strong>
+                    <span style={{ fontSize: "12px", color: "#64748b" }}>
+                      Supports JPG, PNG, WebP (Max 12MB, Auto-optimized via Cloudinary CDN)
+                    </span>
+
+                    {/* Progress Bar */}
+                    {isUploading && uploadProgress !== null && (
+                      <div
+                        style={{
+                          width: "80%",
+                          height: "6px",
+                          backgroundColor: "#e2e8f0",
+                          borderRadius: "999px",
+                          marginTop: "8px",
+                          overflow: "hidden",
+                        }}
+                      >
+                        <div
+                          style={{
+                            width: `${uploadProgress}%`,
+                            height: "100%",
+                            backgroundColor: "#ff6b35",
+                            borderRadius: "999px",
+                            transition: "width 0.3s ease",
+                          }}
+                        />
+                      </div>
+                    )}
                   </div>
 
                   {uploadError && <div className="admin-inline-alert error">{uploadError}</div>}

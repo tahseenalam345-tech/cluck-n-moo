@@ -381,6 +381,30 @@ export const restaurantSchedules = pgTable(
 );
 
 /**
+ * 14b. Special Holiday & Event Schedules
+ */
+export const specialSchedules = pgTable(
+  "special_schedules",
+  {
+    id: text("id").primaryKey(),
+    name: text("name").notNull(),
+    startDate: text("start_date").notNull(),
+    endDate: text("end_date").notNull(),
+    isClosedAllDay: boolean("is_closed_all_day").notNull().default(false),
+    openTime: text("open_time").notNull().default("12:01"),
+    closeTime: text("close_time").notNull().default("02:00"),
+    note: text("note"),
+    isActive: boolean("is_active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("idx_special_schedules_dates").on(table.startDate, table.endDate),
+    index("idx_special_schedules_active").on(table.isActive),
+  ]
+);
+
+/**
  * 15. Promotions
  */
 export const promotions = pgTable(

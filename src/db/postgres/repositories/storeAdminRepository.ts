@@ -1,6 +1,6 @@
 import { getPostgresDb } from "../client";
-import { deliveryAreas, restaurantSettings, restaurantSchedules } from "../schema";
-import { eq, asc } from "drizzle-orm";
+import { deliveryAreas, restaurantSettings, restaurantSchedules, specialSchedules } from "../schema";
+import { eq, asc, desc } from "drizzle-orm";
 import crypto from "crypto";
 
 export interface DeliveryAreaInput {
@@ -103,9 +103,15 @@ export async function getAdminSettingsAndSchedules() {
     .from(restaurantSchedules)
     .orderBy(asc(restaurantSchedules.dayOfWeek));
 
+  const specialRows = await db
+    .select()
+    .from(specialSchedules)
+    .orderBy(desc(specialSchedules.startDate));
+
   return {
     settings: settingsMap,
     schedules: scheduleRows,
+    specialSchedules: specialRows,
   };
 }
 
@@ -153,5 +159,84 @@ export async function updateAdminSettingsAndSchedules(
     }
   });
 
+  return true;
+}
+
+/**
+ * Creates a new special event/holiday schedule in PostgreSQL.
+ */
+export async function createSpecialScheduleInPostgres(input: {
+  name: string;
+  startDate: string;
+  endDate: string;
+  isClosedAllDay: boolean;
+  openTime?: string;
+  closeTime?: string;
+  note?: string;
+}) {
+  const db = getPostgresDb();
+  const id = `spec_${crypto.randomBytes(6).toString("hex")}`;
+  const now = new Date();
+
+  await db.insert(specialSchedules).values({
+    id,
+    name: input.name.trim(),
+    startDate: input.startDate,
+    endDate: input.endDate,
+    isClosedAllDay: Boolean(input.isClosedAllDay),
+    openTime: input.openTime || "12:01",
+    closeTime: input.closeTime || "02:00",
+    note: input.note ? input.note.trim() : null,
+    isActive: true,
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  return { id, ...input };
+}
+
+/**
+ * Updates an existing special event/holiday schedule.
+ */
+export async function updateSpecialScheduleInPostgres(
+  id: string,
+  updates: {
+    name?: string;
+    startDate?: string;
+    endDate?: string;
+    isClosedAllDay?: boolean;
+    openTime?: string;
+    closeTime?: string;
+    note?: string;
+    isActive?: boolean;
+  }
+) {
+  const db = getPostgresDb();
+  const now = new Date();
+
+  await db
+    .update(specialSchedules)
+    .set({
+      name: updates.name !== undefined ? updates.name.trim() : undefined,
+      startDate: updates.startDate !== undefined ? updates.startDate : undefined,
+      endDate: updates.endDate !== undefined ? updates.endDate : undefined,
+      isClosedAllDay: updates.isClosedAllDay !== undefined ? Boolean(updates.isClosedAllDay) : undefined,
+      openTime: updates.openTime !== undefined ? updates.openTime : undefined,
+      closeTime: updates.closeTime !== undefined ? updates.closeTime : undefined,
+      note: updates.note !== undefined ? updates.note.trim() : undefined,
+      isActive: updates.isActive !== undefined ? Boolean(updates.isActive) : undefined,
+      updatedAt: now,
+    })
+    .where(eq(specialSchedules.id, id));
+
+  return true;
+}
+
+/**
+ * Deletes a special event/holiday schedule.
+ */
+export async function deleteSpecialScheduleInPostgres(id: string) {
+  const db = getPostgresDb();
+  await db.delete(specialSchedules).where(eq(specialSchedules.id, id));
   return true;
 }
