@@ -201,32 +201,66 @@ export function ProductCard({ product, onSelect, priority = false }: ProductCard
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            paddingTop: "5px",
+            paddingTop: "6px",
             borderTop: "1px solid var(--cnm-border)",
             marginTop: "auto",
-            gap: "4px",
+            gap: "6px",
           }}
         >
-          <div style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+          <div style={{ display: "flex", flexDirection: "column", minWidth: 0, justifyContent: "center" }}>
             {hasVariants && (
-              <span style={{ fontSize: "8.5px", color: "var(--cnm-text-subtle)", fontWeight: 600, lineHeight: 1 }}>
+              <span
+                className="product-card-from"
+                style={{
+                  fontSize: "9px",
+                  color: "var(--cnm-orange)",
+                  fontWeight: 800,
+                  lineHeight: 1,
+                  letterSpacing: "0.06em",
+                  textTransform: "uppercase",
+                  marginBottom: "2px",
+                }}
+              >
                 FROM
               </span>
             )}
-            <span
-              className="product-card-price"
+            <div
+              className="product-card-price-container"
               style={{
-                fontFamily: "var(--font-display)",
-                fontSize: "12.5px",
-                fontWeight: 800,
-                color: "var(--cnm-text-primary)",
-                lineHeight: 1.1,
-                letterSpacing: "-0.01em",
+                display: "flex",
+                alignItems: "baseline",
+                gap: "3px",
                 whiteSpace: "nowrap",
               }}
             >
-              {displayPrice.toLocaleString()} <span style={{ fontSize: "8.5px", fontWeight: 700, color: "var(--cnm-text-muted)" }}>PKR</span>
-            </span>
+              <span
+                className="product-card-price"
+                style={{
+                  fontFamily: "var(--font-display)",
+                  fontSize: "17px",
+                  fontWeight: 850,
+                  color: "var(--cnm-orange)",
+                  lineHeight: 1.1,
+                  letterSpacing: "-0.02em",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {displayPrice.toLocaleString()}
+              </span>
+              <span
+                className="product-card-currency"
+                style={{
+                  fontFamily: "var(--font-display)",
+                  fontSize: "10.5px",
+                  fontWeight: 800,
+                  color: "var(--cnm-orange)",
+                  opacity: 0.9,
+                  letterSpacing: "0.02em",
+                }}
+              >
+                PKR
+              </span>
+            </div>
           </div>
 
           <button
@@ -234,21 +268,26 @@ export function ProductCard({ product, onSelect, priority = false }: ProductCard
             disabled={!isAvailable}
             className="btn btn-primary product-action-btn"
             style={{
-              padding: "3.5px 7px",
-              fontSize: "10.5px",
+              padding: "4px 9px",
+              fontSize: "11px",
+              fontWeight: 750,
               borderRadius: "var(--radius-sm)",
               whiteSpace: "nowrap",
               flexShrink: 0,
+              height: "28px",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "4px",
             }}
           >
             {hasVariants ? (
               <>
-                <SlidersHorizontal size={11} />
+                <SlidersHorizontal size={12} />
                 <span className="btn-text">Options</span>
               </>
             ) : (
               <>
-                <Plus size={11} />
+                <Plus size={12} />
                 <span className="btn-text">Add</span>
               </>
             )}
@@ -261,38 +300,50 @@ export function ProductCard({ product, onSelect, priority = false }: ProductCard
           width: 100%;
           min-width: 0;
         }
+        .product-card-price {
+          font-size: 17px;
+          font-weight: 850;
+        }
         @media (max-width: 640px) {
           .product-card-body {
-            padding: 6px 5px 5px 5px !important;
+            padding: 7px 6px 6px 6px !important;
           }
           .product-card-title {
-            font-size: 11.5px !important;
+            font-size: 12px !important;
             margin-bottom: 2px !important;
           }
           .product-card-desc {
-            font-size: 9px !important;
-            line-height: 1.2 !important;
-            margin-bottom: 3px !important;
+            font-size: 9.5px !important;
+            line-height: 1.25 !important;
+            margin-bottom: 4px !important;
           }
           .product-card-footer {
-            padding-top: 4px !important;
+            padding-top: 5px !important;
           }
           .product-card-price {
-            font-size: 11.5px !important;
+            font-size: 15.5px !important;
+            font-weight: 850 !important;
+          }
+          .product-card-currency {
+            font-size: 9.5px !important;
           }
           .product-action-btn {
-            padding: 3px 6px !important;
-            font-size: 10px !important;
+            padding: 3.5px 7px !important;
+            font-size: 10.5px !important;
+            height: 26px !important;
           }
         }
         @media (max-width: 380px) {
           .btn-text {
             display: none !important;
           }
+          .product-card-price {
+            font-size: 14.5px !important;
+          }
           .product-action-btn {
             padding: 3px !important;
-            min-width: 22px !important;
-            height: 22px !important;
+            min-width: 24px !important;
+            height: 24px !important;
             justify-content: center !important;
             border-radius: var(--radius-sm) !important;
           }
