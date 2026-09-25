@@ -107,6 +107,7 @@ export function ProductImage({
   // Calculate percentage padding for aspect ratio to strictly avoid CLS
   let paddingTop = "75%"; // default 4:3
   if (aspectRatio === "16/9") paddingTop = "56.25%";
+  if (aspectRatio === "16/10") paddingTop = "62.5%";
   if (aspectRatio === "1/1") paddingTop = "100%";
   if (aspectRatio === "3/2") paddingTop = "66.67%";
 

@@ -116,15 +116,15 @@ export function PopularPicksSection({
                 <div>
                   <div
                     className="skeleton-shimmer"
-                    style={{ width: "100%", height: "135px", borderRadius: "var(--radius-sm)", marginBottom: "12px" }}
+                    style={{ width: "100%", height: "105px", borderRadius: "var(--radius-sm)", marginBottom: "8px" }}
                   />
-                  <div className="skeleton-shimmer" style={{ width: "35%", height: "12px", marginBottom: "8px" }} />
-                  <div className="skeleton-shimmer" style={{ width: "70%", height: "16px", marginBottom: "8px" }} />
-                  <div className="skeleton-shimmer" style={{ width: "85%", height: "11px", marginBottom: "5px" }} />
+                  <div className="skeleton-shimmer" style={{ width: "35%", height: "10px", marginBottom: "6px" }} />
+                  <div className="skeleton-shimmer" style={{ width: "70%", height: "14px", marginBottom: "6px" }} />
+                  <div className="skeleton-shimmer" style={{ width: "85%", height: "10px", marginBottom: "4px" }} />
                 </div>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "14px" }}>
-                  <div className="skeleton-shimmer" style={{ width: "38%", height: "18px" }} />
-                  <div className="skeleton-shimmer" style={{ width: "32%", height: "30px", borderRadius: "var(--radius-sm)" }} />
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "10px" }}>
+                  <div className="skeleton-shimmer" style={{ width: "38%", height: "16px" }} />
+                  <div className="skeleton-shimmer" style={{ width: "32%", height: "26px", borderRadius: "var(--radius-sm)" }} />
                 </div>
               </div>
             ))
@@ -154,17 +154,17 @@ export function PopularPicksSection({
           }
         }
 
-        @media (max-width: 640px) {
+        @media (max-width: 767px) {
           .popular-picks-grid {
             grid-template-columns: repeat(2, minmax(0, 1fr));
             gap: 10px;
           }
         }
 
-        @media (max-width: 360px) {
+        @media (max-width: 480px) {
           .popular-picks-grid {
-            grid-template-columns: minmax(0, 1fr);
-            gap: 10px;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px;
           }
         }
       `}</style>

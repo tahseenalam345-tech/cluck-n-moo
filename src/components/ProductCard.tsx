@@ -74,7 +74,7 @@ export function ProductCard({ product, onSelect, priority = false }: ProductCard
         cursor: isAvailable ? "pointer" : "not-allowed",
       }}
     >
-      {/* Top Image Frame with Fixed Aspect Ratio (4:3) via ProductImage */}
+      {/* Top Image Frame with Compact Aspect Ratio (16:10) via ProductImage */}
       <div
         style={{
           position: "relative",
@@ -87,30 +87,29 @@ export function ProductCard({ product, onSelect, priority = false }: ProductCard
           src={product.imageUrl}
           alt={product.name}
           target="card"
-          aspectRatio="4/3"
+          aspectRatio="16/10"
           priority={priority}
         />
-
 
         {/* Status / Feature Badges */}
         <div
           style={{
             position: "absolute",
-            top: "8px",
-            left: "8px",
+            top: "6px",
+            left: "6px",
             display: "flex",
             flexDirection: "column",
-            gap: "4px",
+            gap: "3px",
             zIndex: 2,
           }}
         >
           {product.isFeatured === 1 && (
-            <span className="badge badge-orange" style={{ fontSize: "9px", padding: "2px 6px" }}>
+            <span className="badge badge-orange" style={{ fontSize: "8px", padding: "1px 5px", fontWeight: 700 }}>
               ★ POPULAR
             </span>
           )}
           {(product.categoryId === "cat_box_deals" || product.categoryId === "cat_combo_deals") && (
-            <span className="badge badge-outline" style={{ fontSize: "9px", padding: "2px 6px", backgroundColor: "var(--cnm-surface)" }}>
+            <span className="badge badge-outline" style={{ fontSize: "8px", padding: "1px 5px", backgroundColor: "var(--cnm-surface)", fontWeight: 700 }}>
               VALUE FEAST
             </span>
           )}
@@ -135,9 +134,9 @@ export function ProductCard({ product, onSelect, priority = false }: ProductCard
                 color: "#ffffff",
                 fontFamily: "var(--font-display)",
                 fontWeight: 900,
-                fontSize: "11px",
+                fontSize: "10px",
                 letterSpacing: "0.08em",
-                padding: "4px 10px",
+                padding: "3px 8px",
                 borderRadius: "4px",
               }}
             >
@@ -151,7 +150,7 @@ export function ProductCard({ product, onSelect, priority = false }: ProductCard
       <div
         className="product-card-body"
         style={{
-          padding: "10px 8px",
+          padding: "7px 7px 6px 7px",
           display: "flex",
           flexDirection: "column",
           flexGrow: 1,
@@ -160,13 +159,14 @@ export function ProductCard({ product, onSelect, priority = false }: ProductCard
       >
         <div>
           <h3
+            className="product-card-title"
             style={{
               fontFamily: "var(--font-display)",
-              fontSize: "13px",
+              fontSize: "12.5px",
               fontWeight: 650,
-              lineHeight: 1.3,
+              lineHeight: 1.25,
               color: "var(--cnm-text-primary)",
-              marginBottom: "6px",
+              marginBottom: "3px",
               letterSpacing: "-0.01em",
               display: "-webkit-box",
               WebkitLineClamp: 2,
@@ -177,14 +177,13 @@ export function ProductCard({ product, onSelect, priority = false }: ProductCard
             {product.name}
           </h3>
 
-
           <p
             className="product-card-desc"
             style={{
-              fontSize: "11px",
+              fontSize: "10px",
               color: "var(--cnm-text-muted)",
-              lineHeight: 1.3,
-              marginBottom: "10px",
+              lineHeight: 1.22,
+              marginBottom: "5px",
               display: "-webkit-box",
               WebkitLineClamp: 2,
               WebkitBoxOrient: "vertical",
@@ -197,32 +196,36 @@ export function ProductCard({ product, onSelect, priority = false }: ProductCard
 
         {/* Bottom Price & Action Row */}
         <div
+          className="product-card-footer"
           style={{
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            paddingTop: "10px",
+            paddingTop: "5px",
             borderTop: "1px solid var(--cnm-border)",
             marginTop: "auto",
+            gap: "4px",
           }}
         >
-          <div style={{ display: "flex", flexDirection: "column" }}>
+          <div style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
             {hasVariants && (
-              <span style={{ fontSize: "10px", color: "var(--cnm-text-subtle)", fontWeight: 600 }}>
+              <span style={{ fontSize: "8.5px", color: "var(--cnm-text-subtle)", fontWeight: 600, lineHeight: 1 }}>
                 FROM
               </span>
             )}
             <span
+              className="product-card-price"
               style={{
                 fontFamily: "var(--font-display)",
-                fontSize: "14px",
+                fontSize: "12.5px",
                 fontWeight: 800,
                 color: "var(--cnm-text-primary)",
-                lineHeight: 1,
+                lineHeight: 1.1,
                 letterSpacing: "-0.01em",
+                whiteSpace: "nowrap",
               }}
             >
-              {displayPrice.toLocaleString()} <span style={{ fontSize: "10px", fontWeight: 700, color: "var(--cnm-text-muted)" }}>PKR</span>
+              {displayPrice.toLocaleString()} <span style={{ fontSize: "8.5px", fontWeight: 700, color: "var(--cnm-text-muted)" }}>PKR</span>
             </span>
           </div>
 
@@ -231,8 +234,8 @@ export function ProductCard({ product, onSelect, priority = false }: ProductCard
             disabled={!isAvailable}
             className="btn btn-primary product-action-btn"
             style={{
-              padding: "5px 8px",
-              fontSize: "11px",
+              padding: "3.5px 7px",
+              fontSize: "10.5px",
               borderRadius: "var(--radius-sm)",
               whiteSpace: "nowrap",
               flexShrink: 0,
@@ -240,12 +243,12 @@ export function ProductCard({ product, onSelect, priority = false }: ProductCard
           >
             {hasVariants ? (
               <>
-                <SlidersHorizontal size={12} />
+                <SlidersHorizontal size={11} />
                 <span className="btn-text">Options</span>
               </>
             ) : (
               <>
-                <Plus size={12} />
+                <Plus size={11} />
                 <span className="btn-text">Add</span>
               </>
             )}
@@ -254,19 +257,44 @@ export function ProductCard({ product, onSelect, priority = false }: ProductCard
       </div>
 
       <style jsx>{`
-        @media (max-width: 400px) {
+        .product-card {
+          width: 100%;
+          min-width: 0;
+        }
+        @media (max-width: 640px) {
+          .product-card-body {
+            padding: 6px 5px 5px 5px !important;
+          }
+          .product-card-title {
+            font-size: 11.5px !important;
+            margin-bottom: 2px !important;
+          }
+          .product-card-desc {
+            font-size: 9px !important;
+            line-height: 1.2 !important;
+            margin-bottom: 3px !important;
+          }
+          .product-card-footer {
+            padding-top: 4px !important;
+          }
+          .product-card-price {
+            font-size: 11.5px !important;
+          }
+          .product-action-btn {
+            padding: 3px 6px !important;
+            font-size: 10px !important;
+          }
+        }
+        @media (max-width: 380px) {
           .btn-text {
             display: none !important;
           }
-          .product-card-body {
-            padding: 8px 6px !important;
-          }
           .product-action-btn {
-            padding: 6px !important;
-            width: 28px !important;
-            height: 28px !important;
+            padding: 3px !important;
+            min-width: 22px !important;
+            height: 22px !important;
             justify-content: center !important;
-            border-radius: 50% !important;
+            border-radius: var(--radius-sm) !important;
           }
         }
       `}</style>

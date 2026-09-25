@@ -620,17 +620,17 @@ export default function StorefrontPage() {
           }
         }
 
-        @media (max-width: 640px) {
+        @media (max-width: 767px) {
           .product-responsive-grid {
             grid-template-columns: repeat(2, minmax(0, 1fr));
             gap: 10px;
           }
         }
 
-        @media (max-width: 319px) {
+        @media (max-width: 480px) {
           .product-responsive-grid {
-            grid-template-columns: minmax(0, 1fr);
-            gap: 10px;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px;
           }
         }
       `}</style>

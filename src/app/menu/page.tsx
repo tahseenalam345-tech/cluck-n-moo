@@ -87,8 +87,8 @@ export default function FullMenuPage() {
                   key={n}
                   className="card"
                   style={{
-                    padding: "16px",
-                    minHeight: "260px",
+                    padding: "8px",
+                    minHeight: "200px",
                     backgroundColor: "var(--cnm-surface)",
                     borderRadius: "var(--radius-md)",
                     display: "flex",
@@ -99,15 +99,15 @@ export default function FullMenuPage() {
                   <div>
                     <div
                       className="skeleton-shimmer"
-                      style={{ width: "100%", height: "140px", marginBottom: "12px" }}
+                      style={{ width: "100%", height: "105px", marginBottom: "8px", borderRadius: "var(--radius-sm)" }}
                     />
-                    <div className="skeleton-shimmer" style={{ width: "35%", height: "12px", marginBottom: "8px" }} />
-                    <div className="skeleton-shimmer" style={{ width: "70%", height: "16px", marginBottom: "8px" }} />
-                    <div className="skeleton-shimmer" style={{ width: "90%", height: "12px" }} />
+                    <div className="skeleton-shimmer" style={{ width: "35%", height: "10px", marginBottom: "6px" }} />
+                    <div className="skeleton-shimmer" style={{ width: "70%", height: "14px", marginBottom: "6px" }} />
+                    <div className="skeleton-shimmer" style={{ width: "90%", height: "10px" }} />
                   </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "14px" }}>
-                    <div className="skeleton-shimmer" style={{ width: "40%", height: "18px" }} />
-                    <div className="skeleton-shimmer" style={{ width: "30%", height: "32px", borderRadius: "var(--radius-sm)" }} />
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "10px" }}>
+                    <div className="skeleton-shimmer" style={{ width: "40%", height: "16px" }} />
+                    <div className="skeleton-shimmer" style={{ width: "30%", height: "26px", borderRadius: "var(--radius-sm)" }} />
                   </div>
                 </div>
               ))}

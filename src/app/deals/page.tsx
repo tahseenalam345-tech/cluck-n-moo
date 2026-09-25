@@ -165,7 +165,7 @@ export default function DealsPage() {
           {isLoading ? (
             <div className="product-grid">
               {[1, 2, 3].map((n) => (
-                <div key={n} className="card" style={{ minHeight: "260px", opacity: 0.5 }} />
+                <div key={n} className="card" style={{ minHeight: "200px", opacity: 0.5 }} />
               ))}
             </div>
           ) : deals.length === 0 ? (
