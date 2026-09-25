@@ -19,9 +19,15 @@ let _db: ReturnType<typeof drizzle<typeof schema>> | null = null;
  */
 export function getPgPoolClient(): postgres.Sql {
   if (!_poolSql) {
-    const connectionString = process.env.DATABASE_URL_POOLER || process.env.DATABASE_URL;
+    let connectionString = process.env.DATABASE_URL_POOLER || process.env.DATABASE_URL;
     if (!connectionString) {
       throw new Error("DATABASE_URL_POOLER is missing in environment variables.");
+    }
+
+    // Defensive check: If Supabase pooler host is configured with port 5432 (session mode),
+    // automatically rewrite to port 6543 (transaction mode) to avoid EMAXCONNSESSION exhaustion.
+    if (connectionString.includes(".pooler.supabase.com:5432")) {
+      connectionString = connectionString.replace(".pooler.supabase.com:5432", ".pooler.supabase.com:6543");
     }
 
     _poolSql = postgres(connectionString, {

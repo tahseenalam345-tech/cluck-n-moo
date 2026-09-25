@@ -30,6 +30,7 @@ export default function StorefrontPage() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Dynamic header height so sticky elements align correctly
   const [headerHeight, setHeaderHeight] = useState(68);
@@ -69,16 +70,30 @@ export default function StorefrontPage() {
   };
 
   // Fetch full verified menu from API
-  useEffect(() => {
+  const fetchMenu = () => {
+    setIsLoading(true);
+    setLoadError(null);
     fetch("/api/v1/menu")
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) throw new Error("Server responded with error status: " + res.status);
+        return res.json();
+      })
       .then((data) => {
-        if (data.success && data.data.categories) {
+        if (data.success && data.data?.categories) {
           setCategories(data.data.categories);
+        } else {
+          throw new Error(data.error?.message || "Failed to load categories");
         }
       })
-      .catch((err) => console.error("Menu fetch error:", err))
+      .catch((err) => {
+        console.error("Menu fetch error:", err);
+        setLoadError(err.message || "Failed to connect to menu service");
+      })
       .finally(() => setIsLoading(false));
+  };
+
+  useEffect(() => {
+    fetchMenu();
   }, []);
 
   // Cart operations
@@ -464,6 +479,28 @@ export default function StorefrontPage() {
               </div>
             ) : isHistoria ? (
               <BrandStorySection isHighlighted={true} />
+            ) : loadError ? (
+              <div style={{ textAlign: "center", padding: "48px 20px" }}>
+                <p style={{ color: "var(--cnm-orange)", fontSize: "16px", fontWeight: 600, marginBottom: "8px" }}>
+                  Unable to load menu
+                </p>
+                <p style={{ color: "var(--cnm-text-muted)", fontSize: "13px", marginBottom: "16px" }}>
+                  {loadError}. Please check your connection and retry.
+                </p>
+                <button
+                  type="button"
+                  onClick={fetchMenu}
+                  className="btn btn-primary"
+                  style={{
+                    fontSize: "13px",
+                    padding: "8px 20px",
+                    borderRadius: "var(--radius-full)",
+                    fontWeight: 700,
+                  }}
+                >
+                  Retry Loading Menu
+                </button>
+              </div>
             ) : finalDisplayCategories.length === 0 ? (
               <div style={{ textAlign: "center", padding: "48px 20px" }}>
                 <p style={{ color: "var(--cnm-text-muted)", fontSize: "15px", marginBottom: "14px" }}>
