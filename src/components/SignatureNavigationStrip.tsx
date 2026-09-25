@@ -83,7 +83,7 @@ export function SignatureNavigationStrip({
             display: "flex",
             alignItems: "center",
             width: "100%",
-            maxWidth: "960px",
+            maxWidth: "680px",
             margin: "0 auto",
           }}
         >
@@ -124,13 +124,13 @@ export function SignatureNavigationStrip({
             style={{
               display: "flex",
               alignItems: "flex-start",
-              gap: "18px",
+              gap: "14px",
               overflowX: "auto",
               padding: "8px 6px 10px",
               scrollSnapType: "x mandatory",
               scrollBehavior: "smooth",
               width: "100%",
-              justifyContent: "space-between",
+              justifyContent: "center",
             }}
           >
             {SIGNATURE_SECTIONS.filter((s) => s.isActive).map((sec, idx) => {
@@ -334,7 +334,8 @@ export function SignatureNavigationStrip({
 
         @media (min-width: 641px) and (max-width: 1024px) {
           .signature-strip-track {
-            gap: 16px !important;
+            justify-content: center !important;
+            gap: 12px !important;
           }
           .signature-circle-btn {
             width: 68px !important;
@@ -344,7 +345,8 @@ export function SignatureNavigationStrip({
 
         @media (min-width: 1025px) {
           .signature-strip-track {
-            justifyContent: space-evenly !important;
+            justify-content: center !important;
+            gap: 14px !important;
           }
           .signature-circle-btn {
             width: 74px !important;
