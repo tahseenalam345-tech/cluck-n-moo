@@ -9,97 +9,82 @@ interface PromotionsSectionProps {
   onSelectPromotion: (promotion: Promotion) => void;
 }
 
+const FALLBACK_PROMOTIONS: Promotion[] = [
+  {
+    id: "promo_pizza_treat",
+    slug: "pizza-treat",
+    title: "Pizza Treat Feast",
+    shortDescription: "Tray Pizza + 6 Pcs Oven Baked Wings + Regular Fries with Dip + 1.5L Soft Drink",
+    imageUrl: "https://res.cloudinary.com/duo55lhwh/image/upload/c_limit,w_1200,f_auto,q_auto/promotion_1_fthixm",
+    cloudinaryPublicId: "promotion_1_fthixm",
+    displayOrder: 1,
+    isActive: true,
+    promotionType: "bundle",
+    fixedPricePkr: 2999,
+    badgeText: "FEAST 2999",
+    termsText: "Includes 1 Tray Pizza, 6 Oven Baked Wings, 1 Regular Fries with Dip, 1.5L Drink.",
+  },
+  {
+    id: "promo_wallet_deal",
+    slug: "wallet-deal",
+    title: "Your Wallet Loves This Deal",
+    shortDescription: "Deal 1: 1 Medium Pizza & 1 Litre Soft Drink for Rs. 1290 | Deal 2: 1 Large Pizza & 1 Litre Soft Drink for Rs. 1850",
+    imageUrl: "https://res.cloudinary.com/duo55lhwh/image/upload/c_limit,w_1200,f_auto,q_auto/promotion_2_ofnzlq",
+    cloudinaryPublicId: "promotion_2_ofnzlq",
+    displayOrder: 2,
+    isActive: true,
+    promotionType: "tiered",
+    fixedPricePkr: 1290,
+    badgeText: "FROM 1290",
+    termsText: "Choose between Deal 1 (Medium + Drink) or Deal 2 (Large + Drink).",
+  },
+  {
+    id: "promo_cheesier_launch",
+    slug: "cheesier-medium-pizza-launch",
+    title: "1 Medium Pizza Launch Offer",
+    shortDescription: "Oops! Things Just Got Cheesier! Get 1 freshly baked Medium Pizza for only Rs. 990.",
+    imageUrl: "https://res.cloudinary.com/duo55lhwh/image/upload/c_limit,w_1200,f_auto,q_auto/promotion_3_pkzoe9",
+    cloudinaryPublicId: "promotion_3_pkzoe9",
+    displayOrder: 3,
+    isActive: true,
+    promotionType: "single",
+    fixedPricePkr: 990,
+    badgeText: "LAUNCH 990",
+    termsText: "1 Medium Pizza for only Rs. 990. Choose your favorite flavor!",
+  },
+  {
+    id: "promo_bogo_pizza",
+    slug: "bogo-pizza-deal",
+    title: "Buy 1 Get 1 Pizza Free",
+    shortDescription: "Oops! Buy 1 Get 1 Pizza Free for Rs. 1499. Choose any 2 delicious pizzas!",
+    imageUrl: "https://res.cloudinary.com/duo55lhwh/image/upload/c_limit,w_1200,f_auto,q_auto/promotion_4_z7vq6y",
+    cloudinaryPublicId: "promotion_4_z7vq6y",
+    displayOrder: 4,
+    isActive: true,
+    promotionType: "bundle",
+    fixedPricePkr: 1499,
+    badgeText: "BOGO 1499",
+    termsText: "Buy 1 Get 1 Pizza Free for Rs. 1499. Valid for dine-in, takeaway, and delivery.",
+  },
+];
+
 export function PromotionsSection({ onSelectPromotion }: PromotionsSectionProps) {
-  const [promotions, setPromotions] = useState<Promotion[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [promotions, setPromotions] = useState<Promotion[]>(FALLBACK_PROMOTIONS);
 
   useEffect(() => {
     fetch("/api/v1/promotions")
       .then((res) => res.json())
       .then((data) => {
-        if (data.success && Array.isArray(data.data)) {
+        if (data.success && Array.isArray(data.data) && data.data.length > 0) {
           setPromotions(data.data);
         }
       })
       .catch((err) => {
-        console.error("Failed to load promotions:", err);
-      })
-      .finally(() => {
-        setIsLoading(false);
+        console.error("Failed to load promotions from API, keeping verified fallbacks:", err);
       });
   }, []);
 
-  // If loading, show clean skeleton cards
-  if (isLoading) {
-    return (
-      <section className="promotions-section" aria-label="Deals You'll Love">
-        <div className="container">
-          <div className="promotions-header">
-            <h2 className="promotions-title">
-              <span className="promotions-badge-icon">🔥</span>
-              Deals You’ll Love
-            </h2>
-          </div>
-          <div className="promotions-grid">
-            {[1, 2, 3, 4].map((n) => (
-              <div key={n} className="promotion-card-skeleton skeleton-shimmer" />
-            ))}
-          </div>
-        </div>
-        <style jsx>{`
-          .promotions-section {
-            padding: 24px 0 28px;
-            border-bottom: 1px solid var(--cnm-border);
-          }
-          .promotions-header {
-            display: flex;
-            align-items: center;
-            justifyContent: space-between;
-            margin-bottom: 16px;
-            padding-bottom: 8px;
-            border-bottom: 1px solid var(--cnm-border);
-          }
-          .promotions-title {
-            font-family: var(--font-display);
-            font-size: 19px;
-            font-weight: 750;
-            color: var(--cnm-text-primary);
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            margin: 0;
-            letter-spacing: -0.01em;
-          }
-          .promotions-count {
-            font-size: 11px;
-            font-weight: 700;
-            color: var(--cnm-text-muted);
-            letter-spacing: 0.04em;
-          }
-          .promotions-grid {
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 10px;
-          }
-          @media (min-width: 1024px) {
-            .promotions-grid {
-              grid-template-columns: repeat(4, minmax(0, 1fr));
-              gap: 16px;
-            }
-          }
-          .promotion-card-skeleton {
-            width: 100%;
-            padding-top: 33.33%; /* 3:1 banner aspect ratio */
-            border-radius: var(--radius-md);
-            min-height: 80px;
-          }
-        `}</style>
-      </section>
-    );
-  }
-
-  // Only active promotions from database (max 4)
-  if (promotions.length === 0) return null;
+  const displayPromotions = promotions.length > 0 ? promotions : FALLBACK_PROMOTIONS;
 
   return (
     <section id="promotions-section" className="promotions-section" aria-label="Deals You'll Love">
@@ -116,7 +101,7 @@ export function PromotionsSection({ onSelectPromotion }: PromotionsSectionProps)
 
         {/* Compact Grid: 2 columns on mobile, 4 columns on desktop */}
         <div className="promotions-grid">
-          {promotions.map((promo) => {
+          {displayPromotions.map((promo) => {
             // Build Cloudinary optimized delivery URLs with auto WebP/AVIF and intelligent quality
             const isCloudinary = Boolean(promo.cloudinaryPublicId);
             const w400 = isCloudinary ? buildCloudinaryUrl(promo.cloudinaryPublicId, 400) : promo.imageUrl;

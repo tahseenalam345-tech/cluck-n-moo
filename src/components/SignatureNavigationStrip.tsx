@@ -27,6 +27,9 @@ export function SignatureNavigationStrip({
   };
 
   useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollLeft = 0;
+    }
     checkScroll();
     window.addEventListener("resize", checkScroll);
     return () => window.removeEventListener("resize", checkScroll);
@@ -130,7 +133,7 @@ export function SignatureNavigationStrip({
               scrollSnapType: "x mandatory",
               scrollBehavior: "smooth",
               width: "100%",
-              justifyContent: "space-evenly",
+              justifyContent: "flex-start",
             }}
           >
             {SIGNATURE_SECTIONS.filter((s) => s.isActive).map((sec, idx) => {
@@ -318,24 +321,24 @@ export function SignatureNavigationStrip({
             display: none !important;
           }
           .signature-strip-track {
-            justifyContent: flex-start !important;
-            gap: 12px !important;
-            padding: 2px 24px 2px 4px !important;
+            justify-content: flex-start !important;
+            gap: 14px !important;
+            padding: 2px 20px 4px 10px !important;
           }
           .signature-circle-btn {
-            width: 52px !important;
-            height: 52px !important;
+            width: 54px !important;
+            height: 54px !important;
           }
           .signature-label {
-            font-size: 10px !important;
+            font-size: 11px !important;
           }
         }
 
         @media (min-width: 641px) and (max-width: 1024px) {
           .signature-strip-track {
-            justify-content: space-evenly !important;
-            gap: 16px !important;
-            padding: 2px 4px 4px !important;
+            justify-content: center !important;
+            gap: 18px !important;
+            padding: 2px 8px 4px !important;
           }
           .signature-circle-btn {
             width: 68px !important;
@@ -345,13 +348,13 @@ export function SignatureNavigationStrip({
 
         @media (min-width: 1025px) {
           .signature-strip-track {
-            justify-content: space-evenly !important;
+            justify-content: center !important;
             gap: 24px !important;
-            padding: 2px 4px 4px !important;
+            padding: 2px 8px 4px !important;
           }
           .signature-circle-btn {
-            width: 74px !important;
-            height: 74px !important;
+            width: 72px !important;
+            height: 72px !important;
           }
         }
       `}</style>

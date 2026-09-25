@@ -267,7 +267,7 @@ export default function StorefrontPage() {
         </div>
 
         {/* 6. Popular Picks Section (Configurable 4–6 verified dishes) */}
-        {!searchQuery && activeSignatureSlug === "menu" && (
+        {!searchQuery && (
           <PopularPicksSection
             products={allProducts}
             isLoading={isLoading}
@@ -276,7 +276,7 @@ export default function StorefrontPage() {
         )}
 
         {/* 6.5. Deals You'll Love (Homepage Promotions Grid) */}
-        {!searchQuery && activeSignatureSlug === "menu" && (
+        {!searchQuery && (
           <PromotionsSection
             onSelectPromotion={(promo) => setSelectedPromotion(promo)}
           />
@@ -336,8 +336,8 @@ export default function StorefrontPage() {
               )}
             </div>
 
-            {/* Category Pills (Visible when in full menú mode) */}
-            {activeSignatureSlug === "menu" && !searchQuery && (
+            {/* Category Pills (Visible when not searching, ALL ITEMS by default) */}
+            {!searchQuery && (
               <div
                 className="liquid-glass-bar"
                 style={{
@@ -370,7 +370,10 @@ export default function StorefrontPage() {
                   }}
                 >
                   <button
-                    onClick={() => setSelectedCategory("all")}
+                    onClick={() => {
+                      setActiveSignatureSlug("menu");
+                      setSelectedCategory("all");
+                    }}
                     className="category-tab-btn"
                     style={{
                       display: "inline-flex",
@@ -405,7 +408,10 @@ export default function StorefrontPage() {
                     return (
                       <button
                         key={cat.id}
-                        onClick={() => setSelectedCategory(cat.id)}
+                        onClick={() => {
+                          setActiveSignatureSlug("menu");
+                          setSelectedCategory(cat.id);
+                        }}
                         className="category-tab-btn"
                         style={{
                           display: "inline-flex",
