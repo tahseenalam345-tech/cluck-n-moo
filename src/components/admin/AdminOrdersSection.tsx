@@ -17,6 +17,9 @@ import {
   ShoppingBag,
   ChevronDown,
   ChevronUp,
+  MapPin,
+  Sparkles,
+  DollarSign,
 } from "lucide-react";
 
 interface AdminOrdersSectionProps {
@@ -31,10 +34,25 @@ interface AdminOrdersSectionProps {
   isUpdating?: boolean;
 }
 
-// Safe helper to check if an order is for DELIVERY
+// Helper to check if an order is for DELIVERY
 const isDeliveryOrder = (type?: string | null) => {
   if (!type) return false;
   return String(type).trim().toUpperCase() === "DELIVERY";
+};
+
+// Format relative time helper
+const formatRelativeTime = (dateStr: string) => {
+  try {
+    const diffMs = Date.now() - new Date(dateStr).getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    if (diffMins < 1) return "Just now";
+    if (diffMins < 60) return `${diffMins}m ago`;
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return `${diffHours}h ago`;
+    return new Date(dateStr).toLocaleDateString([], { month: "short", day: "numeric" });
+  } catch {
+    return "";
+  }
 };
 
 export function AdminOrdersSection({
@@ -98,11 +116,10 @@ export function AdminOrdersSection({
     };
   }, [orders]);
 
-  // Instant (0ms) In-Memory Filtered Orders
+  // Instant (0ms) Filtered Orders
   const filteredOrders = useMemo(() => {
     let list = orders;
 
-    // Status category filter
     if (orderStatusFilter === "active") {
       list = list.filter(
         (o) => o.status !== ORDER_STATUSES.COMPLETED && o.status !== ORDER_STATUSES.CANCELLED
@@ -111,7 +128,6 @@ export function AdminOrdersSection({
       list = list.filter((o) => o.status.toLowerCase() === orderStatusFilter.toLowerCase());
     }
 
-    // Search query filter across all fields
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
       list = list.filter((o) => {
@@ -144,176 +160,95 @@ export function AdminOrdersSection({
   }, [orders, orderStatusFilter, searchQuery]);
 
   return (
-    <div>
+    <div className="admin-orders-scope">
       {/* 1. EXECUTIVE KPI METRICS BAR */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 150px), 1fr))",
-          gap: "12px",
-          marginBottom: "18px",
-        }}
-      >
-        {/* Metric 1: Active Total */}
-        <div
-          style={{
-            backgroundColor: "var(--cnm-surface)",
-            border: "1px solid var(--cnm-border)",
-            borderRadius: "var(--radius-md)",
-            padding: "14px 16px",
-            boxShadow: "var(--shadow-xs)",
-          }}
-        >
-          <div style={{ fontSize: "11px", fontWeight: 800, textTransform: "uppercase", color: "var(--cnm-text-muted)" }}>
-            Active Orders
+      <div className="kpi-metrics-grid">
+        {/* Metric 1: Active Orders */}
+        <div className="kpi-metric-card" onClick={() => setOrderStatusFilter("active")}>
+          <div className="kpi-card-top">
+            <span className="kpi-card-title">Active Orders</span>
+            <div className="kpi-card-icon blue">
+              <ShoppingBag size={18} />
+            </div>
           </div>
-          <div style={{ fontFamily: "var(--font-display)", fontSize: "24px", fontWeight: 900, color: "var(--cnm-text-primary)", marginTop: "2px" }}>
-            {kpiMetrics.activeCount}
-          </div>
+          <div className="kpi-card-num">{kpiMetrics.activeCount}</div>
+          <div className="kpi-card-sub text-slate-500">Pipeline in motion</div>
         </div>
 
         {/* Metric 2: Needs Call */}
-        <div
-          style={{
-            backgroundColor: "var(--cnm-surface)",
-            border: "1px solid var(--cnm-border)",
-            borderRadius: "var(--radius-md)",
-            padding: "14px 16px",
-            borderLeft: "4px solid var(--status-new)",
-            boxShadow: "var(--shadow-xs)",
-          }}
-        >
-          <div style={{ fontSize: "11px", fontWeight: 800, textTransform: "uppercase", color: "var(--status-new)" }}>
-            Needs Phone Call
+        <div className="kpi-metric-card amber" onClick={() => setOrderStatusFilter("New")}>
+          <div className="kpi-card-top">
+            <span className="kpi-card-title">Needs Phone Call</span>
+            <div className="kpi-card-icon amber">
+              <Phone size={18} />
+            </div>
           </div>
-          <div style={{ fontFamily: "var(--font-display)", fontSize: "24px", fontWeight: 900, color: "var(--cnm-text-primary)", marginTop: "2px" }}>
-            {kpiMetrics.newCount}
-          </div>
+          <div className="kpi-card-num text-amber-600">{kpiMetrics.newCount}</div>
+          <div className="kpi-card-sub text-amber-700">Awaiting phone verification</div>
         </div>
 
-        {/* Metric 3: Kitchen Cooking */}
-        <div
-          style={{
-            backgroundColor: "var(--cnm-surface)",
-            border: "1px solid var(--cnm-border)",
-            borderRadius: "var(--radius-md)",
-            padding: "14px 16px",
-            borderLeft: "4px solid var(--cnm-orange)",
-            boxShadow: "var(--shadow-xs)",
-          }}
-        >
-          <div style={{ fontSize: "11px", fontWeight: 800, textTransform: "uppercase", color: "var(--cnm-orange)" }}>
-            Kitchen Cooking
+        {/* Metric 3: Kitchen Preparing */}
+        <div className="kpi-metric-card orange" onClick={() => setOrderStatusFilter("Preparing")}>
+          <div className="kpi-card-top">
+            <span className="kpi-card-title">Kitchen Cooking</span>
+            <div className="kpi-card-icon orange">
+              <ChefHat size={18} />
+            </div>
           </div>
-          <div style={{ fontFamily: "var(--font-display)", fontSize: "24px", fontWeight: 900, color: "var(--cnm-text-primary)", marginTop: "2px" }}>
-            {kpiMetrics.kitchenCount}
-          </div>
+          <div className="kpi-card-num text-orange-600">{kpiMetrics.kitchenCount}</div>
+          <div className="kpi-card-sub text-orange-700">Currently in the kitchen</div>
         </div>
 
         {/* Metric 4: Rider In-Transit */}
-        <div
-          style={{
-            backgroundColor: "var(--cnm-surface)",
-            border: "1px solid var(--cnm-border)",
-            borderRadius: "var(--radius-md)",
-            padding: "14px 16px",
-            borderLeft: "4px solid var(--status-delivery)",
-            boxShadow: "var(--shadow-xs)",
-          }}
-        >
-          <div style={{ fontSize: "11px", fontWeight: 800, textTransform: "uppercase", color: "var(--status-delivery)" }}>
-            Rider In-Transit
+        <div className="kpi-metric-card purple" onClick={() => setOrderStatusFilter("Out for delivery")}>
+          <div className="kpi-card-top">
+            <span className="kpi-card-title">Rider In-Transit</span>
+            <div className="kpi-card-icon purple">
+              <Bike size={18} />
+            </div>
           </div>
-          <div style={{ fontFamily: "var(--font-display)", fontSize: "24px", fontWeight: 900, color: "var(--cnm-text-primary)", marginTop: "2px" }}>
-            {kpiMetrics.riderCount}
-          </div>
+          <div className="kpi-card-num text-purple-600">{kpiMetrics.riderCount}</div>
+          <div className="kpi-card-sub text-purple-700">Dispatched out for delivery</div>
         </div>
 
-        {/* Metric 5: Active Cash */}
-        <div
-          style={{
-            backgroundColor: "var(--cnm-surface)",
-            border: "1px solid var(--cnm-border)",
-            borderRadius: "var(--radius-md)",
-            padding: "14px 16px",
-            boxShadow: "var(--shadow-xs)",
-          }}
-        >
-          <div style={{ fontSize: "11px", fontWeight: 800, textTransform: "uppercase", color: "var(--cnm-text-muted)" }}>
-            Active Cash Pipeline
+        {/* Metric 5: Active Cash Pipeline */}
+        <div className="kpi-metric-card green">
+          <div className="kpi-card-top">
+            <span className="kpi-card-title">Active Cash Pipeline</span>
+            <div className="kpi-card-icon green">
+              <DollarSign size={18} />
+            </div>
           </div>
-          <div style={{ fontFamily: "var(--font-display)", fontSize: "22px", fontWeight: 900, color: "var(--cnm-text-primary)", marginTop: "2px" }}>
-            {kpiMetrics.totalCash.toLocaleString()} PKR
-          </div>
+          <div className="kpi-card-num text-emerald-700">{kpiMetrics.totalCash.toLocaleString()} <span className="currency-label">PKR</span></div>
+          <div className="kpi-card-sub text-emerald-800">Pending COD collection</div>
         </div>
       </div>
 
       {/* 2. CONTROLS BAR: INSTANT SEARCH, STATUS FILTER PILLS & VIEW TOGGLE */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: "12px",
-          marginBottom: "16px",
-          flexWrap: "wrap",
-        }}
-      >
-        {/* Search Bar */}
-        <div
-          style={{
-            position: "relative",
-            width: "320px",
-            maxWidth: "100%",
-          }}
-        >
-          <Search
-            size={15}
-            style={{
-              position: "absolute",
-              left: "12px",
-              top: "50%",
-              transform: "translateY(-50%)",
-              color: "var(--cnm-text-muted)",
-            }}
-          />
+      <div className="orders-toolbar-bar">
+        {/* Search Input */}
+        <div className="orders-search-wrapper">
+          <Search size={16} className="search-icon-fixed" />
           <input
             type="text"
-            placeholder="Search order #, customer, item, reason..."
+            placeholder="Search order #, customer name, phone, dish..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            style={{
-              width: "100%",
-              padding: "8px 32px 8px 34px",
-              backgroundColor: "var(--cnm-surface)",
-              border: "1px solid var(--cnm-border)",
-              borderRadius: "var(--radius-full)",
-              fontSize: "12.5px",
-              color: "var(--cnm-text-primary)",
-              outline: "none",
-            }}
+            className="orders-search-input"
           />
           {searchQuery && (
             <button
               onClick={() => setSearchQuery("")}
-              style={{
-                position: "absolute",
-                right: "10px",
-                top: "50%",
-                transform: "translateY(-50%)",
-                background: "transparent",
-                border: "none",
-                color: "var(--cnm-text-muted)",
-                cursor: "pointer",
-              }}
+              className="search-clear-btn"
+              title="Clear search"
             >
               <X size={14} />
             </button>
           )}
         </div>
 
-        {/* Status Filter Pills with Instant 0ms Tally Badges */}
-        <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", alignItems: "center" }}>
+        {/* Status Filter Pills */}
+        <div className="orders-filter-pills-row">
           {[
             { key: "active", label: "All Active", count: kpiMetrics.activeCount },
             { key: "New", label: "New", count: kpiMetrics.newCount },
@@ -328,35 +263,12 @@ export function AdminOrdersSection({
             return (
               <button
                 key={f.key}
+                type="button"
                 onClick={() => setOrderStatusFilter(f.key)}
-                style={{
-                  padding: "5px 12px",
-                  borderRadius: "var(--radius-full)",
-                  fontSize: "11.5px",
-                  fontFamily: "var(--font-display)",
-                  fontWeight: 800,
-                  textTransform: "uppercase",
-                  cursor: "pointer",
-                  backgroundColor: isSelected ? "var(--cnm-orange)" : "var(--cnm-surface)",
-                  color: isSelected ? "#ffffff" : "var(--cnm-text-secondary)",
-                  border: `1px solid ${isSelected ? "var(--cnm-orange)" : "var(--cnm-border)"}`,
-                  transition: "background-color 0.15s ease, color 0.15s ease",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "6px",
-                }}
+                className={`order-filter-pill ${isSelected ? "active" : ""}`}
               >
                 <span>{f.label}</span>
-                <span
-                  style={{
-                    fontSize: "10px",
-                    fontWeight: 900,
-                    padding: "1px 6px",
-                    borderRadius: "10px",
-                    backgroundColor: isSelected ? "rgba(0,0,0,0.2)" : "var(--cnm-surface-elevated)",
-                    color: isSelected ? "#ffffff" : "var(--cnm-text-muted)",
-                  }}
-                >
+                <span className={`pill-counter ${isSelected ? "counter-active" : ""}`}>
                   {f.count}
                 </span>
               </button>
@@ -364,76 +276,39 @@ export function AdminOrdersSection({
           })}
         </div>
 
-        {/* View Mode & Expand-All Controls */}
-        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          {/* Expand All / Collapse All Toggle */}
+        {/* View Mode & Expand Controls */}
+        <div className="orders-view-controls">
           <button
+            type="button"
             onClick={toggleExpandAll}
-            style={{
-              padding: "5px 10px",
-              borderRadius: "var(--radius-sm)",
-              backgroundColor: "var(--cnm-surface)",
-              border: "1px solid var(--cnm-border)",
-              color: "var(--cnm-text-secondary)",
-              fontSize: "12px",
-              fontWeight: 800,
-              cursor: "pointer",
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "4px",
-            }}
-            title="Expand or collapse full itemized breakdown on all cards"
+            className="btn-toggle-expand"
+            title="Expand or collapse full itemized details on all cards"
           >
             {expandedOrderIds.size > 0 ? (
               <>
                 <ChevronUp size={14} />
-                <span>Collapse All</span>
+                <span>Collapse Details</span>
               </>
             ) : (
               <>
                 <ChevronDown size={14} />
-                <span>Expand All</span>
+                <span>Expand Details</span>
               </>
             )}
           </button>
 
-          {/* Grid vs Table View Mode */}
-          <div
-            style={{
-              display: "inline-flex",
-              borderRadius: "var(--radius-sm)",
-              border: "1px solid var(--cnm-border)",
-              backgroundColor: "var(--cnm-surface)",
-              padding: "2px",
-            }}
-          >
+          <div className="view-mode-toggle-group">
             <button
+              type="button"
               onClick={() => setViewMode("grid")}
-              style={{
-                padding: "4px 10px",
-                fontSize: "12px",
-                fontWeight: 800,
-                borderRadius: "var(--radius-xs)",
-                backgroundColor: viewMode === "grid" ? "var(--cnm-surface-elevated)" : "transparent",
-                color: viewMode === "grid" ? "var(--cnm-orange)" : "var(--cnm-text-muted)",
-                border: "none",
-                cursor: "pointer",
-              }}
+              className={`view-mode-btn ${viewMode === "grid" ? "active" : ""}`}
             >
               Cards
             </button>
             <button
+              type="button"
               onClick={() => setViewMode("table")}
-              style={{
-                padding: "4px 10px",
-                fontSize: "12px",
-                fontWeight: 800,
-                borderRadius: "var(--radius-xs)",
-                backgroundColor: viewMode === "table" ? "var(--cnm-surface-elevated)" : "transparent",
-                color: viewMode === "table" ? "var(--cnm-orange)" : "var(--cnm-text-muted)",
-                border: "none",
-                cursor: "pointer",
-              }}
+              className={`view-mode-btn ${viewMode === "table" ? "active" : ""}`}
             >
               Table
             </button>
@@ -443,458 +318,325 @@ export function AdminOrdersSection({
 
       {/* 3. ORDERS RENDER AREA */}
       {filteredOrders.length === 0 ? (
-        <div
-          style={{
-            textAlign: "center",
-            padding: "60px 20px",
-            backgroundColor: "var(--cnm-surface)",
-            border: "1px dashed var(--cnm-border)",
-            borderRadius: "var(--radius-lg)",
-            color: "var(--cnm-text-muted)",
-            animation: "fadeInFast 0.2s ease",
-          }}
-        >
-          <Clock size={40} style={{ margin: "0 auto 12px", opacity: 0.4 }} />
-          <h3 style={{ fontSize: "16px", fontWeight: 800, color: "var(--cnm-text-primary)", marginBottom: "4px" }}>
-            No Orders Found
-          </h3>
-          <p style={{ fontSize: "13px" }}>
-            {searchQuery ? `No orders matching query "${searchQuery}"` : `No orders with status "${orderStatusFilter}"`}
+        <div className="orders-empty-state">
+          <Clock size={44} className="empty-clock-icon" />
+          <h3 className="empty-title">No Orders Found</h3>
+          <p className="empty-desc">
+            {searchQuery
+              ? `No orders matching query "${searchQuery}"`
+              : `No orders in status "${orderStatusFilter}"`}
           </p>
         </div>
       ) : viewMode === "grid" ? (
-        /* A. UNIFORM CARD GRID WITH EXPANDABLE BREAKDOWN */
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 320px), 1fr))",
-            gap: "16px",
-            alignItems: "stretch",
-          }}
-        >
+        /* A. HIGH-CONTRAST POS CARD GRID */
+        <div className="orders-card-grid">
           {filteredOrders.map((ord) => {
             const isExpanded = expandedOrderIds.has(ord.id);
             const isAnimating = !!animatingOrders[ord.id];
             const isDelivery = isDeliveryOrder(ord.orderType);
+            const isDineIn = String(ord.orderType).toUpperCase() === "DINE_IN";
 
-            const getStatusAccent = () => {
+            // Status Badge styling helper
+            const getStatusBadge = () => {
               switch (ord.status) {
                 case "New":
-                  return "var(--status-new)";
+                  return {
+                    label: "NEW ORDER",
+                    className: "badge-status-new",
+                    showPulse: true,
+                    topColor: "#f59e0b",
+                  };
                 case "Confirmed":
-                  return "var(--status-confirmed)";
+                  return {
+                    label: "CONFIRMED",
+                    className: "badge-status-confirmed",
+                    showPulse: false,
+                    topColor: "#0284c7",
+                  };
                 case "Preparing":
-                  return "var(--cnm-orange)";
+                  return {
+                    label: "KITCHEN COOKING",
+                    className: "badge-status-preparing",
+                    showPulse: true,
+                    topColor: "#ea580c",
+                  };
                 case "Ready":
-                  return "var(--status-ready)";
+                  return {
+                    label: "FOOD READY",
+                    className: "badge-status-ready",
+                    showPulse: false,
+                    topColor: "#10b981",
+                  };
                 case "Out for delivery":
-                  return "var(--status-delivery)";
+                  return {
+                    label: "RIDER DISPATCHED",
+                    className: "badge-status-delivery",
+                    showPulse: true,
+                    topColor: "#6366f1",
+                  };
                 case "Completed":
-                  return "var(--status-ready)";
+                  return {
+                    label: "COMPLETED",
+                    className: "badge-status-completed",
+                    showPulse: false,
+                    topColor: "#64748b",
+                  };
                 case "Cancelled":
-                  return "var(--status-cancelled)";
+                  return {
+                    label: "CANCELLED",
+                    className: "badge-status-cancelled",
+                    showPulse: false,
+                    topColor: "#ef4444",
+                  };
                 default:
-                  return "var(--cnm-border)";
+                  return {
+                    label: ord.status,
+                    className: "badge-status-completed",
+                    showPulse: false,
+                    topColor: "#cbd5e1",
+                  };
               }
             };
 
-            const accentColor = getStatusAccent();
+            const statusBadge = getStatusBadge();
 
             return (
               <div
                 key={ord.id}
-                className={`order-card-transition ${isAnimating ? "anim-optimistic-pulse" : "anim-fade-in"}`}
-                style={{
-                  backgroundColor: "var(--cnm-surface)",
-                  border: "1px solid var(--cnm-border)",
-                  borderTop: `4px solid ${accentColor}`,
-                  borderRadius: "14px",
-                  boxShadow: "var(--shadow-sm)",
-                  padding: "16px",
-                  display: "flex",
-                  flexDirection: "column",
-                  height: "100%",
-                  position: "relative",
-                }}
+                className={`order-pos-card ${isAnimating ? "anim-card-pulse" : ""}`}
+                style={{ borderTop: `4px solid ${statusBadge.topColor}` }}
               >
-                {/* Top Header */}
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "flex-start",
-                    marginBottom: "12px",
-                    gap: "8px",
-                  }}
-                >
-                  <div>
-                    <div
-                      style={{
-                        fontFamily: "var(--font-display)",
-                        fontSize: "17px",
-                        fontWeight: 900,
-                        color: "var(--cnm-text-primary)",
-                        letterSpacing: "0.02em",
-                        lineHeight: 1.2,
-                      }}
-                    >
-                      {ord.orderNumber}
+                {/* 1. Header Row */}
+                <div className="card-header-row">
+                  <div className="order-id-group">
+                    <span className="order-id-text">#{ord.orderNumber}</span>
+                    <div className="order-time-tag">
+                      <Clock size={11} />
+                      <span>{new Date(ord.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} PKT</span>
+                      <span className="time-relative-dot">·</span>
+                      <span className="time-relative-text">{formatRelativeTime(ord.createdAt)}</span>
                     </div>
-                    <span
-                      style={{
-                        display: "inline-block",
-                        fontSize: "11px",
-                        color: "var(--cnm-text-muted)",
-                        fontWeight: 600,
-                        marginTop: "2px",
-                      }}
-                    >
-                      {new Date(ord.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} PKT
-                    </span>
                   </div>
 
-                  <div style={{ display: "flex", gap: "5px", flexWrap: "wrap", justifyContent: "flex-end" }}>
-                    <span
-                      style={{
-                        fontSize: "10px",
-                        fontWeight: 800,
-                        padding: "2px 8px",
-                        borderRadius: "var(--radius-xs)",
-                        backgroundColor: "rgba(255, 130, 67, 0.12)",
-                        color: "var(--cnm-orange)",
-                        textTransform: "uppercase",
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: "3px",
-                      }}
-                    >
-                      {isDelivery ? <Bike size={11} /> : String(ord.orderType).toUpperCase() === "DINE_IN" ? <Utensils size={11} /> : <ShoppingBag size={11} />}
-                      <span>{ord.orderType}</span>
+                  <div className="order-badges-group">
+                    {/* Fulfillment Type */}
+                    <span className={`badge-type ${isDelivery ? "delivery" : isDineIn ? "dine-in" : "pickup"}`}>
+                      {isDelivery ? <Bike size={12} /> : isDineIn ? <Utensils size={12} /> : <ShoppingBag size={12} />}
+                      <span>{ord.orderType || "PICKUP"}</span>
                     </span>
 
-                    <span
-                      style={{
-                        fontSize: "10px",
-                        fontWeight: 800,
-                        padding: "2px 8px",
-                        borderRadius: "var(--radius-xs)",
-                        backgroundColor: ord.status === "Cancelled" ? "rgba(239, 68, 68, 0.15)" : isAnimating ? "rgba(46, 204, 113, 0.2)" : "var(--cnm-surface-elevated)",
-                        color: ord.status === "Cancelled" ? "var(--status-cancelled)" : isAnimating ? "var(--status-ready)" : "var(--cnm-text-primary)",
-                        border: `1px solid ${ord.status === "Cancelled" ? "var(--status-cancelled)" : "var(--cnm-border)"}`,
-                        textTransform: "uppercase",
-                        transition: "all 0.2s ease",
-                      }}
-                    >
-                      {ord.status}
+                    {/* Status Badge */}
+                    <span className={`badge-status-pill ${statusBadge.className}`}>
+                      {statusBadge.showPulse && <span className="status-live-dot" />}
+                      <span>{statusBadge.label}</span>
                     </span>
                   </div>
                 </div>
 
-                {/* Customer & Location Box */}
-                <div
-                  style={{
-                    backgroundColor: "var(--cnm-surface-elevated)",
-                    border: "1px solid var(--cnm-border)",
-                    padding: "10px 12px",
-                    borderRadius: "var(--radius-sm)",
-                    fontSize: "12.5px",
-                    marginBottom: "12px",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "4px",
-                  }}
-                >
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span style={{ fontWeight: 800, color: "var(--cnm-text-primary)" }}>
-                      {ord.customerNameSnapshot || ord.customerName}
-                    </span>
+                {/* 2. Customer & Address Information Box */}
+                <div className="customer-info-box">
+                  <div className="customer-primary-row">
+                    <div className="customer-name-label">
+                      👤 <strong>{ord.customerNameSnapshot || ord.customerName || "Guest Customer"}</strong>
+                    </div>
+
                     <a
                       href={`tel:${ord.customerPhoneSnapshot || ord.customerPhone}`}
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: "4px",
-                        color: "var(--cnm-orange)",
-                        fontWeight: 800,
-                        fontSize: "12px",
-                        textDecoration: "none",
-                      }}
+                      className="customer-call-btn"
+                      title="Tap to call customer"
                     >
-                      <Phone size={12} />
+                      <Phone size={12} className="phone-icon" />
                       <span>{ord.customerPhoneSnapshot || ord.customerPhone}</span>
                     </a>
                   </div>
 
                   {isDelivery && (
-                    <div style={{ fontSize: "11.5px", color: "var(--cnm-text-secondary)" }}>
-                      📍 <span style={{ fontWeight: 700 }}>{ord.deliveryAreaNameSnapshot || ord.deliveryAreaName}:</span>{" "}
-                      {ord.deliveryAddressSnapshot || ord.deliveryAddress}
-                      {ord.deliveryLandmarkSnapshot && (
-                        <span style={{ color: "var(--cnm-text-muted)" }}> (Near: {ord.deliveryLandmarkSnapshot})</span>
-                      )}
+                    <div className="customer-delivery-address">
+                      <MapPin size={13} className="pin-icon" />
+                      <div>
+                        <strong className="address-area">{ord.deliveryAreaNameSnapshot || ord.deliveryAreaName}:</strong>{" "}
+                        <span className="address-details">{ord.deliveryAddressSnapshot || ord.deliveryAddress}</span>
+                        {ord.deliveryLandmarkSnapshot && (
+                          <span className="address-landmark"> (Near: {ord.deliveryLandmarkSnapshot})</span>
+                        )}
+                      </div>
                     </div>
                   )}
 
-                  {String(ord.orderType).toUpperCase() === "DINE_IN" && (
-                    <div style={{ fontSize: "11.5px", color: "var(--status-confirmed)" }}>
-                      🍽️ Dine-in: {ord.dineInPreferredTime} ({ord.paymentLocation || "On Table"})
+                  {isDineIn && (
+                    <div className="customer-dinein-note">
+                      🍽️ Dine-in: <strong>{ord.dineInPreferredTime || "ASAP"}</strong> ({ord.paymentLocation || "Table Service"})
                     </div>
                   )}
                 </div>
 
-                {/* Cancellation Reason Banner (when cancelled) */}
+                {/* Cancellation Alert Callout */}
                 {ord.status === "Cancelled" && (
-                  <div
-                    style={{
-                      backgroundColor: "rgba(239, 68, 68, 0.12)",
-                      border: "1px solid rgba(239, 68, 68, 0.35)",
-                      borderRadius: "var(--radius-xs)",
-                      padding: "8px 12px",
-                      fontSize: "12px",
-                      color: "var(--status-cancelled)",
-                      marginBottom: "10px",
-                      display: "flex",
-                      alignItems: "flex-start",
-                      gap: "8px",
-                    }}
-                  >
-                    <XCircle size={15} style={{ flexShrink: 0, marginTop: "2px", color: "var(--status-cancelled)" }} />
+                  <div className="order-cancelled-notice">
+                    <XCircle size={15} className="cancel-icon" />
                     <div>
-                      <span style={{ fontWeight: 800 }}>Cancellation Reason: </span>
-                      <span style={{ fontWeight: 600 }}>{ord.cancellationReason || "No specific reason provided"}</span>
+                      <strong>Cancellation Reason: </strong>
+                      <span>{ord.cancellationReason || "No specific reason provided"}</span>
                     </div>
                   </div>
                 )}
 
-                {/* Customer Special Instructions Alert */}
+                {/* Special Instructions Callout */}
                 {ord.specialInstructions && (
-                  <div
-                    style={{
-                      backgroundColor: "rgba(255, 193, 7, 0.12)",
-                      border: "1px solid rgba(255, 193, 7, 0.35)",
-                      borderRadius: "var(--radius-xs)",
-                      padding: "6px 10px",
-                      fontSize: "11.5px",
-                      color: "var(--cnm-text-primary)",
-                      marginBottom: "10px",
-                      display: "flex",
-                      alignItems: "flex-start",
-                      gap: "6px",
-                    }}
-                  >
-                    <AlertCircle size={13} style={{ color: "var(--status-new)", flexShrink: 0, marginTop: "2px" }} />
+                  <div className="order-special-note">
+                    <AlertCircle size={14} className="note-icon" />
                     <div>
-                      <span style={{ fontWeight: 800, color: "var(--status-new)" }}>Customer Note: </span>
+                      <strong>Customer Special Note: </strong>
                       <span>{ord.specialInstructions}</span>
                     </div>
                   </div>
                 )}
 
-                {/* Items Section Header with Expand / Collapse Button */}
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    marginBottom: "6px",
-                  }}
-                >
-                  <span style={{ fontSize: "11px", fontWeight: 800, textTransform: "uppercase", color: "var(--cnm-text-muted)" }}>
-                    Order Items ({ord.items?.length || 0})
+                {/* 3. Items Header */}
+                <div className="items-header-bar">
+                  <span className="items-count-heading">
+                    ORDER ITEMS ({ord.items?.length || 0})
                   </span>
                   <button
                     type="button"
                     onClick={() => toggleOrderExpand(ord.id)}
-                    style={{
-                      background: "none",
-                      border: "none",
-                      color: "var(--cnm-orange)",
-                      fontSize: "11px",
-                      fontWeight: 800,
-                      cursor: "pointer",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: "3px",
-                      padding: "2px 4px",
-                    }}
+                    className="btn-expand-card-items"
                   >
-                    <span>{isExpanded ? "Collapse" : "Expand Details"}</span>
-                    {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                    <span>{isExpanded ? "Collapse" : "Expand All"}</span>
+                    {isExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
                   </button>
                 </div>
 
-                {/* Items List */}
-                <div
-                  style={{
-                    maxHeight: isExpanded ? "400px" : "90px",
-                    height: isExpanded ? "auto" : "90px",
-                    overflowY: "auto",
-                    paddingRight: "4px",
-                    marginBottom: "12px",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: isExpanded ? "8px" : "5px",
-                    transition: "max-height 0.25s ease",
-                  }}
-                >
-                  {ord.items?.map((item, idx) => (
-                    <div
-                      key={idx}
-                      style={{
-                        backgroundColor: isExpanded ? "var(--cnm-surface-elevated)" : "transparent",
-                        padding: isExpanded ? "8px" : "0",
-                        borderRadius: "var(--radius-xs)",
-                        border: isExpanded ? "1px solid var(--cnm-border)" : "none",
-                        fontSize: "12px",
-                        lineHeight: 1.3,
-                      }}
-                    >
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                        <span style={{ paddingRight: "6px", fontWeight: 700, color: "var(--cnm-text-primary)" }}>
-                          <span style={{ fontWeight: 800, color: "var(--cnm-orange)" }}>{item.quantity}x</span>{" "}
-                          {item.productNameSnapshot || item.productName}
-                          {(item.variantNameSnapshot || item.variantName) && (
-                            <span
-                              style={{
-                                display: "inline-block",
-                                marginLeft: "4px",
-                                padding: "1px 5px",
-                                borderRadius: "3px",
-                                backgroundColor: "rgba(255, 130, 67, 0.1)",
-                                color: "var(--cnm-orange)",
-                                fontSize: "10.5px",
-                                fontWeight: 800,
-                              }}
-                            >
-                              {item.variantNameSnapshot || item.variantName}
+                {/* 4. Items List with High-Contrast Legibility */}
+                <div className={`order-items-wrapper ${isExpanded ? "expanded" : "compact"}`}>
+                  {ord.items?.map((item, idx) => {
+                    const variantText = item.variantNameSnapshot || item.variantName;
+                    const isDeal = variantText && (variantText.includes("•") || variantText.includes("+") || item.productName?.toLowerCase().includes("deal"));
+
+                    return (
+                      <div key={idx} className="order-item-row">
+                        <div className="item-title-row">
+                          <div className="item-name-col">
+                            <span className="item-qty-badge">{item.quantity}x</span>
+                            <span className="item-name-text">
+                              {item.productNameSnapshot || item.productName}
                             </span>
-                          )}
-                        </span>
-                        <span style={{ fontWeight: 800, flexShrink: 0, color: "var(--cnm-text-primary)" }}>
-                          {item.lineTotalPkr} PKR
-                        </span>
-                      </div>
+                          </div>
+                          <span className="item-price-text">{item.lineTotalPkr.toLocaleString()} PKR</span>
+                        </div>
 
-                      {/* Full Modifiers & Addons breakdown when expanded */}
-                      {isExpanded && item.modifiers && item.modifiers.length > 0 && (
-                        <div style={{ marginTop: "4px", paddingLeft: "12px", borderLeft: "2px solid var(--cnm-orange)" }}>
-                          {item.modifiers.map((m: any, mIdx: number) => (
-                            <div
-                              key={mIdx}
-                              style={{
-                                display: "flex",
-                                justifyContent: "space-between",
-                                fontSize: "11px",
-                                color: "var(--cnm-text-secondary)",
-                              }}
-                            >
-                              <span>+ {m.name || m.modifierNameSnapshot}</span>
-                              <span>{(m.pricePkr || m.priceSnapshotPkr || 0) > 0 ? `+${m.pricePkr || m.priceSnapshotPkr} PKR` : "Included"}</span>
+                        {/* Variant / Size Tag or Deal Contents */}
+                        {variantText && (
+                          isDeal ? (
+                            /* Deal Contents Box */
+                            <div className="item-deal-inclusions-box">
+                              <span className="deal-box-label">Included Items:</span>
+                              <div className="deal-box-content">{variantText}</div>
                             </div>
-                          ))}
-                        </div>
-                      )}
+                          ) : (
+                            /* Size Variant Tag */
+                            <div className="item-size-tag-wrap">
+                              <span className="item-size-pill">{variantText}</span>
+                            </div>
+                          )
+                        )}
 
-                      {isExpanded && (
-                        <div style={{ fontSize: "10.5px", color: "var(--cnm-text-muted)", marginTop: "2px" }}>
-                          Unit: {item.unitPriceSnapshotPkr || item.unitPricePkr} PKR
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                        {/* Modifiers & Extra Toppings */}
+                        {item.modifiers && item.modifiers.length > 0 && (
+                          <div className="item-modifiers-box">
+                            {item.modifiers.map((m: any, mIdx: number) => (
+                              <div key={mIdx} className="modifier-item-line">
+                                <span className="modifier-name">+ {m.name || m.modifierNameSnapshot}</span>
+                                <span className="modifier-price">
+                                  {(m.pricePkr || m.priceSnapshotPkr || 0) > 0
+                                    ? `+${m.pricePkr || m.priceSnapshotPkr} PKR`
+                                    : "Included"}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
 
-                {/* Card Footer */}
-                <div style={{ marginTop: "auto", paddingTop: "10px", borderTop: "1px dashed var(--cnm-border)" }}>
-                  {/* Subtotal, Fee, Discount breakdown when expanded */}
+                {/* 5. Card Footer: Pricing & Action Controls */}
+                <div className="card-bottom-pinned">
+                  {/* Financial Breakdown (When Expanded) */}
                   {isExpanded && (
-                    <div style={{ marginBottom: "8px", fontSize: "11.5px", color: "var(--cnm-text-secondary)" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "2px" }}>
+                    <div className="order-fee-breakdown">
+                      <div className="fee-line">
                         <span>Subtotal</span>
-                        <span>{ord.subtotalPkr} PKR</span>
+                        <span>{ord.subtotalPkr.toLocaleString()} PKR</span>
                       </div>
                       {ord.deliveryFeePkr > 0 && (
-                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "2px" }}>
+                        <div className="fee-line">
                           <span>Delivery Fee</span>
                           <span>+{ord.deliveryFeePkr} PKR</span>
                         </div>
                       )}
                       {(ord.discountPkr || 0) > 0 && (
-                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "2px", color: "var(--status-ready)", fontWeight: 700 }}>
-                          <span>Discount</span>
+                        <div className="fee-line discount">
+                          <span>Discount Applied</span>
                           <span>-{ord.discountPkr} PKR</span>
                         </div>
                       )}
                     </div>
                   )}
 
-                  {/* Total Amount Cash */}
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      marginBottom: "10px",
-                    }}
-                  >
-                    <span style={{ fontSize: "12px", color: "var(--cnm-text-muted)", fontWeight: 700, textTransform: "uppercase" }}>
-                      Total Cash
-                    </span>
-                    <span style={{ fontFamily: "var(--font-display)", fontSize: "16px", fontWeight: 900, color: "var(--cnm-text-primary)" }}>
-                      {ord.totalPkr.toLocaleString()} PKR
-                    </span>
+                  {/* Cash Total Bar */}
+                  <div className="total-cash-bar">
+                    <span className="total-label">TOTAL (CASH ON DELIVERY)</span>
+                    <span className="total-val">{ord.totalPkr.toLocaleString()} PKR</span>
                   </div>
 
-                  {/* Action Buttons: Strict State Machine Workflow */}
-                  <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+                  {/* Operational POS Action Buttons */}
+                  <div className="action-buttons-rack">
                     {/* 1. NEW -> CONFIRMED */}
                     {ord.status === "New" && (
                       <button
                         onClick={() => onUpdateOrderStatus(ord.id, ORDER_STATUSES.CONFIRMED)}
-                        className="btn btn-sm btn-primary"
+                        className="btn-action-pos btn-confirm-call"
                         disabled={isUpdating}
-                        style={{ flex: 1, backgroundColor: "var(--status-new)", color: "#000", fontWeight: 800, padding: "7px 10px" }}
                       >
-                        <Phone size={13} />
-                        <span>CONFIRM CALL</span>
+                        <Phone size={14} />
+                        <span>CONFIRM PHONE CALL</span>
                       </button>
                     )}
 
-                    {/* 2. CONFIRMED -> PREPARING (Send to Kitchen) */}
+                    {/* 2. CONFIRMED -> PREPARING (Kitchen) */}
                     {ord.status === "Confirmed" && (
                       <button
                         onClick={() => onUpdateOrderStatus(ord.id, ORDER_STATUSES.PREPARING)}
-                        className="btn btn-sm btn-primary"
+                        className="btn-action-pos btn-send-kitchen"
                         disabled={isUpdating}
-                        style={{ flex: 1, padding: "7px 10px" }}
                       >
-                        <ChefHat size={14} />
-                        <span>SEND KITCHEN</span>
+                        <ChefHat size={15} />
+                        <span>SEND TO KITCHEN</span>
                       </button>
                     )}
 
-                    {/* 3. PREPARING (Kitchen) -> READY */}
+                    {/* 3. PREPARING -> READY */}
                     {ord.status === "Preparing" && (
                       <button
                         onClick={() => onUpdateOrderStatus(ord.id, ORDER_STATUSES.READY)}
-                        className="btn btn-sm btn-primary"
+                        className="btn-action-pos btn-mark-ready"
                         disabled={isUpdating}
-                        style={{ flex: 1, backgroundColor: "var(--status-ready)", padding: "7px 10px" }}
                       >
-                        <CheckCircle size={14} />
-                        <span>MARK READY</span>
+                        <CheckCircle size={15} />
+                        <span>MARK AS READY</span>
                       </button>
                     )}
 
-                    {/* 4A. READY + DELIVERY -> OUT FOR DELIVERY (Rider Dispatch ONLY) */}
+                    {/* 4A. READY + DELIVERY -> OUT FOR DELIVERY (Rider) */}
                     {ord.status === "Ready" && isDelivery && (
                       <button
                         onClick={() => onUpdateOrderStatus(ord.id, ORDER_STATUSES.OUT_FOR_DELIVERY)}
-                        className="btn btn-sm btn-primary"
+                        className="btn-action-pos btn-dispatch-rider"
                         disabled={isUpdating}
-                        style={{ flex: 1, padding: "7px 10px", backgroundColor: "var(--status-delivery)" }}
                       >
-                        <Bike size={14} />
+                        <Bike size={15} />
                         <span>DISPATCH RIDER</span>
                       </button>
                     )}
@@ -903,12 +645,11 @@ export function AdminOrdersSection({
                     {ord.status === "Ready" && !isDelivery && (
                       <button
                         onClick={() => onUpdateOrderStatus(ord.id, ORDER_STATUSES.COMPLETED)}
-                        className="btn btn-sm btn-primary"
+                        className="btn-action-pos btn-mark-ready"
                         disabled={isUpdating}
-                        style={{ flex: 1, backgroundColor: "var(--status-ready)", padding: "7px 10px" }}
                       >
-                        <CheckCircle size={14} />
-                        <span>HAND OVER ({ord.orderType})</span>
+                        <CheckCircle size={15} />
+                        <span>HAND OVER ({ord.orderType || "PICKUP"})</span>
                       </button>
                     )}
 
@@ -916,23 +657,23 @@ export function AdminOrdersSection({
                     {ord.status === "Out for delivery" && (
                       <button
                         onClick={() => onUpdateOrderStatus(ord.id, ORDER_STATUSES.COMPLETED)}
-                        className="btn btn-sm btn-primary"
+                        className="btn-action-pos btn-mark-ready"
                         disabled={isUpdating}
-                        style={{ flex: 1, backgroundColor: "var(--status-ready)", padding: "7px 10px" }}
                       >
-                        <CheckCircle size={14} />
-                        <span>SETTLE & COMPLETE</span>
+                        <CheckCircle size={15} />
+                        <span>SETTLE &amp; COMPLETE</span>
                       </button>
                     )}
 
-                    {/* CANCEL BUTTON */}
+                    {/* Cancel Button */}
                     {ord.status !== "Completed" && ord.status !== "Cancelled" && (
                       <button
+                        type="button"
                         onClick={() => onOpenCancelModal(ord)}
-                        className="btn btn-sm btn-secondary"
-                        style={{ color: "var(--status-cancelled)", padding: "7px 10px" }}
+                        className="btn-action-cancel"
+                        title="Cancel Order"
                       >
-                        <XCircle size={13} />
+                        <XCircle size={14} />
                         <span>Cancel</span>
                       </button>
                     )}
@@ -943,29 +684,20 @@ export function AdminOrdersSection({
           })}
         </div>
       ) : (
-        /* B. DENSE DATA TABLE VIEW WITH ACCORDION ROW EXPANSION */
-        <div
-          style={{
-            backgroundColor: "var(--cnm-surface)",
-            border: "1px solid var(--cnm-border)",
-            borderRadius: "14px",
-            overflowX: "auto",
-            boxShadow: "var(--shadow-sm)",
-            animation: "fadeInFast 0.2s ease",
-          }}
-        >
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px", textAlign: "left" }}>
+        /* B. DENSE DATA TABLE VIEW */
+        <div className="orders-table-wrapper">
+          <table className="orders-data-table">
             <thead>
-              <tr style={{ backgroundColor: "var(--cnm-surface-elevated)", borderBottom: "1px solid var(--cnm-border)" }}>
-                <th style={{ padding: "12px 10px", width: "40px" }}></th>
-                <th style={{ padding: "12px 14px", fontWeight: 800 }}>Order #</th>
-                <th style={{ padding: "12px 14px", fontWeight: 800 }}>Time</th>
-                <th style={{ padding: "12px 14px", fontWeight: 800 }}>Customer</th>
-                <th style={{ padding: "12px 14px", fontWeight: 800 }}>Type & Area</th>
-                <th style={{ padding: "12px 14px", fontWeight: 800 }}>Items Summary</th>
-                <th style={{ padding: "12px 14px", fontWeight: 800 }}>Cash Total</th>
-                <th style={{ padding: "12px 14px", fontWeight: 800 }}>Status</th>
-                <th style={{ padding: "12px 14px", fontWeight: 800, textAlign: "right" }}>Actions</th>
+              <tr>
+                <th style={{ width: "36px" }}></th>
+                <th>Order #</th>
+                <th>Time</th>
+                <th>Customer</th>
+                <th>Type &amp; Destination</th>
+                <th>Items Summary</th>
+                <th>Total Cash</th>
+                <th>Status</th>
+                <th style={{ textAlign: "right" }}>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -977,260 +709,163 @@ export function AdminOrdersSection({
                 return (
                   <React.Fragment key={ord.id}>
                     <tr
-                      className={isAnimating ? "anim-optimistic-pulse" : ""}
-                      style={{
-                        borderBottom: isExpanded ? "none" : "1px solid var(--cnm-border)",
-                        backgroundColor: isExpanded ? "var(--cnm-surface-elevated)" : "transparent",
-                        cursor: "pointer",
-                        transition: "background-color 0.15s ease",
-                      }}
+                      className={`orders-table-row ${isAnimating ? "anim-card-pulse" : ""}`}
                       onClick={() => toggleOrderExpand(ord.id)}
                     >
-                      <td style={{ padding: "12px 10px", textAlign: "center" }}>
-                        <button
-                          type="button"
-                          style={{
-                            background: "none",
-                            border: "none",
-                            color: "var(--cnm-text-muted)",
-                            cursor: "pointer",
-                            padding: 0,
-                          }}
-                        >
-                          {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                      <td style={{ textAlign: "center" }}>
+                        <button type="button" className="table-expand-arrow">
+                          {isExpanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
                         </button>
                       </td>
-                      <td style={{ padding: "12px 14px", fontWeight: 900, fontFamily: "var(--font-display)" }}>
-                        {ord.orderNumber}
+                      <td>
+                        <strong className="table-order-num">#{ord.orderNumber}</strong>
                       </td>
-                      <td style={{ padding: "12px 14px", color: "var(--cnm-text-muted)", fontSize: "12px" }}>
-                        {new Date(ord.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                      <td>
+                        <div className="table-time-text">
+                          {new Date(ord.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                        </div>
+                        <div className="table-time-rel">{formatRelativeTime(ord.createdAt)}</div>
                       </td>
-                      <td style={{ padding: "12px 14px" }}>
-                        <div style={{ fontWeight: 700 }}>{ord.customerNameSnapshot || ord.customerName}</div>
+                      <td>
+                        <div className="table-cust-name">{ord.customerNameSnapshot || ord.customerName || "Guest"}</div>
                         <a
                           href={`tel:${ord.customerPhoneSnapshot || ord.customerPhone}`}
                           onClick={(e) => e.stopPropagation()}
-                          style={{ color: "var(--cnm-orange)", fontSize: "12px", textDecoration: "none" }}
+                          className="table-cust-phone"
                         >
                           {ord.customerPhoneSnapshot || ord.customerPhone}
                         </a>
                       </td>
-                      <td style={{ padding: "12px 14px", fontSize: "12px" }}>
-                        <span style={{ fontWeight: 700 }}>{ord.orderType}</span>
-                        <div style={{ color: "var(--cnm-text-muted)" }}>{ord.deliveryAreaNameSnapshot || ord.deliveryAreaName || "Branch"}</div>
+                      <td>
+                        <span className={`table-badge-type ${isDelivery ? "delivery" : "pickup"}`}>
+                          {ord.orderType}
+                        </span>
+                        <div className="table-area-text">
+                          {ord.deliveryAreaNameSnapshot || ord.deliveryAreaName || "Storefront Counter"}
+                        </div>
                       </td>
-                      <td style={{ padding: "12px 14px", fontSize: "12px" }}>
-                        {ord.items?.map((it) => `${it.quantity}x ${it.productNameSnapshot || it.productName}`).join(", ")}
+                      <td>
+                        <div className="table-items-summary">
+                          {ord.items?.map((it) => `${it.quantity}x ${it.productNameSnapshot || it.productName}`).join(", ")}
+                        </div>
                       </td>
-                      <td style={{ padding: "12px 14px", fontWeight: 900 }}>{ord.totalPkr} PKR</td>
-                      <td style={{ padding: "12px 14px" }}>
-                        <span
-                          style={{
-                            fontSize: "11px",
-                            fontWeight: 800,
-                            padding: "3px 8px",
-                            borderRadius: "var(--radius-xs)",
-                            backgroundColor: ord.status === "Cancelled" ? "rgba(239, 68, 68, 0.15)" : isAnimating ? "rgba(46, 204, 113, 0.2)" : "var(--cnm-surface-elevated)",
-                            color: ord.status === "Cancelled" ? "var(--status-cancelled)" : isAnimating ? "var(--status-ready)" : "var(--cnm-text-primary)",
-                            border: `1px solid ${ord.status === "Cancelled" ? "var(--status-cancelled)" : "var(--cnm-border)"}`,
-                          }}
-                        >
+                      <td>
+                        <strong className="table-cash-num">{ord.totalPkr.toLocaleString()} PKR</strong>
+                      </td>
+                      <td>
+                        <span className={`table-status-pill ${ord.status.toLowerCase().replace(/\s+/g, "-")}`}>
                           {ord.status}
                         </span>
-                        {ord.status === "Cancelled" && ord.cancellationReason && (
-                          <div style={{ fontSize: "11px", color: "var(--status-cancelled)", marginTop: "3px", maxWidth: "160px", lineHeight: 1.2 }}>
-                            Reason: {ord.cancellationReason}
-                          </div>
-                        )}
                       </td>
-                      <td style={{ padding: "12px 14px", textAlign: "right" }} onClick={(e) => e.stopPropagation()}>
-                        {ord.status === "New" && (
-                          <button
-                            onClick={() => onUpdateOrderStatus(ord.id, ORDER_STATUSES.CONFIRMED)}
-                            className="btn btn-sm btn-primary"
-                            style={{ backgroundColor: "var(--status-new)", color: "#000", fontSize: "11px" }}
-                          >
-                            Confirm
-                          </button>
-                        )}
-                        {ord.status === "Confirmed" && (
-                          <button
-                            onClick={() => onUpdateOrderStatus(ord.id, ORDER_STATUSES.PREPARING)}
-                            className="btn btn-sm btn-primary"
-                            style={{ fontSize: "11px" }}
-                          >
-                            Kitchen
-                          </button>
-                        )}
-                        {ord.status === "Preparing" && (
-                          <button
-                            onClick={() => onUpdateOrderStatus(ord.id, ORDER_STATUSES.READY)}
-                            className="btn btn-sm btn-primary"
-                            style={{ backgroundColor: "var(--status-ready)", fontSize: "11px" }}
-                          >
-                            Ready
-                          </button>
-                        )}
-                        {ord.status === "Ready" && isDelivery && (
-                          <button
-                            onClick={() => onUpdateOrderStatus(ord.id, ORDER_STATUSES.OUT_FOR_DELIVERY)}
-                            className="btn btn-sm btn-primary"
-                            style={{ fontSize: "11px", backgroundColor: "var(--status-delivery)" }}
-                          >
-                            Dispatch
-                          </button>
-                        )}
-                        {ord.status === "Ready" && !isDelivery && (
-                          <button
-                            onClick={() => onUpdateOrderStatus(ord.id, ORDER_STATUSES.COMPLETED)}
-                            className="btn btn-sm btn-primary"
-                            style={{ backgroundColor: "var(--status-ready)", fontSize: "11px" }}
-                          >
-                            Handover
-                          </button>
-                        )}
-                        {ord.status === "Out for delivery" && (
-                          <button
-                            onClick={() => onUpdateOrderStatus(ord.id, ORDER_STATUSES.COMPLETED)}
-                            className="btn btn-sm btn-primary"
-                            style={{ backgroundColor: "var(--status-ready)", fontSize: "11px" }}
-                          >
-                            Settle
-                          </button>
-                        )}
-                        {ord.status !== "Completed" && ord.status !== "Cancelled" && (
-                          <button
-                            onClick={() => onOpenCancelModal(ord)}
-                            className="btn btn-sm btn-secondary"
-                            style={{ color: "var(--status-cancelled)", fontSize: "11px", marginLeft: "4px" }}
-                          >
-                            Cancel
-                          </button>
-                        )}
+                      <td style={{ textAlign: "right" }} onClick={(e) => e.stopPropagation()}>
+                        <div className="table-actions-cluster">
+                          {ord.status === "New" && (
+                            <button
+                              onClick={() => onUpdateOrderStatus(ord.id, ORDER_STATUSES.CONFIRMED)}
+                              className="btn-table-action confirm"
+                            >
+                              Confirm
+                            </button>
+                          )}
+                          {ord.status === "Confirmed" && (
+                            <button
+                              onClick={() => onUpdateOrderStatus(ord.id, ORDER_STATUSES.PREPARING)}
+                              className="btn-table-action kitchen"
+                            >
+                              Kitchen
+                            </button>
+                          )}
+                          {ord.status === "Preparing" && (
+                            <button
+                              onClick={() => onUpdateOrderStatus(ord.id, ORDER_STATUSES.READY)}
+                              className="btn-table-action ready"
+                            >
+                              Ready
+                            </button>
+                          )}
+                          {ord.status === "Ready" && isDelivery && (
+                            <button
+                              onClick={() => onUpdateOrderStatus(ord.id, ORDER_STATUSES.OUT_FOR_DELIVERY)}
+                              className="btn-table-action dispatch"
+                            >
+                              Dispatch
+                            </button>
+                          )}
+                          {ord.status === "Ready" && !isDelivery && (
+                            <button
+                              onClick={() => onUpdateOrderStatus(ord.id, ORDER_STATUSES.COMPLETED)}
+                              className="btn-table-action ready"
+                            >
+                              Handover
+                            </button>
+                          )}
+                          {ord.status === "Out for delivery" && (
+                            <button
+                              onClick={() => onUpdateOrderStatus(ord.id, ORDER_STATUSES.COMPLETED)}
+                              className="btn-table-action ready"
+                            >
+                              Settle
+                            </button>
+                          )}
+                          {ord.status !== "Completed" && ord.status !== "Cancelled" && (
+                            <button
+                              onClick={() => onOpenCancelModal(ord)}
+                              className="btn-table-action cancel"
+                            >
+                              Cancel
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
 
-                    {/* Expanded Full Details Row */}
+                    {/* Table Row Accordion Expansion */}
                     {isExpanded && (
-                      <tr style={{ borderBottom: "1px solid var(--cnm-border)", backgroundColor: "var(--cnm-surface-elevated)" }}>
-                        <td colSpan={9} style={{ padding: "0 14px 16px 50px" }}>
-                          <div
-                            style={{
-                              backgroundColor: "var(--cnm-surface)",
-                              border: "1px solid var(--cnm-border)",
-                              borderRadius: "var(--radius-sm)",
-                              padding: "14px",
-                            }}
-                          >
-                            {/* Cancellation reason callout if cancelled */}
-                            {ord.status === "Cancelled" && (
-                              <div
-                                style={{
-                                  backgroundColor: "rgba(239, 68, 68, 0.12)",
-                                  border: "1px solid rgba(239, 68, 68, 0.35)",
-                                  borderRadius: "var(--radius-xs)",
-                                  padding: "8px 12px",
-                                  fontSize: "12px",
-                                  color: "var(--status-cancelled)",
-                                  marginBottom: "12px",
-                                }}
-                              >
-                                <span style={{ fontWeight: 800 }}>⚠️ Cancellation Reason: </span>
-                                <span style={{ fontWeight: 600 }}>{ord.cancellationReason || "No specific reason provided"}</span>
-                              </div>
-                            )}
-
-                            {/* Special Instructions callout */}
-                            {ord.specialInstructions && (
-                              <div
-                                style={{
-                                  backgroundColor: "rgba(255, 193, 7, 0.12)",
-                                  border: "1px solid rgba(255, 193, 7, 0.35)",
-                                  borderRadius: "var(--radius-xs)",
-                                  padding: "6px 10px",
-                                  fontSize: "12px",
-                                  color: "var(--cnm-text-primary)",
-                                  marginBottom: "12px",
-                                }}
-                              >
-                                <span style={{ fontWeight: 800, color: "var(--status-new)" }}>📝 Customer Note: </span>
-                                <span>{ord.specialInstructions}</span>
-                              </div>
-                            )}
-
-                            {/* Itemized Grid Breakdown */}
-                            <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "16px" }}>
+                      <tr className="table-expanded-row">
+                        <td colSpan={9}>
+                          <div className="table-expanded-content">
+                            <div className="expanded-details-grid">
+                              {/* Left: Items Breakdown */}
                               <div>
-                                <div style={{ fontSize: "11px", fontWeight: 800, textTransform: "uppercase", color: "var(--cnm-text-muted)", marginBottom: "6px" }}>
-                                  Itemized Breakdown
-                                </div>
-                                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                                  {ord.items?.map((item, itIdx) => (
-                                    <div
-                                      key={itIdx}
-                                      style={{
-                                        display: "flex",
-                                        justifyContent: "space-between",
-                                        fontSize: "12.5px",
-                                        borderBottom: "1px dashed var(--cnm-border)",
-                                        paddingBottom: "4px",
-                                      }}
-                                    >
+                                <h4 className="expanded-box-heading">Itemized Order Breakdown</h4>
+                                <div className="expanded-items-list">
+                                  {ord.items?.map((it, itIdx) => (
+                                    <div key={itIdx} className="expanded-item-row">
                                       <div>
-                                        <span style={{ fontWeight: 800, color: "var(--cnm-orange)" }}>{item.quantity}x</span>{" "}
-                                        <span style={{ fontWeight: 700 }}>{item.productNameSnapshot || item.productName}</span>{" "}
-                                        {(item.variantNameSnapshot || item.variantName) && (
-                                          <span style={{ color: "var(--cnm-text-muted)", fontSize: "11.5px" }}>
-                                            ({item.variantNameSnapshot || item.variantName})
-                                          </span>
-                                        )}
-                                        {/* Modifiers */}
-                                        {item.modifiers && item.modifiers.length > 0 && (
-                                          <div style={{ fontSize: "11px", color: "var(--cnm-text-secondary)", paddingLeft: "8px" }}>
-                                            {item.modifiers.map((m: any, mIdx: number) => (
-                                              <span key={mIdx} style={{ marginRight: "8px" }}>
-                                                + {m.name || m.modifierNameSnapshot}
-                                              </span>
-                                            ))}
-                                          </div>
+                                        <strong className="expanded-qty">{it.quantity}x</strong>{" "}
+                                        <span className="expanded-name">{it.productNameSnapshot || it.productName}</span>
+                                        {(it.variantNameSnapshot || it.variantName) && (
+                                          <div className="expanded-variant">{it.variantNameSnapshot || it.variantName}</div>
                                         )}
                                       </div>
-                                      <div style={{ fontWeight: 800 }}>{item.lineTotalPkr} PKR</div>
+                                      <strong className="expanded-line-total">{it.lineTotalPkr.toLocaleString()} PKR</strong>
                                     </div>
                                   ))}
                                 </div>
                               </div>
 
-                              {/* Financial Breakdown & Address */}
-                              <div style={{ borderLeft: "1px solid var(--cnm-border)", paddingLeft: "16px", fontSize: "12px" }}>
-                                <div style={{ fontSize: "11px", fontWeight: 800, textTransform: "uppercase", color: "var(--cnm-text-muted)", marginBottom: "6px" }}>
-                                  Fulfillment & Total
+                              {/* Right: Address & Instructions */}
+                              <div className="expanded-right-col">
+                                <h4 className="expanded-box-heading">Fulfillment Details</h4>
+                                <div className="expanded-info-item">
+                                  <span>Customer:</span>
+                                  <strong>{ord.customerNameSnapshot || ord.customerName}</strong>
                                 </div>
-                                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "3px" }}>
-                                  <span>Subtotal:</span>
-                                  <span>{ord.subtotalPkr} PKR</span>
+                                <div className="expanded-info-item">
+                                  <span>Phone:</span>
+                                  <strong>{ord.customerPhoneSnapshot || ord.customerPhone}</strong>
                                 </div>
-                                {ord.deliveryFeePkr > 0 && (
-                                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "3px" }}>
-                                    <span>Delivery Fee:</span>
-                                    <span>+{ord.deliveryFeePkr} PKR</span>
+                                {isDelivery && (
+                                  <div className="expanded-info-item">
+                                    <span>Delivery Address:</span>
+                                    <strong>
+                                      {ord.deliveryAreaNameSnapshot || ord.deliveryAreaName} — {ord.deliveryAddressSnapshot || ord.deliveryAddress}
+                                    </strong>
                                   </div>
                                 )}
-                                {(ord.discountPkr || 0) > 0 && (
-                                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "3px", color: "var(--status-ready)" }}>
-                                    <span>Discount:</span>
-                                    <span>-{ord.discountPkr} PKR</span>
-                                  </div>
-                                )}
-                                <div style={{ display: "flex", justifyContent: "space-between", marginTop: "6px", paddingTop: "4px", borderTop: "1px solid var(--cnm-border)", fontWeight: 900, fontSize: "13px" }}>
-                                  <span>Total Cash:</span>
-                                  <span>{ord.totalPkr} PKR</span>
-                                </div>
-
-                                {ord.deliveryAddressSnapshot && (
-                                  <div style={{ marginTop: "10px", fontSize: "11.5px", color: "var(--cnm-text-secondary)" }}>
-                                    <strong>Address:</strong> {ord.deliveryAddressSnapshot}
+                                {ord.specialInstructions && (
+                                  <div className="expanded-note-box">
+                                    <strong>Customer Note:</strong> {ord.specialInstructions}
                                   </div>
                                 )}
                               </div>
@@ -1246,6 +881,968 @@ export function AdminOrdersSection({
           </table>
         </div>
       )}
+
+      {/* Scoped CSS Styles for Crystal Clear Visibility */}
+      <style jsx>{`
+        .admin-orders-scope {
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+        }
+
+        /* 1. KPI Cards */
+        .kpi-metrics-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
+          gap: 12px;
+        }
+        .kpi-metric-card {
+          background: #ffffff;
+          border: 1px solid #e2e8f0;
+          border-radius: 12px;
+          padding: 14px 16px;
+          cursor: pointer;
+          transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+        }
+        .kpi-metric-card:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+          border-color: #cbd5e1;
+        }
+        .kpi-card-top {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 6px;
+        }
+        .kpi-card-title {
+          font-size: 11px;
+          font-weight: 800;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          color: #64748b;
+        }
+        .kpi-card-icon {
+          width: 32px;
+          height: 32px;
+          border-radius: 8px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .kpi-card-icon.blue { background: #eff6ff; color: #2563eb; }
+        .kpi-card-icon.amber { background: #fef3c7; color: #d97706; }
+        .kpi-card-icon.orange { background: #ffedd5; color: #ea580c; }
+        .kpi-card-icon.purple { background: #f3e8ff; color: #9333ea; }
+        .kpi-card-icon.green { background: #ecfdf5; color: #059669; }
+
+        .kpi-card-num {
+          font-size: 26px;
+          font-weight: 900;
+          color: #0f172a;
+          line-height: 1.1;
+          letter-spacing: -0.02em;
+        }
+        .currency-label {
+          font-size: 13px;
+          font-weight: 700;
+          color: #64748b;
+        }
+        .kpi-card-sub {
+          font-size: 11.5px;
+          font-weight: 600;
+          margin-top: 4px;
+        }
+
+        /* 2. Toolbar & Filters */
+        .orders-toolbar-bar {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          flex-wrap: wrap;
+          background: #ffffff;
+          border: 1px solid #e2e8f0;
+          border-radius: 12px;
+          padding: 10px 14px;
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+        }
+        .orders-search-wrapper {
+          position: relative;
+          width: 320px;
+          max-width: 100%;
+        }
+        :global(.search-icon-fixed) {
+          position: absolute;
+          left: 12px;
+          top: 50%;
+          transform: translateY(-50%);
+          color: #94a3b8;
+          pointer-events: none;
+        }
+        .orders-search-input {
+          width: 100%;
+          padding: 8px 34px 8px 36px;
+          background: #f8fafc;
+          border: 1px solid #cbd5e1;
+          border-radius: 9999px;
+          font-size: 12.5px;
+          font-weight: 600;
+          color: #0f172a;
+          outline: none;
+          transition: border-color 0.15s ease, background 0.15s ease;
+        }
+        .orders-search-input:focus {
+          border-color: #ff6b35;
+          background: #ffffff;
+        }
+        .search-clear-btn {
+          position: absolute;
+          right: 10px;
+          top: 50%;
+          transform: translateY(-50%);
+          background: none;
+          border: none;
+          color: #94a3b8;
+          cursor: pointer;
+        }
+
+        .orders-filter-pills-row {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          flex-wrap: wrap;
+        }
+        .order-filter-pill {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 6px 12px;
+          border-radius: 9999px;
+          font-size: 11.5px;
+          font-weight: 800;
+          text-transform: uppercase;
+          background: #f8fafc;
+          color: #475569;
+          border: 1px solid #e2e8f0;
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+        .order-filter-pill:hover {
+          background: #f1f5f9;
+          color: #0f172a;
+        }
+        .order-filter-pill.active {
+          background: #ff6b35;
+          color: #ffffff;
+          border-color: #ff6b35;
+          box-shadow: 0 2px 6px rgba(255, 107, 53, 0.25);
+        }
+        .pill-counter {
+          font-size: 10px;
+          font-weight: 900;
+          padding: 1px 6px;
+          border-radius: 10px;
+          background: #e2e8f0;
+          color: #475569;
+        }
+        .counter-active {
+          background: rgba(0, 0, 0, 0.25);
+          color: #ffffff;
+        }
+
+        .orders-view-controls {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+        .btn-toggle-expand {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          padding: 6px 10px;
+          border-radius: 7px;
+          background: #f8fafc;
+          border: 1px solid #cbd5e1;
+          color: #334155;
+          font-size: 11.5px;
+          font-weight: 750;
+          cursor: pointer;
+        }
+        .view-mode-toggle-group {
+          display: inline-flex;
+          background: #f1f5f9;
+          border-radius: 7px;
+          padding: 2px;
+          border: 1px solid #e2e8f0;
+        }
+        .view-mode-btn {
+          padding: 5px 10px;
+          font-size: 11.5px;
+          font-weight: 750;
+          border-radius: 5px;
+          border: none;
+          background: transparent;
+          color: #64748b;
+          cursor: pointer;
+        }
+        .view-mode-btn.active {
+          background: #ffffff;
+          color: #ff6b35;
+          box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+        }
+
+        /* 3. Empty State */
+        .orders-empty-state {
+          text-align: center;
+          padding: 64px 20px;
+          background: #ffffff;
+          border: 1px dashed #cbd5e1;
+          border-radius: 14px;
+        }
+        :global(.empty-clock-icon) {
+          margin: 0 auto 12px;
+          color: #94a3b8;
+        }
+        .empty-title {
+          font-size: 17px;
+          font-weight: 800;
+          color: #0f172a;
+          margin-bottom: 4px;
+        }
+        .empty-desc {
+          font-size: 13px;
+          color: #64748b;
+        }
+
+        /* 4. POS Card Grid */
+        .orders-card-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
+          gap: 16px;
+          align-items: stretch;
+        }
+        .order-pos-card {
+          background: #ffffff;
+          border: 1px solid #e2e8f0;
+          border-radius: 14px;
+          padding: 16px;
+          display: flex;
+          flex-direction: column;
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
+          transition: transform 0.15s ease, box-shadow 0.15s ease;
+          position: relative;
+        }
+        .order-pos-card:hover {
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.07);
+        }
+        .anim-card-pulse {
+          animation: cardSuccessPulse 0.5s ease-out forwards;
+        }
+        @keyframes cardSuccessPulse {
+          0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); }
+          50% { transform: scale(1.015); box-shadow: 0 0 0 10px rgba(34, 197, 94, 0); }
+          100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+        }
+
+        /* Header Row */
+        .card-header-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          margin-bottom: 12px;
+          gap: 8px;
+        }
+        .order-id-group {
+          display: flex;
+          flex-direction: column;
+        }
+        .order-id-text {
+          font-family: var(--font-display, inherit);
+          font-size: 18px;
+          font-weight: 900;
+          color: #0f172a;
+          line-height: 1.2;
+          letter-spacing: -0.01em;
+        }
+        .order-time-tag {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          font-size: 11px;
+          color: #64748b;
+          font-weight: 600;
+          margin-top: 2px;
+        }
+        .time-relative-dot {
+          color: #cbd5e1;
+        }
+        .time-relative-text {
+          color: #475569;
+          font-weight: 700;
+        }
+
+        .order-badges-group {
+          display: flex;
+          align-items: center;
+          gap: 5px;
+          flex-wrap: wrap;
+          justify-content: flex-end;
+        }
+        .badge-type {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          font-size: 10px;
+          font-weight: 800;
+          text-transform: uppercase;
+          padding: 3px 8px;
+          border-radius: 5px;
+          letter-spacing: 0.03em;
+        }
+        .badge-type.delivery {
+          background: #eff6ff;
+          color: #1d4ed8;
+          border: 1px solid #bfdbfe;
+        }
+        .badge-type.pickup {
+          background: #ecfdf5;
+          color: #047857;
+          border: 1px solid #a7f3d0;
+        }
+        .badge-type.dine-in {
+          background: #faf5ff;
+          color: #7e22ce;
+          border: 1px solid #e9d5ff;
+        }
+
+        .badge-status-pill {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          font-size: 10px;
+          font-weight: 850;
+          text-transform: uppercase;
+          padding: 3px 8px;
+          border-radius: 5px;
+          letter-spacing: 0.03em;
+        }
+        .badge-status-new {
+          background: #fef3c7;
+          color: #92400e;
+          border: 1px solid #fcd34d;
+        }
+        .badge-status-confirmed {
+          background: #e0f2fe;
+          color: #0369a1;
+          border: 1px solid #7dd3fc;
+        }
+        .badge-status-preparing {
+          background: #ffedd5;
+          color: #c2410c;
+          border: 1px solid #fdba74;
+        }
+        .badge-status-ready {
+          background: #dcfce7;
+          color: #15803d;
+          border: 1px solid #86efac;
+        }
+        .badge-status-delivery {
+          background: #e0e7ff;
+          color: #4338ca;
+          border: 1px solid #a5b4fc;
+        }
+        .badge-status-completed {
+          background: #f1f5f9;
+          color: #475569;
+          border: 1px solid #cbd5e1;
+        }
+        .badge-status-cancelled {
+          background: #ffe4e6;
+          color: #be123c;
+          border: 1px solid #fca5a5;
+        }
+        .status-live-dot {
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background: #d97706;
+          box-shadow: 0 0 6px #d97706;
+          animation: pulseDot 1.4s infinite;
+        }
+        @keyframes pulseDot {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.4; transform: scale(0.85); }
+        }
+
+        /* Customer Box */
+        .customer-info-box {
+          background: #f8fafc;
+          border: 1px solid #e2e8f0;
+          border-radius: 10px;
+          padding: 10px 12px;
+          margin-bottom: 12px;
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+        .customer-primary-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+        }
+        .customer-name-label {
+          font-size: 13px;
+          color: #0f172a;
+        }
+        .customer-call-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          background: #ffffff;
+          border: 1px solid #cbd5e1;
+          color: #0f172a;
+          padding: 3px 8px;
+          border-radius: 6px;
+          font-weight: 750;
+          font-size: 12px;
+          text-decoration: none;
+          transition: all 0.15s ease;
+        }
+        .customer-call-btn:hover {
+          border-color: #16a34a;
+          color: #16a34a;
+          background: #f0fdf4;
+        }
+        :global(.phone-icon) {
+          color: #16a34a;
+        }
+
+        .customer-delivery-address {
+          display: flex;
+          align-items: flex-start;
+          gap: 6px;
+          font-size: 11.5px;
+          color: #334155;
+          line-height: 1.35;
+        }
+        :global(.pin-icon) {
+          color: #ea580c;
+          flex-shrink: 0;
+          margin-top: 2px;
+        }
+        .address-area {
+          color: #0f172a;
+        }
+        .address-details {
+          color: #334155;
+        }
+        .address-landmark {
+          color: #64748b;
+          font-style: italic;
+        }
+        .customer-dinein-note {
+          font-size: 11.5px;
+          color: #7e22ce;
+          font-weight: 600;
+        }
+
+        /* Notices */
+        .order-cancelled-notice {
+          background: #fff1f2;
+          border: 1px solid #fecdd3;
+          border-radius: 7px;
+          padding: 8px 10px;
+          font-size: 11.5px;
+          color: #be123c;
+          margin-bottom: 10px;
+          display: flex;
+          align-items: flex-start;
+          gap: 6px;
+        }
+        :global(.cancel-icon) {
+          color: #be123c;
+          flex-shrink: 0;
+          margin-top: 1px;
+        }
+        .order-special-note {
+          background: #fefce8;
+          border: 1px solid #fef08a;
+          border-left: 3px solid #eab308;
+          border-radius: 6px;
+          padding: 7px 10px;
+          font-size: 11.5px;
+          color: #713f12;
+          margin-bottom: 10px;
+          display: flex;
+          align-items: flex-start;
+          gap: 6px;
+        }
+        :global(.note-icon) {
+          color: #ca8a04;
+          flex-shrink: 0;
+          margin-top: 1px;
+        }
+
+        /* Items Section */
+        .items-header-bar {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 6px;
+        }
+        .items-count-heading {
+          font-size: 11px;
+          font-weight: 800;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          color: #64748b;
+        }
+        .btn-expand-card-items {
+          background: none;
+          border: none;
+          color: #ff6b35;
+          font-size: 11px;
+          font-weight: 800;
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          gap: 2px;
+          padding: 2px 4px;
+        }
+
+        /* Items Content */
+        .order-items-wrapper {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          margin-bottom: 14px;
+          transition: all 0.2s ease;
+        }
+        .order-items-wrapper.compact {
+          max-height: 280px;
+          overflow-y: auto;
+          padding-right: 2px;
+        }
+        .order-items-wrapper.expanded {
+          max-height: 500px;
+          overflow-y: auto;
+        }
+
+        .order-item-row {
+          background: #ffffff;
+          border: 1px solid #f1f5f9;
+          border-radius: 8px;
+          padding: 8px 10px;
+        }
+        .item-title-row {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 8px;
+        }
+        .item-name-col {
+          display: flex;
+          align-items: baseline;
+          gap: 6px;
+          flex: 1;
+        }
+        .item-qty-badge {
+          background: #ffedd5;
+          color: #c2410c;
+          border: 1px solid #fed7aa;
+          font-size: 11.5px;
+          font-weight: 900;
+          padding: 1px 6px;
+          border-radius: 4px;
+          flex-shrink: 0;
+        }
+        .item-name-text {
+          font-size: 13px;
+          font-weight: 800;
+          color: #0f172a;
+          line-height: 1.3;
+        }
+        .item-price-text {
+          font-size: 13px;
+          font-weight: 900;
+          color: #0f172a;
+          flex-shrink: 0;
+        }
+
+        /* Deal Inclusions Clean Box */
+        .item-deal-inclusions-box {
+          background: #fffbeb;
+          border: 1px solid #fde68a;
+          border-radius: 6px;
+          padding: 6px 8px;
+          margin-top: 5px;
+          font-size: 11px;
+          line-height: 1.4;
+        }
+        .deal-box-label {
+          font-weight: 800;
+          color: #92400e;
+          display: block;
+          margin-bottom: 2px;
+          text-transform: uppercase;
+          font-size: 9.5px;
+          letter-spacing: 0.04em;
+        }
+        .deal-box-content {
+          color: #78350f;
+          font-weight: 600;
+        }
+
+        /* Size Pill */
+        .item-size-tag-wrap {
+          margin-top: 4px;
+        }
+        .item-size-pill {
+          display: inline-block;
+          background: #f1f5f9;
+          color: #1e293b;
+          border: 1px solid #cbd5e1;
+          font-size: 11px;
+          font-weight: 750;
+          padding: 1px 6px;
+          border-radius: 4px;
+        }
+
+        /* Modifiers List */
+        .item-modifiers-box {
+          margin-top: 6px;
+          padding-left: 8px;
+          border-left: 2px solid #ff6b35;
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+        }
+        .modifier-item-line {
+          display: flex;
+          justify-content: space-between;
+          font-size: 11px;
+          color: #475569;
+        }
+        .modifier-name {
+          font-weight: 600;
+        }
+        .modifier-price {
+          font-weight: 750;
+          color: #0f172a;
+        }
+
+        /* Pinned Footer */
+        .card-bottom-pinned {
+          margin-top: auto;
+          padding-top: 10px;
+          border-top: 1px dashed #e2e8f0;
+        }
+        .order-fee-breakdown {
+          background: #f8fafc;
+          border-radius: 6px;
+          padding: 6px 8px;
+          margin-bottom: 8px;
+          font-size: 11.5px;
+          color: #475569;
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+        }
+        .fee-line {
+          display: flex;
+          justify-content: space-between;
+        }
+        .fee-line.discount {
+          color: #15803d;
+          font-weight: 750;
+        }
+
+        .total-cash-bar {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 12px;
+        }
+        .total-label {
+          font-size: 11px;
+          font-weight: 800;
+          color: #64748b;
+          letter-spacing: 0.04em;
+        }
+        .total-val {
+          font-family: var(--font-display, inherit);
+          font-size: 18px;
+          font-weight: 900;
+          color: #0f172a;
+          letter-spacing: -0.01em;
+        }
+
+        /* POS Action Buttons */
+        .action-buttons-rack {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+        .btn-action-pos {
+          flex: 1;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          height: 42px;
+          border-radius: 9px;
+          font-size: 12.5px;
+          font-weight: 850;
+          border: none;
+          cursor: pointer;
+          letter-spacing: 0.02em;
+          transition: transform 0.1s ease, filter 0.15s ease, box-shadow 0.15s ease;
+        }
+        .btn-action-pos:active {
+          transform: scale(0.98);
+        }
+        .btn-action-pos:hover {
+          filter: brightness(1.06);
+        }
+
+        .btn-confirm-call {
+          background: #ff6b35;
+          color: #ffffff;
+          box-shadow: 0 2px 6px rgba(255, 107, 53, 0.3);
+        }
+        .btn-send-kitchen {
+          background: #ea580c;
+          color: #ffffff;
+          box-shadow: 0 2px 6px rgba(234, 88, 12, 0.3);
+        }
+        .btn-mark-ready {
+          background: #10b981;
+          color: #ffffff;
+          box-shadow: 0 2px 6px rgba(16, 185, 129, 0.3);
+        }
+        .btn-dispatch-rider {
+          background: #4f46e5;
+          color: #ffffff;
+          box-shadow: 0 2px 6px rgba(79, 70, 229, 0.3);
+        }
+
+        .btn-action-cancel {
+          height: 42px;
+          padding: 0 14px;
+          background: #ffffff;
+          border: 1px solid #fecdd3;
+          color: #e11d48;
+          border-radius: 9px;
+          font-size: 12px;
+          font-weight: 750;
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          transition: all 0.15s ease;
+        }
+        .btn-action-cancel:hover {
+          background: #fff1f2;
+          border-color: #fda4af;
+          color: #be123c;
+        }
+
+        /* 5. Dense Data Table */
+        .orders-table-wrapper {
+          background: #ffffff;
+          border: 1px solid #e2e8f0;
+          border-radius: 12px;
+          overflow-x: auto;
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+        }
+        .orders-data-table {
+          width: 100%;
+          border-collapse: collapse;
+          font-size: 12.5px;
+          text-align: left;
+        }
+        .orders-data-table thead tr {
+          background: #f8fafc;
+          border-bottom: 1px solid #e2e8f0;
+        }
+        .orders-data-table th {
+          padding: 12px 14px;
+          font-weight: 800;
+          color: #475569;
+          font-size: 11.5px;
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+        }
+        .orders-table-row {
+          border-bottom: 1px solid #f1f5f9;
+          cursor: pointer;
+          transition: background 0.15s ease;
+        }
+        .orders-table-row:hover {
+          background: #f8fafc;
+        }
+        .orders-data-table td {
+          padding: 12px 14px;
+        }
+        .table-expand-arrow {
+          background: none;
+          border: none;
+          color: #94a3b8;
+          cursor: pointer;
+          padding: 0;
+        }
+        .table-order-num {
+          font-weight: 900;
+          color: #0f172a;
+          font-size: 13.5px;
+        }
+        .table-time-text {
+          font-weight: 700;
+          color: #0f172a;
+        }
+        .table-time-rel {
+          font-size: 11px;
+          color: #64748b;
+        }
+        .table-cust-name {
+          font-weight: 800;
+          color: #0f172a;
+        }
+        .table-cust-phone {
+          color: #16a34a;
+          font-weight: 700;
+          font-size: 11.5px;
+          text-decoration: none;
+        }
+        .table-badge-type {
+          font-size: 10px;
+          font-weight: 800;
+          text-transform: uppercase;
+          padding: 2px 6px;
+          border-radius: 4px;
+          display: inline-block;
+          margin-bottom: 2px;
+        }
+        .table-badge-type.delivery { background: #eff6ff; color: #1d4ed8; }
+        .table-badge-type.pickup { background: #ecfdf5; color: #047857; }
+        .table-area-text {
+          font-size: 11px;
+          color: #64748b;
+        }
+        .table-items-summary {
+          font-size: 12px;
+          color: #334155;
+          max-width: 240px;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .table-cash-num {
+          font-weight: 900;
+          color: #0f172a;
+          font-size: 13px;
+        }
+        .table-status-pill {
+          font-size: 10px;
+          font-weight: 850;
+          text-transform: uppercase;
+          padding: 3px 8px;
+          border-radius: 5px;
+          display: inline-block;
+        }
+        .table-status-pill.new { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
+        .table-status-pill.confirmed { background: #e0f2fe; color: #0369a1; border: 1px solid #7dd3fc; }
+        .table-status-pill.preparing { background: #ffedd5; color: #c2410c; border: 1px solid #fdba74; }
+        .table-status-pill.ready { background: #dcfce7; color: #15803d; border: 1px solid #86efac; }
+        .table-status-pill.out-for-delivery { background: #e0e7ff; color: #4338ca; border: 1px solid #a5b4fc; }
+        .table-status-pill.completed { background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; }
+        .table-status-pill.cancelled { background: #ffe4e6; color: #be123c; border: 1px solid #fca5a5; }
+
+        .table-actions-cluster {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          justify-content: flex-end;
+        }
+        .btn-table-action {
+          padding: 4px 10px;
+          border-radius: 6px;
+          font-size: 11px;
+          font-weight: 800;
+          border: none;
+          cursor: pointer;
+        }
+        .btn-table-action.confirm { background: #ff6b35; color: #ffffff; }
+        .btn-table-action.kitchen { background: #ea580c; color: #ffffff; }
+        .btn-table-action.ready { background: #10b981; color: #ffffff; }
+        .btn-table-action.dispatch { background: #4f46e5; color: #ffffff; }
+        .btn-table-action.cancel { background: #ffffff; border: 1px solid #fecdd3; color: #e11d48; }
+
+        .table-expanded-row {
+          background: #f8fafc;
+          border-bottom: 1px solid #e2e8f0;
+        }
+        .table-expanded-content {
+          padding: 14px 20px;
+        }
+        .expanded-details-grid {
+          display: grid;
+          grid-template-columns: 2fr 1fr;
+          gap: 20px;
+        }
+        .expanded-box-heading {
+          font-size: 11px;
+          font-weight: 800;
+          text-transform: uppercase;
+          color: #64748b;
+          margin-bottom: 8px;
+          letter-spacing: 0.04em;
+        }
+        .expanded-items-list {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+        .expanded-item-row {
+          display: flex;
+          justify-content: space-between;
+          padding-bottom: 4px;
+          border-bottom: 1px dashed #e2e8f0;
+          font-size: 12.5px;
+        }
+        .expanded-qty { color: #ea580c; }
+        .expanded-name { font-weight: 750; color: #0f172a; }
+        .expanded-variant { font-size: 11px; color: #64748b; margin-top: 1px; }
+        .expanded-line-total { color: #0f172a; font-weight: 800; }
+
+        .expanded-right-col {
+          border-left: 1px solid #e2e8f0;
+          padding-left: 20px;
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          font-size: 12px;
+        }
+        .expanded-info-item {
+          display: flex;
+          flex-direction: column;
+          gap: 1px;
+        }
+        .expanded-info-item span { color: #64748b; font-size: 11px; }
+        .expanded-info-item strong { color: #0f172a; }
+        .expanded-note-box {
+          background: #fefce8;
+          border: 1px solid #fef08a;
+          padding: 6px 10px;
+          border-radius: 6px;
+          color: #713f12;
+          font-size: 11.5px;
+          margin-top: 6px;
+        }
+      `}</style>
     </div>
   );
 }
