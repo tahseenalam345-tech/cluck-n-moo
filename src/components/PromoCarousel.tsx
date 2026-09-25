@@ -324,18 +324,29 @@ export function PromoCarousel({ onSelectPromotion }: PromoCarouselProps) {
 
       <style jsx>{`
         .promo-carousel-container {
-          height: 180px;
+          width: 100%;
+          aspect-ratio: 3 / 1;
+          max-height: 400px;
         }
         .promo-slide-item {
-          height: 180px;
+          width: 100%;
+          height: 100%;
+          aspect-ratio: 3 / 1;
+          max-height: 400px;
         }
 
         @media (max-width: 640px) {
           .promo-carousel-container {
-            height: 145px !important;
+            width: 100% !important;
+            aspect-ratio: 3 / 1 !important;
+            height: auto !important;
+            max-height: 160px;
           }
           .promo-slide-item {
-            height: 145px !important;
+            width: 100% !important;
+            aspect-ratio: 3 / 1 !important;
+            height: auto !important;
+            max-height: 160px;
           }
           .carousel-desktop-arrows {
             display: none !important;

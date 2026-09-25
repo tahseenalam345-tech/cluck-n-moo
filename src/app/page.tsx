@@ -222,7 +222,25 @@ export default function StorefrontPage() {
         {/* 3. Promotional Banners Carousel */}
         <PromoCarousel
           onSelectPromotion={(promo) => {
-            if (promo.actionCategoryId) {
+            if (promo.actionSlug) {
+              fetch("/api/v1/promotions")
+                .then((res) => res.json())
+                .then((data) => {
+                  if (data.success && Array.isArray(data.data)) {
+                    const match = data.data.find((p: any) => p.slug === promo.actionSlug);
+                    if (match) {
+                      setSelectedPromotion(match);
+                      return;
+                    }
+                  }
+                  const el = document.getElementById("promotions-section");
+                  if (el) el.scrollIntoView({ behavior: "smooth" });
+                })
+                .catch(() => {
+                  const el = document.getElementById("promotions-section");
+                  el?.scrollIntoView({ behavior: "smooth" });
+                });
+            } else if (promo.actionCategoryId) {
               setActiveSignatureSlug("menu");
               setSelectedCategory(promo.actionCategoryId);
               const el = document.getElementById("dynamic-menu-catalog");

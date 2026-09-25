@@ -103,7 +103,7 @@ export function PromotionsSection({ onSelectPromotion }: PromotionsSectionProps)
   if (promotions.length === 0) return null;
 
   return (
-    <section className="promotions-section" aria-label="Deals You'll Love">
+    <section id="promotions-section" className="promotions-section" aria-label="Deals You'll Love">
       <div className="container">
         <div className="promotions-header">
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
