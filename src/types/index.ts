@@ -84,6 +84,54 @@ export interface CartItem {
   lineTotalPkr: number;
   specialInstructions?: string;
   customDealId?: string;
+  // Promotion support
+  promotionId?: string;
+  promotionSlug?: string;
+  promotionTitle?: string;
+  promotionSnapshot?: string;
+}
+
+export interface PromotionRuleOption {
+  id: string;
+  promotionRuleId: string;
+  productId?: string | null;
+  productVariantId?: string | null;
+  modifierId?: string | null;
+  optionTitle: string;
+  quantity: number;
+  priceAdjustmentPkr: number;
+  displayOrder: number;
+  isAvailable: boolean;
+}
+
+export interface PromotionRule {
+  id: string;
+  promotionId: string;
+  ruleType: "product_choice" | "tier_choice" | "fixed_item" | "modifier_choice";
+  minSelections: number;
+  maxSelections: number;
+  required: boolean;
+  ruleLabel: string;
+  displayOrder: number;
+  options: PromotionRuleOption[];
+}
+
+export interface Promotion {
+  id: string;
+  slug: string;
+  title: string;
+  shortDescription?: string | null;
+  imageUrl: string;
+  cloudinaryPublicId: string;
+  displayOrder: number;
+  isActive: boolean;
+  startsAt?: string | null;
+  endsAt?: string | null;
+  promotionType: "bundle" | "tiered" | "single";
+  fixedPricePkr: number;
+  badgeText?: string | null;
+  termsText?: string | null;
+  rules?: PromotionRule[];
 }
 
 export interface OrderItemModifierSnapshot {

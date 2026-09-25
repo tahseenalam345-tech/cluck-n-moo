@@ -372,6 +372,81 @@ export const restaurantSchedules = pgTable(
 );
 
 /**
+ * 15. Promotions
+ */
+export const promotions = pgTable(
+  "promotions",
+  {
+    id: text("id").primaryKey(),
+    slug: text("slug").notNull().unique(),
+    title: text("title").notNull(),
+    shortDescription: text("short_description"),
+    imageUrl: text("image_url").notNull(),
+    cloudinaryPublicId: text("cloudinary_public_id").notNull(),
+    displayOrder: integer("display_order").notNull().default(0),
+    isActive: boolean("is_active").notNull().default(true),
+    startsAt: timestamp("starts_at", { withTimezone: true }),
+    endsAt: timestamp("ends_at", { withTimezone: true }),
+    promotionType: text("promotion_type").notNull().default("bundle"),
+    fixedPricePkr: integer("fixed_price_pkr").notNull(),
+    badgeText: text("badge_text"),
+    termsText: text("terms_text"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("idx_promotions_slug").on(table.slug),
+    index("idx_promotions_active").on(table.isActive),
+  ]
+);
+
+/**
+ * 16. Promotion Rules
+ */
+export const promotionRules = pgTable(
+  "promotion_rules",
+  {
+    id: text("id").primaryKey(),
+    promotionId: text("promotion_id")
+      .notNull()
+      .references(() => promotions.id, { onDelete: "cascade" }),
+    ruleType: text("rule_type").notNull(), // 'product_choice' | 'tier_choice' | 'fixed_item' | 'modifier_choice'
+    minSelections: integer("min_selections").notNull().default(1),
+    maxSelections: integer("max_selections").notNull().default(1),
+    required: boolean("required").notNull().default(true),
+    ruleLabel: text("rule_label").notNull(),
+    displayOrder: integer("display_order").notNull().default(0),
+  },
+  (table) => [
+    index("idx_promotion_rules_promo_id").on(table.promotionId),
+  ]
+);
+
+/**
+ * 17. Promotion Rule Options
+ */
+export const promotionRuleOptions = pgTable(
+  "promotion_rule_options",
+  {
+    id: text("id").primaryKey(),
+    promotionRuleId: text("promotion_rule_id")
+      .notNull()
+      .references(() => promotionRules.id, { onDelete: "cascade" }),
+    productId: text("product_id").references(() => products.id, { onDelete: "set null" }),
+    productVariantId: text("product_variant_id").references(() => productVariants.id, { onDelete: "set null" }),
+    modifierId: text("modifier_id").references(() => productModifiers.id, { onDelete: "set null" }),
+    optionTitle: text("option_title").notNull(),
+    quantity: integer("quantity").notNull().default(1),
+    priceAdjustmentPkr: integer("price_adjustment_pkr").notNull().default(0),
+    displayOrder: integer("display_order").notNull().default(0),
+    isAvailable: boolean("is_available").notNull().default(true),
+  },
+  (table) => [
+    index("idx_promo_rule_options_rule_id").on(table.promotionRuleId),
+  ]
+);
+
+/**
  * Drizzle Relations Declarations
  */
 export const categoriesRelations = relations(categories, ({ many }) => ({
@@ -478,3 +553,35 @@ export const orderStatusHistoryRelations = relations(orderStatusHistory, ({ one 
     references: [profiles.id],
   }),
 }));
+
+export const promotionsRelations = relations(promotions, ({ many }) => ({
+  rules: many(promotionRules),
+}));
+
+export const promotionRulesRelations = relations(promotionRules, ({ one, many }) => ({
+  promotion: one(promotions, {
+    fields: [promotionRules.promotionId],
+    references: [promotions.id],
+  }),
+  options: many(promotionRuleOptions),
+}));
+
+export const promotionRuleOptionsRelations = relations(promotionRuleOptions, ({ one }) => ({
+  rule: one(promotionRules, {
+    fields: [promotionRuleOptions.promotionRuleId],
+    references: [promotionRules.id],
+  }),
+  product: one(products, {
+    fields: [promotionRuleOptions.productId],
+    references: [products.id],
+  }),
+  variant: one(productVariants, {
+    fields: [promotionRuleOptions.productVariantId],
+    references: [productVariants.id],
+  }),
+  modifier: one(productModifiers, {
+    fields: [promotionRuleOptions.modifierId],
+    references: [productModifiers.id],
+  }),
+}));
+

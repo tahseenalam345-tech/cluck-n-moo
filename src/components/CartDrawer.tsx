@@ -23,6 +23,7 @@ import {
   Check,
   PhoneCall,
   DollarSign,
+  Flame,
   Sparkles,
 } from "lucide-react";
 
@@ -153,12 +154,15 @@ export function CartDrawer({
         paymentLocation: currentOrderType === "DINE_IN" ? dineInPaymentLoc : undefined,
         specialInstructions: specialInstructions ? specialInstructions.trim() : undefined,
         items: cartItems.map((item) => ({
-          productId: item.productId,
+          productId: item.productId || "",
           variantId: item.variantId,
           quantity: item.quantity,
           modifierIds: item.modifiers ? item.modifiers.map((m) => m.id) : [],
           specialInstructions: item.specialInstructions,
           customDealId: item.customDealId,
+          promotionId: item.promotionId,
+          promotionSelectedOptionIds: (item as any).promotionSelectedOptionIds || [],
+          unitPricePkr: item.unitPricePkr,
         })),
       };
 
@@ -357,12 +361,34 @@ export function CartDrawer({
                                 <Sparkles size={9} /> CUSTOM DEAL
                               </span>
                             )}
+                            {item.promotionId && (
+                              <span
+                                style={{
+                                  fontSize: "10px",
+                                  fontWeight: 800,
+                                  backgroundColor: "rgba(255, 130, 67, 0.15)",
+                                  color: "var(--cnm-orange)",
+                                  border: "1px solid rgba(255, 130, 67, 0.3)",
+                                  padding: "1px 6px",
+                                  borderRadius: "var(--radius-full)",
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: "3px",
+                                }}
+                              >
+                                <Flame size={9} /> PROMOTION DEAL
+                              </span>
+                            )}
                           </div>
-                          {item.variantName && (
+                          {item.promotionSnapshot ? (
+                            <span style={{ fontSize: "11px", color: "var(--cnm-text-muted)", display: "block", marginTop: "2px", lineHeight: 1.3 }}>
+                              {item.promotionSnapshot}
+                            </span>
+                          ) : item.variantName ? (
                             <span style={{ fontSize: "12px", color: "var(--cnm-orange)", fontWeight: 700 }}>
                               {item.variantName}
                             </span>
-                          )}
+                          ) : null}
                         </div>
 
                         <span style={{ fontFamily: "var(--font-display)", fontSize: "15px", fontWeight: 800, color: "var(--cnm-text-primary)" }}>

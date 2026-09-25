@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useRef } from "react";
-import { Category, Product, CartItem } from "@/types";
+import { Category, Product, CartItem, Promotion } from "@/types";
 import { AppDownloadBanner } from "@/components/AppDownloadBanner";
 import { CustomerHeader } from "@/components/CustomerHeader";
 import { PromoCarousel } from "@/components/PromoCarousel";
@@ -9,6 +9,8 @@ import { OrderModeModal } from "@/components/OrderModeModal";
 import { SignatureNavigationStrip } from "@/components/SignatureNavigationStrip";
 import { MenuSearchBar } from "@/components/MenuSearchBar";
 import { PopularPicksSection } from "@/components/PopularPicksSection";
+import { PromotionsSection } from "@/components/PromotionsSection";
+import { PromotionModal } from "@/components/PromotionModal";
 import { ProductCard } from "@/components/ProductCard";
 import { BrandStorySection } from "@/components/BrandStorySection";
 import { ItemCustomizerModal } from "@/components/ItemCustomizerModal";
@@ -28,6 +30,7 @@ export default function StorefrontPage() {
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [selectedPromotion, setSelectedPromotion] = useState<Promotion | null>(null);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -251,6 +254,13 @@ export default function StorefrontPage() {
             products={allProducts}
             isLoading={isLoading}
             onSelectProduct={(p) => setSelectedProduct(p)}
+          />
+        )}
+
+        {/* 6.5. Deals You'll Love (Homepage Promotions Grid) */}
+        {!searchQuery && activeSignatureSlug === "menu" && (
+          <PromotionsSection
+            onSelectPromotion={(promo) => setSelectedPromotion(promo)}
           />
         )}
 
@@ -589,6 +599,15 @@ export default function StorefrontPage() {
         <ItemCustomizerModal
           product={selectedProduct}
           onClose={() => setSelectedProduct(null)}
+          onAddToCart={handleAddToCart}
+        />
+      )}
+
+      {/* Promotion Deal Selector Modal */}
+      {selectedPromotion && (
+        <PromotionModal
+          promotion={selectedPromotion}
+          onClose={() => setSelectedPromotion(null)}
           onAddToCart={handleAddToCart}
         />
       )}

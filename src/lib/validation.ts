@@ -2,12 +2,15 @@ import { z } from "zod";
 import { ORDER_TYPES, ORDER_STATUSES, OrderStatus, OrderType } from "./constants";
 
 export const orderItemInputSchema = z.object({
-  productId: z.string().min(1, "Product ID is required"),
+  productId: z.string().optional().default(""),
   variantId: z.string().optional(),
-  modifierIds: z.array(z.string()).default([]),
+  modifierIds: z.array(z.string()).optional(),
   quantity: z.number().int().min(1, "Quantity must be at least 1").max(50, "Quantity cannot exceed 50"),
   specialInstructions: z.string().max(250).optional(),
   customDealId: z.string().max(100).optional(),
+  promotionId: z.string().max(100).optional(),
+  promotionSelectedOptionIds: z.array(z.string()).optional(),
+  unitPricePkr: z.number().int().optional(),
 });
 
 export const createOrderInputSchema = z

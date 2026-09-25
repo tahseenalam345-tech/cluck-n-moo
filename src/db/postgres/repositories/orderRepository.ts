@@ -18,6 +18,7 @@ import { ORDER_STATUSES, ORDER_TYPES, OrderStatus, OrderType, UserRole } from "@
 import { calculateCustomDealDiscount } from "@/lib/customDeal";
 import { validateStatusTransition } from "@/lib/stateMachine";
 import { AuthenticatedUserSession } from "@/lib/authGuard";
+import { validatePromotionSelection } from "./promotionRepository";
 import crypto from "crypto";
 
 export interface OrderCreationResult {
@@ -72,23 +73,26 @@ export async function createOrderInPostgres(
   }
 
   // 2. Query products, variants, and modifiers from PostgreSQL
-  const productIds = Array.from(new Set(input.items.map((i) => i.productId)));
+  const standardItems = input.items.filter((i) => !i.promotionId);
+  const productIds = Array.from(new Set(standardItems.map((i) => i.productId).filter(Boolean)));
   const variantIds = Array.from(
-    new Set(input.items.map((i) => i.variantId).filter((v): v is string => Boolean(v)))
+    new Set(standardItems.map((i) => i.variantId).filter((v): v is string => Boolean(v)))
   );
-  const modifierIds = Array.from(new Set(input.items.flatMap((i) => i.modifierIds || [])));
+  const modifierIds = Array.from(new Set(standardItems.flatMap((i) => i.modifierIds || [])));
 
-  const dbProducts = await db
-    .select({
-      id: products.id,
-      name: products.name,
-      basePricePkr: products.basePricePkr,
-      isAvailable: products.isAvailable,
-    })
-    .from(products)
-    .where(inArray(products.id, productIds));
-
-  const productMap = new Map(dbProducts.map((p) => [p.id, p]));
+  let productMap = new Map<string, { id: string; name: string; basePricePkr: number; isAvailable: boolean }>();
+  if (productIds.length > 0) {
+    const dbProducts = await db
+      .select({
+        id: products.id,
+        name: products.name,
+        basePricePkr: products.basePricePkr,
+        isAvailable: products.isAvailable,
+      })
+      .from(products)
+      .where(inArray(products.id, productIds));
+    productMap = new Map(dbProducts.map((p) => [p.id, p]));
+  }
 
   let variantMap = new Map<string, { id: string; name: string; pricePkr: number; isAvailable: boolean; productId: string }>();
   if (variantIds.length > 0) {
@@ -124,7 +128,7 @@ export async function createOrderInPostgres(
   let customDealSubtotalPkr = 0;
   const computedItems: Array<{
     id: string;
-    productId: string;
+    productId: string | null;
     productNameSnapshot: string;
     variantNameSnapshot: string | null;
     unitPriceSnapshotPkr: number;
@@ -140,6 +144,44 @@ export async function createOrderInPostgres(
   }> = [];
 
   for (const itemInput of input.items) {
+    // A. Handle Promotion Deal Item
+    if (itemInput.promotionId) {
+      const promoValidation = await validatePromotionSelection(
+        itemInput.promotionId,
+        itemInput.promotionSelectedOptionIds || [],
+        itemInput.unitPricePkr || 0
+      );
+
+      if (!promoValidation.isValid) {
+        return {
+          success: false,
+          error: {
+            code: "PROMOTION_VALIDATION_ERROR",
+            message: promoValidation.error || "Invalid promotion selection.",
+          },
+        };
+      }
+
+      const promoUnitPrice = promoValidation.calculatedPricePkr!;
+      const lineTotal = promoUnitPrice * itemInput.quantity;
+      subtotalPkr += lineTotal;
+      // Note: Promotion items never get custom deal discount (customDealId is null)
+
+      computedItems.push({
+        id: `ord_item_${crypto.randomBytes(8).toString("hex")}`,
+        productId: null,
+        productNameSnapshot: `[DEAL] ${promoValidation.promotionTitle!}`,
+        variantNameSnapshot: promoValidation.snapshotSummary || null,
+        unitPriceSnapshotPkr: promoUnitPrice,
+        quantity: itemInput.quantity,
+        lineTotalPkr: lineTotal,
+        customDealId: null,
+        modifiers: [],
+      });
+      continue;
+    }
+
+    // B. Handle Standard Menu Item
     const product = productMap.get(itemInput.productId);
     if (!product || !product.isAvailable) {
       return {
