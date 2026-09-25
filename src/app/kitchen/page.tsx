@@ -170,7 +170,7 @@ export default function KitchenPage() {
       </header>
 
       {/* Ticket Grid */}
-      <div style={{ padding: "24px" }}>
+      <div style={{ padding: "16px" }}>
         {orders.length === 0 ? (
           <div style={{ textAlign: "center", padding: "120px 20px", color: "var(--cnm-text-muted)" }}>
             <ChefHat size={64} style={{ margin: "0 auto 16px", opacity: 0.3, color: "var(--cnm-orange)" }} />
@@ -192,7 +192,7 @@ export default function KitchenPage() {
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(360px, 1fr))",
+              gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 300px), 1fr))",
               gap: "20px",
             }}
           >

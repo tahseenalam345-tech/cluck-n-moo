@@ -100,6 +100,7 @@ export function CustomerHeader({
     >
       {/* Live Store Status & Hotline Top Stripe */}
       <div
+        className="desktop-top-stripe"
         style={{
           backgroundColor: "var(--cnm-surface-elevated)",
           borderBottom: "1px solid var(--cnm-border)",
@@ -162,9 +163,8 @@ export function CustomerHeader({
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            minHeight: "68px",
-            padding: "4px 0",
-            gap: "6px",
+            minHeight: "56px",
+            padding: "0",
             width: "100%",
           }}
         >
@@ -682,37 +682,40 @@ export function CustomerHeader({
           .header-theme-toggle {
             display: none !important;
           }
+          .desktop-top-stripe {
+            display: none !important;
+          }
+          :global(.brand-logo-tagline) {
+            display: none !important;
+          }
         }
 
         @media (max-width: 640px) {
-          .status-full-schedule {
-            display: none !important;
-          }
-          .status-short-schedule {
-            display: inline !important;
-          }
           .header-controls-cluster {
-            gap: 4px !important;
+            gap: 6px !important;
           }
           .order-mode-header-btn {
-            max-width: 86px !important;
-            padding: 4px 6px !important;
-            font-size: 10px !important;
+            max-width: none !important;
+            padding: 6px 8px !important;
+            font-size: 11px !important;
+          }
+          .order-mode-header-btn span {
+            display: none !important;
           }
           .cart-text-desktop {
             display: none !important;
           }
           .header-cart-btn {
             padding: 6px !important;
-            min-width: 34px !important;
-            width: 34px !important;
-            height: 34px !important;
+            min-width: 36px !important;
+            width: 36px !important;
+            height: 36px !important;
             justify-content: center !important;
           }
           .mobile-hamburger-btn {
-            width: 34px !important;
-            min-width: 34px !important;
-            height: 34px !important;
+            width: 36px !important;
+            min-width: 36px !important;
+            height: 36px !important;
             margin-right: 0 !important;
             flex-shrink: 0 !important;
           }
@@ -735,23 +738,15 @@ export function CustomerHeader({
         }
 
         @media (max-width: 380px) {
-          .status-phone-text {
-            display: none !important;
-          }
-          .order-mode-header-btn {
-            max-width: 70px !important;
-            font-size: 9px !important;
-            padding: 3px 5px !important;
-          }
           .header-cart-btn {
-            width: 32px !important;
-            min-width: 32px !important;
-            height: 32px !important;
+            width: 34px !important;
+            min-width: 34px !important;
+            height: 34px !important;
           }
           .mobile-hamburger-btn {
-            width: 32px !important;
-            min-width: 32px !important;
-            height: 32px !important;
+            width: 34px !important;
+            min-width: 34px !important;
+            height: 34px !important;
           }
         }
 

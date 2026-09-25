@@ -332,11 +332,11 @@ export default function StorefrontPage() {
                     style={{
                       display: "inline-flex",
                       alignItems: "center",
-                      gap: "6px",
-                      padding: "7px 14px",
+                      gap: "4px",
+                      padding: "5px 10px",
                       borderRadius: "var(--radius-full)",
-                      fontSize: "12.5px",
-                      fontWeight: 650,
+                      fontSize: "11px",
+                      fontWeight: 700,
                       fontFamily: "var(--font-display)",
                       letterSpacing: "0.01em",
                       backgroundColor: selectedCategory === "all" ? "var(--cnm-orange)" : "var(--cnm-surface)",
@@ -367,11 +367,11 @@ export default function StorefrontPage() {
                         style={{
                           display: "inline-flex",
                           alignItems: "center",
-                          gap: "6px",
-                          padding: "7px 14px",
+                          gap: "4px",
+                          padding: "5px 10px",
                           borderRadius: "var(--radius-full)",
-                          fontSize: "12.5px",
-                          fontWeight: 650,
+                          fontSize: "11px",
+                          fontWeight: 700,
                           fontFamily: "var(--font-display)",
                           letterSpacing: "0.01em",
                           backgroundColor: isSelected ? "var(--cnm-orange)" : "var(--cnm-surface)",
@@ -590,7 +590,7 @@ export default function StorefrontPage() {
           }
         }
 
-        @media (max-width: 360px) {
+        @media (max-width: 319px) {
           .product-responsive-grid {
             grid-template-columns: minmax(0, 1fr);
             gap: 10px;

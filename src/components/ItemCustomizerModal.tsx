@@ -79,6 +79,7 @@ export function ItemCustomizerModal({
 
   return (
     <div
+      className="modal-backdrop-container"
       style={{
         position: "fixed",
         inset: 0,
@@ -267,7 +268,7 @@ export function ItemCustomizerModal({
                   </span>
                 </div>
 
-                <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
                   {grp.modifiers.map((m) => {
                     const isChecked = selectedModifiers.some((sm) => sm.id === m.id);
                     return (
@@ -275,46 +276,31 @@ export function ItemCustomizerModal({
                         key={m.id}
                         onClick={() => toggleModifier(m, grp.maxSelection || 5)}
                         style={{
-                          display: "flex",
+                          display: "inline-flex",
                           alignItems: "center",
-                          justifyContent: "space-between",
-                          padding: "12px 14px",
-                          borderRadius: "var(--radius-sm)",
-                          backgroundColor: isChecked ? "var(--cnm-orange-subtle)" : "var(--cnm-surface-elevated)",
-                          border: `1.5px solid ${isChecked ? "var(--cnm-orange)" : "var(--cnm-border)"}`,
+                          gap: "6px",
+                          padding: "8px 12px",
+                          borderRadius: "var(--radius-full)",
+                          backgroundColor: isChecked ? "var(--cnm-orange)" : "var(--cnm-surface-elevated)",
+                          color: isChecked ? "#ffffff" : "var(--cnm-text-primary)",
+                          border: `1px solid ${isChecked ? "var(--cnm-orange)" : "var(--cnm-border)"}`,
                           cursor: "pointer",
                           transition: "all 0.15s ease",
                         }}
                       >
-                        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                          <div
-                            style={{
-                              width: "18px",
-                              height: "18px",
-                              borderRadius: "4px",
-                              border: `2px solid ${isChecked ? "var(--cnm-orange)" : "var(--cnm-border)"}`,
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              backgroundColor: isChecked ? "var(--cnm-orange)" : "transparent",
-                            }}
-                          >
-                            {isChecked && <Check size={12} color="#ffffff" strokeWidth={3} />}
-                          </div>
-                          <span style={{ fontSize: "13px", fontWeight: 600, color: "var(--cnm-text-primary)" }}>
-                            {m.name}
-                          </span>
-                        </div>
-
+                        {isChecked && <Check size={12} color="#ffffff" strokeWidth={3} />}
+                        <span style={{ fontSize: "12px", fontWeight: 700 }}>
+                          {m.name}
+                        </span>
                         <span
                           style={{
                             fontFamily: "var(--font-display)",
-                            fontSize: "13px",
-                            fontWeight: 700,
-                            color: "var(--cnm-orange)",
+                            fontSize: "11px",
+                            fontWeight: 800,
+                            opacity: 0.8,
                           }}
                         >
-                          +{m.pricePkr.toLocaleString()} PKR
+                          +{m.pricePkr}
                         </span>
                       </div>
                     );
@@ -453,12 +439,21 @@ export function ItemCustomizerModal({
       </div>
 
       <style jsx>{`
+        @keyframes slideUp {
+          from { transform: translateY(100%); }
+          to { transform: translateY(0); }
+        }
         @media (max-width: 640px) {
+          .modal-backdrop-container {
+            align-items: flex-end !important;
+            padding: 0 !important;
+          }
           :global(.customizer-modal-box) {
-            max-height: 92vh !important;
+            max-height: 85vh !important;
             border-bottom-left-radius: 0 !important;
             border-bottom-right-radius: 0 !important;
-            padding: 20px 16px 20px !important;
+            padding: 16px 16px 20px !important;
+            animation: slideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
           }
         }
       `}</style>

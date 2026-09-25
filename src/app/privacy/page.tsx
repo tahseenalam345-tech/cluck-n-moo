@@ -18,7 +18,7 @@ export default function PrivacyPage() {
             Privacy Policy
           </h1>
 
-          <div className="card" style={{ padding: "32px", display: "flex", flexDirection: "column", gap: "20px", fontSize: "14.5px", lineHeight: 1.6, color: "var(--cnm-text-secondary)" }}>
+          <div className="card" style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: "20px", fontSize: "14.5px", lineHeight: 1.6, color: "var(--cnm-text-secondary)" }}>
             <p>
               At <strong>Cluck N Moo (CNM)</strong>, we respect your privacy and are committed to protecting the personal information you share with us when ordering online for delivery, takeaway, or dine-in.
             </p>

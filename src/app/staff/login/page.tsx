@@ -130,7 +130,7 @@ export default function StaffLoginPage() {
             border: "1px solid var(--cnm-border)",
             borderRadius: "var(--radius-lg)",
             boxShadow: "var(--shadow-elevated)",
-            padding: "32px 28px",
+            padding: "16px 20px",
           }}
         >
           {error && (

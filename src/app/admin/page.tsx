@@ -851,7 +851,7 @@ export default function AdminPage() {
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+                gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 150px), 1fr))",
                 gap: "12px",
                 marginBottom: "18px",
               }}
@@ -1169,7 +1169,7 @@ export default function AdminPage() {
               <div
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "repeat(auto-fill, minmax(380px, 1fr))",
+                  gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 320px), 1fr))",
                   gap: "16px",
                   alignItems: "stretch",
                 }}
@@ -1975,7 +1975,7 @@ export default function AdminPage() {
               </h3>
               <form
                 onSubmit={handleAddArea}
-                style={{ display: "grid", gridTemplateColumns: "2fr 1fr auto", gap: "10px", alignItems: "flex-end" }}
+                style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 200px), 1fr))", gap: "10px", alignItems: "flex-end" }}
               >
                 <div>
                   <label className="form-label">Area / Village Name</label>
@@ -2010,7 +2010,7 @@ export default function AdminPage() {
               <h3 style={{ fontFamily: "var(--font-display)", fontSize: "16px", marginBottom: "12px" }}>
                 Active Delivery Coverage ({deliveryAreas.length} Areas Configured)
               </h3>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: "10px" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 300px), 1fr))", gap: "10px" }}>
                 {deliveryAreas.map((area) => (
                   <div
                     key={area.id}

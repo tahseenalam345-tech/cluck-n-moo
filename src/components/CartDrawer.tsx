@@ -221,6 +221,7 @@ export function CartDrawer({
 
   return (
     <div
+      className="cart-backdrop"
       style={{
         position: "fixed",
         inset: 0,
@@ -325,11 +326,11 @@ export function CartDrawer({
                       style={{
                         backgroundColor: "var(--cnm-surface-elevated)",
                         border: "1px solid var(--cnm-border)",
-                        borderRadius: "var(--radius-md)",
-                        padding: "14px",
+                        borderRadius: "var(--radius-sm)",
+                        padding: "10px",
                         display: "flex",
                         flexDirection: "column",
-                        gap: "8px",
+                        gap: "6px",
                       }}
                     >
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
@@ -511,9 +512,9 @@ export function CartDrawer({
             onSubmit={handleCheckout}
             style={{ display: "flex", flexDirection: "column", height: "calc(100% - 65px)" }}
           >
-            <div style={{ flex: 1, overflowY: "auto", padding: "16px 20px" }}>
+            <div style={{ flex: 1, overflowY: "auto", padding: "12px 16px" }}>
               {/* Customer Contact */}
-              <div style={{ marginBottom: "20px" }}>
+              <div style={{ marginBottom: "14px" }}>
                 <h3 style={{ fontSize: "13px", fontWeight: 800, color: "var(--cnm-orange)", marginBottom: "12px", letterSpacing: "0.05em" }}>
                   1. CONTACT INFORMATION
                 </h3>
@@ -545,7 +546,7 @@ export function CartDrawer({
 
               {/* Delivery Details */}
               {currentOrderType === "DELIVERY" && (
-                <div style={{ marginBottom: "20px" }}>
+                <div style={{ marginBottom: "14px" }}>
                   <h3 style={{ fontSize: "13px", fontWeight: 800, color: "var(--cnm-orange)", marginBottom: "12px", letterSpacing: "0.05em" }}>
                     2. DELIVERY ADDRESS (KHARIAN)
                   </h3>
@@ -593,7 +594,7 @@ export function CartDrawer({
 
               {/* Dine-In Arrival Timing */}
               {currentOrderType === "DINE_IN" && (
-                <div style={{ marginBottom: "20px" }}>
+                <div style={{ marginBottom: "14px" }}>
                   <h3 style={{ fontSize: "13px", fontWeight: 800, color: "var(--cnm-orange)", marginBottom: "12px", letterSpacing: "0.05em" }}>
                     2. DINE-IN ARRIVAL TIME
                   </h3>
@@ -740,7 +741,7 @@ export function CartDrawer({
             {/* Sticky Step 2 Footer */}
             <div
               style={{
-                padding: "16px 20px",
+                padding: "12px 16px",
                 borderTop: "1px solid var(--cnm-border)",
                 backgroundColor: "var(--cnm-surface)",
               }}
@@ -804,6 +805,28 @@ export function CartDrawer({
           </form>
         )}
       </div>
+
+      <style jsx>{`
+        @keyframes cartSlideUp {
+          from { transform: translateY(100%); }
+          to { transform: translateY(0); }
+        }
+        @media (max-width: 640px) {
+          .cart-backdrop {
+            align-items: flex-end !important;
+            justify-content: center !important;
+            padding: 0 !important;
+          }
+          :global(.cart-drawer-panel) {
+            max-width: 100% !important;
+            height: 90vh !important;
+            border-left: none !important;
+            border-top-left-radius: var(--radius-lg) !important;
+            border-top-right-radius: var(--radius-lg) !important;
+            animation: cartSlideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+          }
+        }
+      `}</style>
     </div>
   );
 }

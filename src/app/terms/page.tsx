@@ -18,7 +18,7 @@ export default function TermsPage() {
             Terms & Cancellation Policy
           </h1>
 
-          <div className="card" style={{ padding: "32px", display: "flex", flexDirection: "column", gap: "20px", fontSize: "14.5px", lineHeight: 1.6, color: "var(--cnm-text-secondary)" }}>
+          <div className="card" style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: "20px", fontSize: "14.5px", lineHeight: 1.6, color: "var(--cnm-text-secondary)" }}>
             <h3 style={{ fontSize: "18px", color: "var(--cnm-text-primary)" }}>1. Phone Confirmation Workflow</h3>
             <p>
               To ensure freshness and prevent food waste, all newly placed online orders enter a <strong>New</strong> status until a member of the Cluck N Moo staff calls your phone number to confirm item quantities and delivery location before cooking begins.

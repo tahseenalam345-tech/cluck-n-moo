@@ -283,7 +283,7 @@ export default function AccountPage() {
             </div>
           ) : !user ? (
             /* ----------------- UNAUTHENTICATED: LOGIN / SIGNUP ----------------- */
-            <div className="card" style={{ padding: "32px" }}>
+            <div className="card" style={{ padding: "16px 20px" }}>
               <div
                 style={{
                   display: "flex",
@@ -473,7 +473,7 @@ export default function AccountPage() {
             /* ----------------- AUTHENTICATED: PROFILE & DASHBOARD ----------------- */
             <div style={{ display: "flex", flexDirection: "column", gap: "28px" }}>
               {/* User Profile Card */}
-              <div className="card" style={{ padding: "28px" }}>
+              <div className="card" style={{ padding: "16px 20px" }}>
                 <div
                   style={{
                     display: "flex",
@@ -569,7 +569,7 @@ export default function AccountPage() {
               </div>
 
               {/* Saved Delivery Addresses */}
-              <div className="card" style={{ padding: "28px" }}>
+              <div className="card" style={{ padding: "16px 20px" }}>
                 <div
                   style={{
                     display: "flex",
@@ -711,7 +711,7 @@ export default function AccountPage() {
               </div>
 
               {/* Order History */}
-              <div className="card" style={{ padding: "28px" }}>
+              <div className="card" style={{ padding: "16px 20px" }}>
                 <div
                   style={{
                     display: "flex",

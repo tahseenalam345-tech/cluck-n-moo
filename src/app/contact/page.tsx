@@ -34,7 +34,7 @@ export default function ContactPage() {
             }}
           >
             {/* Branch Card */}
-            <div className="card" style={{ padding: "28px" }}>
+            <div className="card" style={{ padding: "16px 20px" }}>
               <h2 style={{ fontSize: "20px", color: "var(--cnm-text-primary)", marginBottom: "16px" }}>
                 {BRAND.branch.name}
               </h2>
@@ -84,7 +84,7 @@ export default function ContactPage() {
             </div>
 
             {/* Delivery Areas Card */}
-            <div className="card" style={{ padding: "28px" }}>
+            <div className="card" style={{ padding: "16px 20px" }}>
               <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "12px" }}>
                 <Bike size={20} color="var(--cnm-orange)" />
                 <h2 style={{ fontSize: "20px", color: "var(--cnm-text-primary)" }}>

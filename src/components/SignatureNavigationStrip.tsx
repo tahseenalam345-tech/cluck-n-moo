@@ -258,9 +258,7 @@ export function SignatureNavigationStrip({
                       fontSize: "12px",
                       fontWeight: isActive ? 800 : 600,
                       color: "var(--cnm-text-primary)",
-                      backgroundColor: isActive ? "var(--cnm-surface-elevated)" : "transparent",
-                      border: isActive ? "1px solid var(--cnm-border)" : "1px solid transparent",
-                      padding: "2px 8px",
+                      padding: "2px 6px",
                       borderRadius: "var(--radius-full)",
                       textAlign: "center",
                       whiteSpace: "nowrap",
@@ -321,13 +319,16 @@ export function SignatureNavigationStrip({
           }
           .signature-strip-track {
             justifyContent: flex-start !important;
-            gap: 14px !important;
+            gap: 8px !important;
             padding-left: 4px !important;
             padding-right: 28px !important; /* communicates partial next-item reveal */
           }
           .signature-circle-btn {
-            width: 64px !important;
-            height: 64px !important;
+            width: 52px !important;
+            height: 52px !important;
+          }
+          .signature-label {
+            font-size: 10px !important;
           }
         }
 

@@ -147,8 +147,9 @@ export function ProductCard({ product, onSelect, priority = false }: ProductCard
 
       {/* Product Content Body */}
       <div
+        className="product-card-body"
         style={{
-          padding: "14px 12px",
+          padding: "10px 8px",
           display: "flex",
           flexDirection: "column",
           flexGrow: 1,
@@ -159,7 +160,7 @@ export function ProductCard({ product, onSelect, priority = false }: ProductCard
           <h3
             style={{
               fontFamily: "var(--font-display)",
-              fontSize: "14.5px",
+              fontSize: "13px",
               fontWeight: 650,
               lineHeight: 1.3,
               color: "var(--cnm-text-primary)",
@@ -172,13 +173,14 @@ export function ProductCard({ product, onSelect, priority = false }: ProductCard
 
 
           <p
+            className="product-card-desc"
             style={{
-              fontSize: "12px",
+              fontSize: "11px",
               color: "var(--cnm-text-muted)",
-              lineHeight: 1.4,
-              marginBottom: "14px",
+              lineHeight: 1.3,
+              marginBottom: "10px",
               display: "-webkit-box",
-              WebkitLineClamp: 2,
+              WebkitLineClamp: 1,
               WebkitBoxOrient: "vertical",
               overflow: "hidden",
             }}
@@ -207,14 +209,14 @@ export function ProductCard({ product, onSelect, priority = false }: ProductCard
             <span
               style={{
                 fontFamily: "var(--font-display)",
-                fontSize: "16px",
+                fontSize: "14px",
                 fontWeight: 800,
                 color: "var(--cnm-text-primary)",
                 lineHeight: 1,
                 letterSpacing: "-0.01em",
               }}
             >
-              {displayPrice.toLocaleString()} <span style={{ fontSize: "11px", fontWeight: 700, color: "var(--cnm-text-muted)" }}>PKR</span>
+              {displayPrice.toLocaleString()} <span style={{ fontSize: "10px", fontWeight: 700, color: "var(--cnm-text-muted)" }}>PKR</span>
             </span>
           </div>
 
@@ -223,8 +225,8 @@ export function ProductCard({ product, onSelect, priority = false }: ProductCard
             disabled={!isAvailable}
             className="btn btn-primary product-action-btn"
             style={{
-              padding: "6px 12px",
-              fontSize: "12px",
+              padding: "5px 8px",
+              fontSize: "11px",
               borderRadius: "var(--radius-sm)",
               whiteSpace: "nowrap",
               flexShrink: 0,
@@ -232,18 +234,39 @@ export function ProductCard({ product, onSelect, priority = false }: ProductCard
           >
             {hasVariants ? (
               <>
-                <SlidersHorizontal size={13} />
-                <span>Options</span>
+                <SlidersHorizontal size={12} />
+                <span className="btn-text">Options</span>
               </>
             ) : (
               <>
-                <Plus size={14} />
-                <span>Add</span>
+                <Plus size={12} />
+                <span className="btn-text">Add</span>
               </>
             )}
           </button>
         </div>
       </div>
+
+      <style jsx>{`
+        @media (max-width: 400px) {
+          .btn-text {
+            display: none !important;
+          }
+          .product-card-desc {
+            display: none !important;
+          }
+          .product-card-body {
+            padding: 8px 6px !important;
+          }
+          .product-action-btn {
+            padding: 6px !important;
+            width: 28px !important;
+            height: 28px !important;
+            justify-content: center !important;
+            border-radius: 50% !important;
+          }
+        }
+      `}</style>
     </article>
   );
 }

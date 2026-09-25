@@ -101,6 +101,7 @@ export function OrderModeModal() {
 
   return (
     <div
+      className="mode-backdrop"
       style={{
         position: "fixed",
         inset: 0,
@@ -119,7 +120,7 @@ export function OrderModeModal() {
       }}
     >
       <div
-        className="card"
+        className="card mode-modal"
         style={{
           width: "100%",
           maxWidth: "520px",
@@ -455,6 +456,25 @@ export function OrderModeModal() {
           </div>
         </form>
       </div>
+
+      <style jsx>{`
+        @keyframes modeSlideUp {
+          from { transform: translateY(100%); }
+          to { transform: translateY(0); }
+        }
+        @media (max-width: 640px) {
+          .mode-backdrop {
+            align-items: flex-end !important;
+            padding: 0 !important;
+          }
+          :global(.mode-modal) {
+            max-height: 90vh !important;
+            border-bottom-left-radius: 0 !important;
+            border-bottom-right-radius: 0 !important;
+            animation: modeSlideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+          }
+        }
+      `}</style>
     </div>
   );
 }

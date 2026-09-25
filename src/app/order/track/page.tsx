@@ -396,7 +396,7 @@ export default function TrackOrderPage() {
           <div
             className="card"
             style={{
-              padding: "18px 22px",
+              padding: "14px 16px",
               marginBottom: "28px",
               backgroundColor: "var(--cnm-surface)",
               border: "1px solid var(--cnm-border)",
@@ -604,7 +604,7 @@ export default function TrackOrderPage() {
                       className="card"
                       onClick={() => setSelectedToken(order.trackingToken)}
                       style={{
-                        padding: "16px 18px",
+                        padding: "12px 14px",
                         backgroundColor: isSelected
                           ? "var(--cnm-surface-elevated)"
                           : isCompleted
@@ -781,9 +781,9 @@ export default function TrackOrderPage() {
               id="selected-order-details"
               style={{
                 backgroundColor: "var(--cnm-surface)",
-                border: "1.5px solid var(--cnm-border)",
+                border: "1px solid var(--cnm-border)",
                 borderRadius: "var(--radius-lg)",
-                padding: "24px",
+                padding: "16px 14px",
                 marginBottom: "32px",
                 boxShadow: "0 8px 32px rgba(0, 0, 0, 0.4)",
               }}

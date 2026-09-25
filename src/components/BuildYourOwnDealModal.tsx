@@ -152,6 +152,7 @@ export function BuildYourOwnDealModal({
 
   return (
     <div
+      className="byo-backdrop"
       style={{
         position: "fixed",
         inset: 0,
@@ -900,6 +901,25 @@ export function BuildYourOwnDealModal({
           />
         )}
       </div>
+
+      <style jsx>{`
+        @keyframes dealSlideUp {
+          from { transform: translateY(100%); }
+          to { transform: translateY(0); }
+        }
+        @media (max-width: 640px) {
+          .byo-backdrop {
+            align-items: flex-end !important;
+          }
+          :global(.byo-deal-modal) {
+            max-width: 100% !important;
+            height: 95vh !important;
+            border-bottom-left-radius: 0 !important;
+            border-bottom-right-radius: 0 !important;
+            animation: dealSlideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+          }
+        }
+      `}</style>
     </div>
   );
 }
