@@ -62,6 +62,7 @@ export function ProductCard({ product, onSelect, priority = false }: ProductCard
   return (
     <article
       className="card product-card"
+      onClick={() => isAvailable && onSelect(product)}
       style={{
         display: "flex",
         flexDirection: "column",
@@ -70,6 +71,7 @@ export function ProductCard({ product, onSelect, priority = false }: ProductCard
         overflow: "hidden",
         position: "relative",
         opacity: isAvailable ? 1 : 0.65,
+        cursor: isAvailable ? "pointer" : "not-allowed",
       }}
     >
       {/* Top Image Frame with Fixed Aspect Ratio (4:3) via ProductImage */}
@@ -166,6 +168,10 @@ export function ProductCard({ product, onSelect, priority = false }: ProductCard
               color: "var(--cnm-text-primary)",
               marginBottom: "6px",
               letterSpacing: "-0.01em",
+              display: "-webkit-box",
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: "vertical",
+              overflow: "hidden",
             }}
           >
             {product.name}
@@ -180,7 +186,7 @@ export function ProductCard({ product, onSelect, priority = false }: ProductCard
               lineHeight: 1.3,
               marginBottom: "10px",
               display: "-webkit-box",
-              WebkitLineClamp: 1,
+              WebkitLineClamp: 2,
               WebkitBoxOrient: "vertical",
               overflow: "hidden",
             }}
@@ -221,7 +227,7 @@ export function ProductCard({ product, onSelect, priority = false }: ProductCard
           </div>
 
           <button
-            onClick={() => onSelect(product)}
+            onClick={(e) => { e.stopPropagation(); onSelect(product); }}
             disabled={!isAvailable}
             className="btn btn-primary product-action-btn"
             style={{
@@ -250,9 +256,6 @@ export function ProductCard({ product, onSelect, priority = false }: ProductCard
       <style jsx>{`
         @media (max-width: 400px) {
           .btn-text {
-            display: none !important;
-          }
-          .product-card-desc {
             display: none !important;
           }
           .product-card-body {

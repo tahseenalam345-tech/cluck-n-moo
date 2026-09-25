@@ -407,63 +407,56 @@ export function CustomerHeader({
           </button>
         </div>
 
-        {/* Current Order Mode Quick Card */}
+        {/* Compact Order Type Section */}
         <div style={{ padding: "16px 20px 8px" }}>
-          <div
-            style={{
-              padding: "12px 14px",
-              borderRadius: "var(--radius-md)",
-              backgroundColor: "var(--cnm-surface-elevated)",
-              border: "1px solid var(--cnm-border)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: "8px",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: "8px", minWidth: 0 }}>
-              <div
+          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+            <span style={{ fontSize: "12px", fontWeight: 900, color: "var(--cnm-text-primary)", fontFamily: "var(--font-display)", letterSpacing: "0.04em" }}>
+              ORDER TYPE
+            </span>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "6px" }}>
+              <button
+                onClick={() => { openOrderModeModal(); setIsMobileMenuOpen(false); }}
                 style={{
-                  width: "30px",
-                  height: "30px",
-                  borderRadius: "50%",
-                  backgroundColor: "rgba(255, 130, 67, 0.15)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  flexShrink: 0,
+                  padding: "10px 4px", borderRadius: "var(--radius-sm)", border: "1px solid", fontSize: "11px", fontWeight: 800,
+                  display: "flex", flexDirection: "column", alignItems: "center", gap: "6px",
+                  borderColor: modeState.orderType === "DELIVERY" ? "var(--cnm-orange)" : "var(--cnm-border)",
+                  backgroundColor: modeState.orderType === "DELIVERY" ? "var(--cnm-orange)" : "var(--cnm-surface-elevated)",
+                  color: modeState.orderType === "DELIVERY" ? "#fff" : "var(--cnm-text-primary)"
                 }}
               >
-                {getOrderModeIcon()}
-              </div>
-              <div style={{ minWidth: 0 }}>
-                <p style={{ fontSize: "10px", color: "var(--cnm-text-muted)", textTransform: "uppercase", fontWeight: 700 }}>
-                  Order Mode
-                </p>
-                <p style={{ fontSize: "13px", fontWeight: 800, color: "var(--cnm-text-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                  {getOrderModeLabel()}
-                </p>
-              </div>
+                <Bike size={18} /> DELIVERY
+              </button>
+              <button
+                onClick={() => { openOrderModeModal(); setIsMobileMenuOpen(false); }}
+                style={{
+                  padding: "10px 4px", borderRadius: "var(--radius-sm)", border: "1px solid", fontSize: "11px", fontWeight: 800,
+                  display: "flex", flexDirection: "column", alignItems: "center", gap: "6px",
+                  borderColor: modeState.orderType === "PICKUP" ? "var(--cnm-orange)" : "var(--cnm-border)",
+                  backgroundColor: modeState.orderType === "PICKUP" ? "var(--cnm-orange)" : "var(--cnm-surface-elevated)",
+                  color: modeState.orderType === "PICKUP" ? "#fff" : "var(--cnm-text-primary)"
+                }}
+              >
+                <Clock size={18} /> PICKUP
+              </button>
+              <button
+                onClick={() => { openOrderModeModal(); setIsMobileMenuOpen(false); }}
+                style={{
+                  padding: "10px 4px", borderRadius: "var(--radius-sm)", border: "1px solid", fontSize: "11px", fontWeight: 800,
+                  display: "flex", flexDirection: "column", alignItems: "center", gap: "6px",
+                  borderColor: modeState.orderType === "DINE_IN" ? "var(--cnm-orange)" : "var(--cnm-border)",
+                  backgroundColor: modeState.orderType === "DINE_IN" ? "var(--cnm-orange)" : "var(--cnm-surface-elevated)",
+                  color: modeState.orderType === "DINE_IN" ? "#fff" : "var(--cnm-text-primary)"
+                }}
+              >
+                <Utensils size={18} /> DINE-IN
+              </button>
             </div>
-            <button
-              onClick={() => {
-                setIsMobileMenuOpen(false);
-                openOrderModeModal();
-              }}
-              style={{
-                fontSize: "11px",
-                fontWeight: 800,
-                color: "var(--cnm-orange)",
-                backgroundColor: "transparent",
-                border: "none",
-                cursor: "pointer",
-                padding: "4px 8px",
-                borderRadius: "var(--radius-sm)",
-                flexShrink: 0,
-              }}
-            >
-              Change
-            </button>
+            <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "4px" }}>
+              <span style={{ fontSize: "12px", color: "var(--cnm-text-secondary)" }}>Selected:</span>
+              <span style={{ fontSize: "13px", fontWeight: 800, color: "var(--cnm-orange)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                {getOrderModeLabel()}
+              </span>
+            </div>
           </div>
         </div>
 
@@ -559,6 +552,22 @@ export function CustomerHeader({
           >
             <span style={{ fontSize: "16px" }}>📦</span>
             <span>TRACK YOUR ORDER</span>
+          </Link>
+          <Link
+            href="/account"
+            onClick={() => setIsMobileMenuOpen(false)}
+            style={{
+              color: "var(--cnm-text-primary)",
+              padding: "12px 14px",
+              borderRadius: "var(--radius-sm)",
+              display: "flex",
+              alignItems: "center",
+              gap: "10px",
+              transition: "background-color 0.15s ease",
+            }}
+          >
+            <span style={{ fontSize: "16px" }}>👤</span>
+            <span>MY ACCOUNT / LOGIN</span>
           </Link>
           <Link
             href="/contact"
@@ -684,10 +693,7 @@ export function CustomerHeader({
           }
           .desktop-top-stripe {
             display: none !important;
-          }
-          :global(.brand-logo-tagline) {
-            display: none !important;
-          }
+        }
         }
 
         @media (max-width: 640px) {
@@ -695,11 +701,6 @@ export function CustomerHeader({
             gap: 6px !important;
           }
           .order-mode-header-btn {
-            max-width: none !important;
-            padding: 6px 8px !important;
-            font-size: 11px !important;
-          }
-          .order-mode-header-btn span {
             display: none !important;
           }
           .cart-text-desktop {
