@@ -64,13 +64,13 @@ export function SignatureNavigationStrip({
       className="signature-navigation-wrapper"
       style={{
         width: "100%",
-        padding: "8px 0 12px",
+        padding: "3px 0 5px",
         position: "sticky",
         top: typeof stickyTop === "number" ? `${stickyTop}px` : "68px",
         zIndex: 35,
         backgroundColor: "var(--cnm-bg)",
         borderBottom: "1px solid var(--cnm-border)",
-        boxShadow: "0 4px 16px rgba(0, 0, 0, 0.08)",
+        boxShadow: "0 2px 8px rgba(0, 0, 0, 0.05)",
         backdropFilter: "blur(10px)",
         transition: "top 0.15s ease, background-color 0.2s ease",
       }}
@@ -83,7 +83,7 @@ export function SignatureNavigationStrip({
             display: "flex",
             alignItems: "center",
             width: "100%",
-            maxWidth: "680px",
+            maxWidth: "960px",
             margin: "0 auto",
           }}
         >
@@ -98,8 +98,8 @@ export function SignatureNavigationStrip({
                 position: "absolute",
                 left: "-18px",
                 zIndex: 10,
-                width: "32px",
-                height: "32px",
+                width: "30px",
+                height: "30px",
                 borderRadius: "50%",
                 backgroundColor: "var(--cnm-surface-elevated)",
                 border: "1px solid var(--cnm-border)",
@@ -107,11 +107,11 @@ export function SignatureNavigationStrip({
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
+                boxShadow: "0 2px 8px rgba(0, 0, 0, 0.12)",
                 cursor: "pointer",
               }}
             >
-              <ChevronLeft size={17} />
+              <ChevronLeft size={16} />
             </button>
           )}
 
@@ -124,13 +124,13 @@ export function SignatureNavigationStrip({
             style={{
               display: "flex",
               alignItems: "flex-start",
-              gap: "14px",
+              gap: "22px",
               overflowX: "auto",
-              padding: "8px 6px 10px",
+              padding: "2px 6px 4px",
               scrollSnapType: "x mandatory",
               scrollBehavior: "smooth",
               width: "100%",
-              justifyContent: "center",
+              justifyContent: "space-evenly",
             }}
           >
             {SIGNATURE_SECTIONS.filter((s) => s.isActive).map((sec, idx) => {
@@ -143,7 +143,7 @@ export function SignatureNavigationStrip({
                     display: "flex",
                     flexDirection: "column",
                     alignItems: "center",
-                    gap: "8px",
+                    gap: "4px",
                     scrollSnapAlign: "center",
                     flexShrink: 0,
                     userSelect: "none",
@@ -319,9 +319,8 @@ export function SignatureNavigationStrip({
           }
           .signature-strip-track {
             justifyContent: flex-start !important;
-            gap: 8px !important;
-            padding-left: 4px !important;
-            padding-right: 28px !important; /* communicates partial next-item reveal */
+            gap: 12px !important;
+            padding: 2px 24px 2px 4px !important;
           }
           .signature-circle-btn {
             width: 52px !important;
@@ -334,8 +333,9 @@ export function SignatureNavigationStrip({
 
         @media (min-width: 641px) and (max-width: 1024px) {
           .signature-strip-track {
-            justify-content: center !important;
-            gap: 12px !important;
+            justify-content: space-evenly !important;
+            gap: 16px !important;
+            padding: 2px 4px 4px !important;
           }
           .signature-circle-btn {
             width: 68px !important;
@@ -345,8 +345,9 @@ export function SignatureNavigationStrip({
 
         @media (min-width: 1025px) {
           .signature-strip-track {
-            justify-content: center !important;
-            gap: 14px !important;
+            justify-content: space-evenly !important;
+            gap: 24px !important;
+            padding: 2px 4px 4px !important;
           }
           .signature-circle-btn {
             width: 74px !important;
