@@ -11,11 +11,34 @@ interface PromotionModalProps {
   onAddToCart: (item: CartItem) => void;
 }
 
-export function PromotionModal({ promotion, onClose, onAddToCart }: PromotionModalProps) {
-  // Store selected option ID(s) per rule ID
+export function PromotionModal({ promotion: propPromotion, onClose, onAddToCart }: PromotionModalProps) {
+  const [promotion, setPromotion] = useState<Promotion>(propPromotion);
   const [selectedByRule, setSelectedByRule] = useState<Record<string, string[]>>({});
   const [quantity, setQuantity] = useState(1);
   const [validationError, setValidationError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setPromotion(propPromotion);
+  }, [propPromotion]);
+
+  // If rules are missing, fetch from database API to enrich deal choices
+  useEffect(() => {
+    if (!promotion.rules || promotion.rules.length === 0) {
+      fetch("/api/v1/promotions")
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.success && Array.isArray(data.data)) {
+            const match = data.data.find(
+              (p: any) => p.slug === promotion.slug || p.id === promotion.id
+            );
+            if (match && match.rules && match.rules.length > 0) {
+              setPromotion(match);
+            }
+          }
+        })
+        .catch(() => {});
+    }
+  }, [promotion.id, promotion.slug, promotion.rules]);
 
   // Initialize default selections where applicable
   useEffect(() => {

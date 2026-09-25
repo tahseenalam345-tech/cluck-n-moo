@@ -233,12 +233,35 @@ export default function StorefrontPage() {
                       return;
                     }
                   }
-                  const el = document.getElementById("promotions-section");
-                  if (el) el.scrollIntoView({ behavior: "smooth" });
+                  // Fallback instant open
+                  setSelectedPromotion({
+                    id: promo.id,
+                    slug: promo.actionSlug || promo.id,
+                    title: promo.title,
+                    shortDescription: promo.subtitle || promo.tagline,
+                    imageUrl: promo.imageUrl || "",
+                    cloudinaryPublicId: promo.imageUrl?.split("/").pop() || "",
+                    displayOrder: 1,
+                    isActive: true,
+                    promotionType: "bundle",
+                    fixedPricePkr: parseInt(promo.priceHighlight?.replace(/[^0-9]/g, "") || "1499", 10),
+                    badgeText: promo.badge,
+                  });
                 })
                 .catch(() => {
-                  const el = document.getElementById("promotions-section");
-                  el?.scrollIntoView({ behavior: "smooth" });
+                  setSelectedPromotion({
+                    id: promo.id,
+                    slug: promo.actionSlug || promo.id,
+                    title: promo.title,
+                    shortDescription: promo.subtitle || promo.tagline,
+                    imageUrl: promo.imageUrl || "",
+                    cloudinaryPublicId: promo.imageUrl?.split("/").pop() || "",
+                    displayOrder: 1,
+                    isActive: true,
+                    promotionType: "bundle",
+                    fixedPricePkr: parseInt(promo.priceHighlight?.replace(/[^0-9]/g, "") || "1499", 10),
+                    badgeText: promo.badge,
+                  });
                 });
             } else if (promo.actionCategoryId) {
               setActiveSignatureSlug("menu");
