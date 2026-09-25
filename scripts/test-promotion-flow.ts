@@ -27,7 +27,7 @@ async function runPromotionTests() {
   console.log(`Found ${activePromos.length} active promotions returned by getActivePromotions():`);
   activePromos.forEach((p) => {
     console.log(`  - [${p.slug}] ${p.title} (Price: ${p.fixedPricePkr} PKR, Type: ${p.promotionType})`);
-    p.rules.forEach((r) => {
+    p.rules?.forEach((r) => {
       console.log(`      * Rule: ${r.ruleLabel} (${r.ruleType}, min=${r.minSelections}, max=${r.maxSelections}) with ${r.options.length} options`);
     });
   });

@@ -39,7 +39,6 @@ export function PromotionsSection({ onSelectPromotion }: PromotionsSectionProps)
               <span className="promotions-badge-icon">🔥</span>
               Deals You’ll Love
             </h2>
-            <span className="promotions-count">LOADING DEALS...</span>
           </div>
           <div className="promotions-grid">
             {[1, 2, 3, 4].map((n) => (
@@ -113,7 +112,6 @@ export function PromotionsSection({ onSelectPromotion }: PromotionsSectionProps)
             </h2>
             <span className="promotions-pill">HOT DEALS</span>
           </div>
-          <span className="promotions-count">{promotions.length} EXCLUSIVE DEALS</span>
         </div>
 
         {/* Compact Grid: 2 columns on mobile, 4 columns on desktop */}
