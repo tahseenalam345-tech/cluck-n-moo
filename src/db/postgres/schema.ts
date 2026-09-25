@@ -9,6 +9,7 @@ import {
   uuid,
   index,
   uniqueIndex,
+  jsonb,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
@@ -85,11 +86,15 @@ export const categories = pgTable(
     slug: text("slug").notNull().unique(),
     displayOrder: integer("display_order").notNull().default(0),
     isActive: boolean("is_active").notNull().default(true),
+    isArchived: boolean("is_archived").notNull().default(false),
+    imageUrl: text("image_url"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
     index("idx_categories_display").on(table.displayOrder),
     index("idx_categories_active").on(table.isActive),
+    index("idx_categories_archived").on(table.isArchived),
   ]
 );
 
@@ -113,12 +118,16 @@ export const products = pgTable(
     basePricePkr: integer("base_price_pkr").notNull().default(0),
     isFeatured: boolean("is_featured").notNull().default(false),
     isAvailable: boolean("is_available").notNull().default(true),
+    isArchived: boolean("is_archived").notNull().default(false),
     displayOrder: integer("display_order").notNull().default(0),
+    tags: text("tags").array().default([]),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
     index("idx_products_category_display").on(table.categoryId, table.displayOrder),
     index("idx_products_available").on(table.isAvailable),
+    index("idx_products_archived").on(table.isArchived),
     uniqueIndex("idx_products_slug").on(table.slug),
   ]
 );
@@ -443,6 +452,53 @@ export const promotionRuleOptions = pgTable(
   },
   (table) => [
     index("idx_promo_rule_options_rule_id").on(table.promotionRuleId),
+  ]
+);
+
+/**
+ * 18. Audit Logs
+ */
+export const auditLogs = pgTable(
+  "audit_logs",
+  {
+    id: text("id").primaryKey(),
+    userId: uuid("user_id").references(() => profiles.id, { onDelete: "set null" }),
+    userEmail: text("user_email"),
+    action: text("action").notNull(),
+    entityType: text("entity_type").notNull(),
+    entityId: text("entity_id"),
+    details: jsonb("details"),
+    ipAddress: text("ip_address"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("idx_audit_logs_action").on(table.action),
+    index("idx_audit_logs_entity").on(table.entityType, table.entityId),
+    index("idx_audit_logs_created").on(table.createdAt),
+  ]
+);
+
+/**
+ * 19. Media Assets
+ */
+export const mediaAssets = pgTable(
+  "media_assets",
+  {
+    id: text("id").primaryKey(),
+    publicId: text("public_id").notNull().unique(),
+    secureUrl: text("secure_url").notNull(),
+    folder: text("folder").notNull().default("cnm/menu"),
+    format: text("format"),
+    width: integer("width"),
+    height: integer("height"),
+    bytes: integer("bytes"),
+    altText: text("alt_text"),
+    uploadedByUserId: uuid("uploaded_by_user_id").references(() => profiles.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("idx_media_assets_folder").on(table.folder),
+    index("idx_media_assets_created").on(table.createdAt),
   ]
 );
 

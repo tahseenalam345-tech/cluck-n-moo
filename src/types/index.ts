@@ -50,9 +50,13 @@ export interface Product {
   imageAltText?: string | null;
   imageStatus?: string | null;
   basePricePkr: number;
-  isFeatured: number;
-  isAvailable: number;
+  isFeatured: number | boolean;
+  isAvailable: number | boolean;
+  isArchived?: boolean;
   displayOrder: number;
+  tags?: string[];
+  createdAt?: string;
+  updatedAt?: string;
   variants: ProductVariant[];
   modifierGroups: ProductModifierGroup[];
 }
@@ -62,8 +66,38 @@ export interface Category {
   name: string;
   slug: string;
   displayOrder: number;
-  isActive: number;
+  isActive: number | boolean;
+  isArchived?: boolean;
+  imageUrl?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
   products?: Product[];
+}
+
+export interface AuditLog {
+  id: string;
+  userId?: string | null;
+  userEmail?: string | null;
+  action: string;
+  entityType: string;
+  entityId?: string | null;
+  details?: Record<string, any> | null;
+  ipAddress?: string | null;
+  createdAt: string;
+}
+
+export interface MediaAsset {
+  id: string;
+  publicId: string;
+  secureUrl: string;
+  folder: string;
+  format?: string | null;
+  width?: number | null;
+  height?: number | null;
+  bytes?: number | null;
+  altText?: string | null;
+  uploadedByUserId?: string | null;
+  createdAt: string;
 }
 
 export interface CartItemModifier {
