@@ -5,71 +5,14 @@ import { Promotion } from "@/types";
 import { Sparkles, ChevronRight } from "lucide-react";
 import { buildCloudinaryUrl } from "./ProductImage";
 
+import { COMPLETE_PROMOTIONS_DATA } from "@/lib/promotionRulesData";
+
 interface PromotionsSectionProps {
   onSelectPromotion: (promotion: Promotion) => void;
 }
 
-const FALLBACK_PROMOTIONS: Promotion[] = [
-  {
-    id: "promo_pizza_treat",
-    slug: "pizza-treat",
-    title: "Pizza Treat Feast",
-    shortDescription: "Tray Pizza + 6 Pcs Oven Baked Wings + Regular Fries with Dip + 1.5L Soft Drink",
-    imageUrl: "https://res.cloudinary.com/duo55lhwh/image/upload/c_limit,w_1200,f_auto,q_auto/promotion_1_fthixm",
-    cloudinaryPublicId: "promotion_1_fthixm",
-    displayOrder: 1,
-    isActive: true,
-    promotionType: "bundle",
-    fixedPricePkr: 2999,
-    badgeText: "FEAST 2999",
-    termsText: "Includes 1 Tray Pizza, 6 Oven Baked Wings, 1 Regular Fries with Dip, 1.5L Drink.",
-  },
-  {
-    id: "promo_wallet_deal",
-    slug: "wallet-deal",
-    title: "Your Wallet Loves This Deal",
-    shortDescription: "Deal 1: 1 Medium Pizza & 1 Litre Soft Drink for Rs. 1290 | Deal 2: 1 Large Pizza & 1 Litre Soft Drink for Rs. 1850",
-    imageUrl: "https://res.cloudinary.com/duo55lhwh/image/upload/c_limit,w_1200,f_auto,q_auto/promotion_2_ofnzlq",
-    cloudinaryPublicId: "promotion_2_ofnzlq",
-    displayOrder: 2,
-    isActive: true,
-    promotionType: "tiered",
-    fixedPricePkr: 1290,
-    badgeText: "FROM 1290",
-    termsText: "Choose between Deal 1 (Medium + Drink) or Deal 2 (Large + Drink).",
-  },
-  {
-    id: "promo_cheesier_launch",
-    slug: "cheesier-medium-pizza-launch",
-    title: "1 Medium Pizza Launch Offer",
-    shortDescription: "Oops! Things Just Got Cheesier! Get 1 freshly baked Medium Pizza for only Rs. 990.",
-    imageUrl: "https://res.cloudinary.com/duo55lhwh/image/upload/c_limit,w_1200,f_auto,q_auto/promotion_3_pkzoe9",
-    cloudinaryPublicId: "promotion_3_pkzoe9",
-    displayOrder: 3,
-    isActive: true,
-    promotionType: "single",
-    fixedPricePkr: 990,
-    badgeText: "LAUNCH 990",
-    termsText: "1 Medium Pizza for only Rs. 990. Choose your favorite flavor!",
-  },
-  {
-    id: "promo_bogo_pizza",
-    slug: "bogo-pizza-deal",
-    title: "Buy 1 Get 1 Pizza Free",
-    shortDescription: "Oops! Buy 1 Get 1 Pizza Free for Rs. 1499. Choose any 2 delicious pizzas!",
-    imageUrl: "https://res.cloudinary.com/duo55lhwh/image/upload/c_limit,w_1200,f_auto,q_auto/promotion_4_z7vq6y",
-    cloudinaryPublicId: "promotion_4_z7vq6y",
-    displayOrder: 4,
-    isActive: true,
-    promotionType: "bundle",
-    fixedPricePkr: 1499,
-    badgeText: "BOGO 1499",
-    termsText: "Buy 1 Get 1 Pizza Free for Rs. 1499. Valid for dine-in, takeaway, and delivery.",
-  },
-];
-
 export function PromotionsSection({ onSelectPromotion }: PromotionsSectionProps) {
-  const [promotions, setPromotions] = useState<Promotion[]>(FALLBACK_PROMOTIONS);
+  const [promotions, setPromotions] = useState<Promotion[]>(COMPLETE_PROMOTIONS_DATA);
 
   useEffect(() => {
     fetch("/api/v1/promotions")
@@ -84,7 +27,7 @@ export function PromotionsSection({ onSelectPromotion }: PromotionsSectionProps)
       });
   }, []);
 
-  const displayPromotions = promotions.length > 0 ? promotions : FALLBACK_PROMOTIONS;
+  const displayPromotions = promotions.length > 0 ? promotions : COMPLETE_PROMOTIONS_DATA;
 
   return (
     <section id="promotions-section" className="promotions-section" aria-label="Deals You'll Love">

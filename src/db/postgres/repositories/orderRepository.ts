@@ -146,10 +146,44 @@ export async function createOrderInPostgres(
   for (const itemInput of input.items) {
     // A. Handle Promotion Deal Item
     if (itemInput.promotionId) {
+      const promoExtrasMap: Record<string, { name: string; pricePkr: number }> = {
+        extra_stuffed_crust: { name: "Cheese Stuffed Crust", pricePkr: 350 },
+        extra_mozzarella: { name: "Extra Mozzarella Cheese", pricePkr: 200 },
+        extra_garlic_mayo: { name: "Garlic Mayo Dip", pricePkr: 70 },
+        extra_chipotle_mayo: { name: "Chipotle Mayo Dip", pricePkr: 70 },
+        extra_ranch_dip: { name: "Ranch Dip", pricePkr: 70 },
+        extra_soft_drink_345: { name: "Chilled Soft Drink (345ml)", pricePkr: 120 },
+      };
+
+      const promoModifiers: Array<{
+        id: string;
+        modifierId: string | null;
+        nameSnapshot: string;
+        priceSnapshotPkr: number;
+      }> = [];
+      let extrasTotalPkr = 0;
+
+      for (const rawModId of itemInput.modifierIds || []) {
+        const cleanId = rawModId.replace(/^mod_/, "");
+        const extraDef = promoExtrasMap[cleanId] || promoExtrasMap[rawModId];
+        if (extraDef) {
+          extrasTotalPkr += extraDef.pricePkr;
+          promoModifiers.push({
+            id: `ord_mod_${crypto.randomBytes(8).toString("hex")}`,
+            modifierId: null,
+            nameSnapshot: extraDef.name,
+            priceSnapshotPkr: extraDef.pricePkr,
+          });
+        }
+      }
+
+      // Base price expected by promotion rule validator (before optional extras)
+      const clientReportedBasePrice = (itemInput.unitPricePkr || 0) - extrasTotalPkr;
+
       const promoValidation = await validatePromotionSelection(
         itemInput.promotionId,
         itemInput.promotionSelectedOptionIds || [],
-        itemInput.unitPricePkr || 0
+        clientReportedBasePrice
       );
 
       if (!promoValidation.isValid) {
@@ -162,21 +196,27 @@ export async function createOrderInPostgres(
         };
       }
 
-      const promoUnitPrice = promoValidation.calculatedPricePkr!;
+      const promoUnitPrice = promoValidation.calculatedPricePkr! + extrasTotalPkr;
       const lineTotal = promoUnitPrice * itemInput.quantity;
       subtotalPkr += lineTotal;
       // Note: Promotion items never get custom deal discount (customDealId is null)
+
+      const snapshotParts = [
+        promoValidation.snapshotSummary,
+        promoModifiers.length > 0 ? `Extras: ${promoModifiers.map((m) => m.nameSnapshot).join(", ")}` : "",
+        itemInput.specialInstructions ? `Note: ${itemInput.specialInstructions}` : "",
+      ].filter(Boolean);
 
       computedItems.push({
         id: `ord_item_${crypto.randomBytes(8).toString("hex")}`,
         productId: null,
         productNameSnapshot: `[DEAL] ${promoValidation.promotionTitle!}`,
-        variantNameSnapshot: promoValidation.snapshotSummary || null,
+        variantNameSnapshot: snapshotParts.join(" | ") || null,
         unitPriceSnapshotPkr: promoUnitPrice,
         quantity: itemInput.quantity,
         lineTotalPkr: lineTotal,
         customDealId: null,
-        modifiers: [],
+        modifiers: promoModifiers as any,
       });
       continue;
     }
