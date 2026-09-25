@@ -14,13 +14,13 @@ The Cloudinary root namespace contains the 4 requested promotion banners:
 | `promotion_1_fthixm` | 3584 × 1184 (3.03:1) | **PIZZA TREAT** | **Rs. 2,999** | Tray Pizza + Oven Baked Wings (6 Pcs) + Regular Fries with Dip + 1.5 Ltr Soft Drink | **Active** |
 | `promotion_2_ofnzlq` | 2172 × 724 (3.00:1) | **YOUR WALLET LOVES THIS DEAL** | **From Rs. 1,290** | **Deal 1:** 1 Medium Pizza + 1 Ltr Drink (**Rs. 1,290**)<br>**Deal 2:** 1 Large Pizza + 1 Ltr Drink (**Rs. 1,850**) | **Active** |
 | `promotion_3_pkzoe9` | 2117 × 743 (2.85:1) | **OOPS! THINGS JUST GOT CHEESIER!** | **Rs. 990** | 1 Medium Pizza (Launch Offer) | **Active** |
-| `promotion_4_z7vq6y` | 2172 × 724 (3.00:1) | **OOPS! BUY 1 GET 1 PIZZA FREE** | **Rs. 1,499** | 2 Pizzas for Rs. 1,499 | **Inactive (`[NEEDS_CONFIRMATION]`)** |
+| `promotion_4_z7vq6y` | 2172 × 724 (3.00:1) | **OOPS! BUY 1 GET 1 PIZZA FREE** | **Rs. 1,499** | Buy 1 Get 1 Pizza Free (2 Medium 10" Pizzas) | **Active** |
 
 ---
 
-## 2. Promotions Activated vs Needing Confirmation
+## 2. Promotions Activated (All 4 Promotions Live)
 
-### Active Promotions (3 Activated)
+### Active Promotions (4 Activated)
 
 1. **Pizza Treat Feast (`pizza-treat`)**
    - **Type:** Bundle (`bundle`)
@@ -48,19 +48,14 @@ The Cloudinary root namespace contains the 4 requested promotion banners:
    - **Rules:**
      - Rule 1: Choose Medium (10 inch) Pizza Flavor (1 required selection from 8 flavors). Small and Large sizes are prohibited.
 
----
-
-### Inactive Promotion (`[NEEDS_CONFIRMATION]`)
-
 4. **Buy 1 Get 1 Pizza Free (`bogo-pizza-deal`)**
-   - **Visible Price on Banner:** Rs. 1,499
-   - **Image Content Flag:** `[NEEDS_CONFIRMATION: Pizza Size]`
-   - **Reason:** The banner graphic states "BUY 1 GET 1 PIZZA FREE - RS. 1499/-" but **does not specify** whether this applies to Small (7"), Medium (10"), or Large (13") pizzas. Normal CNM menu prices are:
-     - Small Pizza: 650–700 PKR
-     - Medium Pizza: 1,250–1,350 PKR
-     - Large Pizza: 1,750–1,950 PKR
-   - Because 2 Small pizzas = ~1,350 PKR (less than 1,499 PKR), and 2 Large pizzas = ~3,600 PKR, the offer is likely for Medium pizzas, but per strict instructions ("*Never guess unreadable content. The promotion image is the source of truth*"), we did **NOT guess**.
-   - **Action Taken:** The schema and database record were seeded with `is_active = false`. It is completely hidden from the customer storefront and rejected if submitted to the checkout API, awaiting confirmation from the store owner.
+   - **Type:** Bundle (`bundle`)
+   - **Fixed Base Price:** 1,499 PKR
+   - **Badge:** `BOGO 1499`
+   - **Rules:**
+     - Rule 1: Choose 1st Medium Pizza Flavor (1 required selection from 8 flavors).
+     - Rule 2: Choose 2nd Medium Pizza Flavor (1 required selection from 8 flavors).
+   - **Status:** Activated in database with 2x Medium 10" pizza selections.
 
 ---
 
