@@ -69,6 +69,17 @@ export default function RiderPage() {
   }, [authStatus]);
 
   const handleStatusUpdate = async (orderId: string, targetStatus: string) => {
+    // 1. Optimistic Update (Immediate UI response <10ms)
+    const prevOrders = [...orders];
+    if (targetStatus === ORDER_STATUSES.OUT_FOR_DELIVERY) {
+      setOrders((prev) =>
+        prev.map((o) => (o.id === orderId ? { ...o, status: ORDER_STATUSES.OUT_FOR_DELIVERY } : o))
+      );
+    } else if (targetStatus === ORDER_STATUSES.COMPLETED) {
+      setOrders((prev) => prev.filter((o) => o.id !== orderId));
+    }
+
+    // 2. Background server persistence
     try {
       const res = await fetch(`/api/v1/orders/${orderId}/status`, {
         method: "POST",
@@ -77,8 +88,16 @@ export default function RiderPage() {
         },
         body: JSON.stringify({ targetStatus }),
       });
-      if (res.ok) loadRiderOrders();
-    } catch {}
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error?.message || "Failed to update delivery status");
+      }
+    } catch (err) {
+      console.error("Rider status update error:", err);
+      // Rollback to previous state on failure
+      setOrders(prevOrders);
+      alert("Could not update delivery status. Please try again.");
+    }
   };
 
   if (authStatus === "loading") {

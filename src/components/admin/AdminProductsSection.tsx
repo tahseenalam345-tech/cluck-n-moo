@@ -38,7 +38,7 @@ export function AdminProductsSection({
   onOpenEditModal,
   onOpenPreviewCustomerCard,
 }: AdminProductsSectionProps) {
-  const [products, setProducts] = useState<any[]>([]);
+  const [rawProducts, setRawProducts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
@@ -48,29 +48,27 @@ export function AdminProductsSection({
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Compute popular items count
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
+
+  // Compute popular items count directly from raw dataset
   const popularCount = useMemo(
-    () => products.filter((p) => p.isFeatured && !p.isArchived).length,
-    [products]
+    () => rawProducts.filter((p) => p.isFeatured && !p.isArchived).length,
+    [rawProducts]
   );
 
-  // Fetch products from server API
+  // Fetch full products list from server API (with archived items included for in-memory tabs)
   const fetchProducts = async () => {
     setIsLoading(true);
     try {
-      const params = new URLSearchParams();
-      if (searchQuery) params.set("search", searchQuery);
-      if (selectedCategory !== "all") params.set("category", selectedCategory);
-      if (selectedAvailability !== "all") params.set("availability", selectedAvailability);
-      if (selectedImageStatus !== "all") params.set("imageStatus", selectedImageStatus);
-      params.set("sortBy", sortBy);
-      params.set("sortOrder", sortOrder);
-
-      const res = await fetch(`/api/v1/admin/products?${params.toString()}`);
+      const res = await fetch("/api/v1/admin/products?availability=all_with_archived");
       const data = await res.json();
       if (data.success && Array.isArray(data.data)) {
-        setProducts(data.data);
+        setRawProducts(data.data);
       }
     } catch (err) {
       console.error("Failed to load admin products:", err);
@@ -81,81 +79,170 @@ export function AdminProductsSection({
 
   useEffect(() => {
     fetchProducts();
-  }, [selectedCategory, selectedAvailability, selectedImageStatus, sortBy, sortOrder]);
+  }, []);
 
-  // Debounced search
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      fetchProducts();
-    }, 250);
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
+  // Instant Search-As-You-Type, Category Filtering, and Sorting via useMemo (<5ms execution)
+  const products = useMemo(() => {
+    let list = [...rawProducts];
 
-  // Quick 1-tap Toggle Availability (Sold Out / Available)
+    // 1. Search Query Filter (dish name, slug, description, category, tags)
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      list = list.filter((p) => {
+        const nameMatch = (p.name || "").toLowerCase().includes(q);
+        const slugMatch = (p.slug || "").toLowerCase().includes(q);
+        const descMatch = (p.description || "").toLowerCase().includes(q);
+        const catMatch = (p.categoryName || "").toLowerCase().includes(q);
+        const tagsMatch = Array.isArray(p.tags) && p.tags.some((t: string) => t.toLowerCase().includes(q));
+        return nameMatch || slugMatch || descMatch || catMatch || tagsMatch;
+      });
+    }
+
+    // 2. Category Filter
+    if (selectedCategory !== "all") {
+      list = list.filter((p) => p.categoryId === selectedCategory);
+    }
+
+    // 3. Availability & Archive Filter
+    if (selectedAvailability === "available") {
+      list = list.filter((p) => p.isAvailable && !p.isArchived);
+    } else if (selectedAvailability === "sold_out") {
+      list = list.filter((p) => !p.isAvailable && !p.isArchived);
+    } else if (selectedAvailability === "popular") {
+      list = list.filter((p) => p.isFeatured && !p.isArchived);
+    } else if (selectedAvailability === "archived") {
+      list = list.filter((p) => p.isArchived);
+    } else {
+      // Default 'all': non-archived products
+      list = list.filter((p) => !p.isArchived);
+    }
+
+    // 4. Image Status Filter
+    if (selectedImageStatus === "has_image") {
+      list = list.filter((p) => Boolean(p.cloudinaryPublicId || p.imageUrl));
+    } else if (selectedImageStatus === "no_image") {
+      list = list.filter((p) => !p.cloudinaryPublicId && !p.imageUrl);
+    }
+
+    // 5. High-Speed Sorting
+    list.sort((a, b) => {
+      let cmp = 0;
+      if (sortBy === "name") {
+        cmp = (a.name || "").localeCompare(b.name || "");
+      } else if (sortBy === "price") {
+        cmp = (a.basePricePkr || 0) - (b.basePricePkr || 0);
+      } else if (sortBy === "createdAt") {
+        cmp = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      } else {
+        cmp = (a.displayOrder || 0) - (b.displayOrder || 0);
+      }
+      return sortOrder === "desc" ? -cmp : cmp;
+    });
+
+    return list;
+  }, [rawProducts, searchQuery, selectedCategory, selectedAvailability, selectedImageStatus, sortBy, sortOrder]);
+
+  // Quick 1-tap Toggle Availability (Sold Out / Available) with Optimistic UI (<10ms) & Rollback
   const handleToggleAvailability = async (productId: string, currentVal: boolean) => {
+    if (actionLoadingId === productId) return; // Prevent duplicate rapid-click race conditions
     setActionLoadingId(productId);
+
+    // 1. Optimistic local update
+    setRawProducts((prev) =>
+      prev.map((p) => (p.id === productId ? { ...p, isAvailable: !currentVal } : p))
+    );
+    showToast(!currentVal ? "Dishes marked In Stock" : "Dishes marked as Sold Out");
+
+    // 2. Background server persistence
     try {
       const res = await fetch(`/api/v1/admin/products/${productId}/availability`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ isAvailable: !currentVal }),
       });
-      if (res.ok) {
-        setProducts((prev) =>
-          prev.map((p) => (p.id === productId ? { ...p, isAvailable: !currentVal } : p))
-        );
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error?.message || "Failed to update availability");
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Toggle availability error:", err);
+      // Rollback to previous state on failure
+      setRawProducts((prev) =>
+        prev.map((p) => (p.id === productId ? { ...p, isAvailable: currentVal } : p))
+      );
+      showToast("Could not update availability. Please try again.");
     } finally {
       setActionLoadingId(null);
     }
   };
 
-  // Quick 1-tap Toggle Featured (Popular Pick)
+  // Quick 1-tap Toggle Featured (Popular Pick) with Optimistic UI (<10ms) & Rollback
   const handleToggleFeatured = async (productId: string, currentVal: boolean) => {
+    if (actionLoadingId === productId) return; // Prevent duplicate rapid-click race conditions
     setActionLoadingId(productId);
+
+    // 1. Optimistic local update
+    setRawProducts((prev) =>
+      prev.map((p) => (p.id === productId ? { ...p, isFeatured: !currentVal } : p))
+    );
+    showToast(!currentVal ? "Added to Popular Picks" : "Removed from Popular Picks");
+
+    // 2. Background server persistence
     try {
       const res = await fetch(`/api/v1/admin/products/${productId}/availability`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ isFeatured: !currentVal }),
       });
-      if (res.ok) {
-        setProducts((prev) =>
-          prev.map((p) => (p.id === productId ? { ...p, isFeatured: !currentVal } : p))
-        );
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error?.message || "Failed to update Popular Pick");
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Toggle featured error:", err);
+      // Rollback to previous state on failure
+      setRawProducts((prev) =>
+        prev.map((p) => (p.id === productId ? { ...p, isFeatured: currentVal } : p))
+      );
+      showToast("Could not update Popular Pick. Please try again.");
     } finally {
       setActionLoadingId(null);
     }
   };
 
-  // Soft Archive
+  // Soft Archive with Optimistic Removal
   const handleArchiveProduct = async (product: any) => {
     if (!confirm(`Are you sure you want to archive '${product.name}'? It will no longer appear on the customer menu.`)) {
       return;
     }
     setActionLoadingId(product.id);
+    const prevProducts = [...rawProducts];
+    setRawProducts((prev) => prev.map((p) => (p.id === product.id ? { ...p, isArchived: true } : p)));
+    showToast(`✓ Archived '${product.name}'`);
+
     try {
       const res = await fetch(`/api/v1/admin/products/${product.id}`, {
         method: "DELETE",
       });
-      if (res.ok) {
-        fetchProducts();
+      if (!res.ok) {
+        throw new Error("Failed to archive product");
       }
     } catch (err) {
       console.error("Archive error:", err);
+      setRawProducts(prevProducts);
+      showToast("Could not archive product. Please try again.");
     } finally {
       setActionLoadingId(null);
     }
   };
 
-  // Restore Archived Product
+  // Restore Archived Product with Optimistic UI
   const handleRestoreProduct = async (product: any) => {
     setActionLoadingId(product.id);
+    const prevProducts = [...rawProducts];
+    setRawProducts((prev) => prev.map((p) => (p.id === product.id ? { ...p, isArchived: false, isAvailable: true } : p)));
+    showToast(`✓ Restored '${product.name}' to menu`);
+
     try {
       const res = await fetch(`/api/v1/admin/products/${product.id}`, {
         method: "PUT",
@@ -191,6 +278,13 @@ export function AdminProductsSection({
 
   return (
     <div className="admin-products-container">
+      {/* Non-blocking feedback toast */}
+      {toastMessage && (
+        <div className="admin-inline-toast">
+          {toastMessage}
+        </div>
+      )}
+
       {/* 1. Header Toolbar */}
       <div className="admin-section-topbar">
         <div>
@@ -1221,6 +1315,33 @@ export function AdminProductsSection({
           flex-direction: column;
           align-items: center;
           gap: 12px;
+        }
+
+        .admin-inline-toast {
+          position: fixed;
+          bottom: 24px;
+          right: 24px;
+          background: #0f172a;
+          color: #ffffff;
+          padding: 10px 18px;
+          border-radius: 8px;
+          font-size: 13px;
+          font-weight: 700;
+          z-index: 99999;
+          box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+          border: 1px solid #334155;
+          animation: toastSlideUp 0.2s ease-out;
+        }
+
+        :global([data-theme="dark"]) .admin-inline-toast {
+          background: #18181b;
+          border-color: #27272a;
+          color: #f4f4f5;
+        }
+
+        @keyframes toastSlideUp {
+          from { opacity: 0; transform: translateY(10px); }
+          to { opacity: 1; transform: translateY(0); }
         }
       `}</style>
     </div>

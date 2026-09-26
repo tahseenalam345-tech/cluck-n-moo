@@ -1,110 +1,140 @@
 import { getPgPoolClient } from "../client";
 import { Category, Product, ProductVariant, ProductModifierGroup, ProductModifier } from "@/types";
 
+// In-memory cache for ultra-fast sub-5ms storefront response
+interface MenuCacheEntry {
+  data: {
+    categories: Category[];
+    featuredProducts: Product[];
+  };
+  cachedAt: number;
+}
+
+let menuCache: MenuCacheEntry | null = null;
+const MENU_CACHE_TTL_MS = 30_000; // 30 seconds TTL
+
+export function invalidateMenuCache(): void {
+  menuCache = null;
+}
+
 /**
  * Server-only repository for querying storefront menu catalog from Supabase PostgreSQL.
- * Uses the Transaction Pooler (DATABASE_URL_POOLER).
+ * Uses the Transaction Pooler (DATABASE_URL_POOLER) with concurrent query execution and caching.
  */
 export async function getActiveMenu(): Promise<{
   categories: Category[];
   featuredProducts: Product[];
 }> {
+  const now = Date.now();
+  if (menuCache && now - menuCache.cachedAt < MENU_CACHE_TTL_MS) {
+    return menuCache.data;
+  }
+
   const sql = getPgPoolClient();
 
-  // 1. Fetch only active categories
-  const categoriesRaw = await sql<
-    Array<{
-      id: string;
-      name: string;
-      slug: string;
-      displayOrder: number;
-      isActive: boolean;
-    }>
-  >`
-    SELECT id, name, slug, display_order as "displayOrder", is_active as "isActive"
-    FROM public.categories
-    WHERE is_active = true AND is_archived = false
-    ORDER BY display_order ASC;
-  `;
+  // Run all 5 catalog queries concurrently in parallel
+  const [
+    categoriesRaw,
+    productsRaw,
+    variantsRaw,
+    modifierGroupsRaw,
+    modifiersRaw,
+  ] = await Promise.all([
+    // 1. Fetch only active categories
+    sql<
+      Array<{
+        id: string;
+        name: string;
+        slug: string;
+        displayOrder: number;
+        isActive: boolean;
+      }>
+    >`
+      SELECT id, name, slug, display_order as "displayOrder", is_active as "isActive"
+      FROM public.categories
+      WHERE is_active = true AND is_archived = false
+      ORDER BY display_order ASC;
+    `,
 
-  // 2. Fetch only available products
-  const productsRaw = await sql<
-    Array<{
-      id: string;
-      categoryId: string;
-      name: string;
-      slug: string;
-      description: string | null;
-      imageUrl: string | null;
-      cloudinaryPublicId: string | null;
-      imageAltText: string | null;
-      imageStatus: string | null;
-      basePricePkr: number;
-      isFeatured: boolean;
-      isAvailable: boolean;
-      displayOrder: number;
-    }>
-  >`
-    SELECT id, category_id as "categoryId", name, slug, description, image_url as "imageUrl",
-           cloudinary_public_id as "cloudinaryPublicId", image_alt_text as "imageAltText",
-           image_status as "imageStatus", base_price_pkr as "basePricePkr",
-           is_featured as "isFeatured", is_available as "isAvailable",
-           display_order as "displayOrder"
-    FROM public.products
-    WHERE is_available = true AND is_archived = false
-    ORDER BY display_order ASC;
-  `;
+    // 2. Fetch only available products
+    sql<
+      Array<{
+        id: string;
+        categoryId: string;
+        name: string;
+        slug: string;
+        description: string | null;
+        imageUrl: string | null;
+        cloudinaryPublicId: string | null;
+        imageAltText: string | null;
+        imageStatus: string | null;
+        basePricePkr: number;
+        isFeatured: boolean;
+        isAvailable: boolean;
+        displayOrder: number;
+      }>
+    >`
+      SELECT id, category_id as "categoryId", name, slug, description, image_url as "imageUrl",
+             cloudinary_public_id as "cloudinaryPublicId", image_alt_text as "imageAltText",
+             image_status as "imageStatus", base_price_pkr as "basePricePkr",
+             is_featured as "isFeatured", is_available as "isAvailable",
+             display_order as "displayOrder"
+      FROM public.products
+      WHERE is_available = true AND is_archived = false
+      ORDER BY display_order ASC;
+    `,
 
-  // 3. Fetch only available variants
-  const variantsRaw = await sql<
-    Array<{
-      id: string;
-      productId: string;
-      name: string;
-      pricePkr: number;
-      isAvailable: boolean;
-      displayOrder: number;
-    }>
-  >`
-    SELECT id, product_id as "productId", name, price_pkr as "pricePkr",
-           is_available as "isAvailable", display_order as "displayOrder"
-    FROM public.product_variants
-    WHERE is_available = true
-    ORDER BY display_order ASC;
-  `;
+    // 3. Fetch only available variants
+    sql<
+      Array<{
+        id: string;
+        productId: string;
+        name: string;
+        pricePkr: number;
+        isAvailable: boolean;
+        displayOrder: number;
+      }>
+    >`
+      SELECT id, product_id as "productId", name, price_pkr as "pricePkr",
+             is_available as "isAvailable", display_order as "displayOrder"
+      FROM public.product_variants
+      WHERE is_available = true
+      ORDER BY display_order ASC;
+    `,
 
-  // 4. Fetch modifier groups
-  const modifierGroupsRaw = await sql<
-    Array<{
-      id: string;
-      productId: string;
-      name: string;
-      minSelection: number;
-      maxSelection: number;
-      isRequired: boolean;
-    }>
-  >`
-    SELECT id, product_id as "productId", name, min_selection as "minSelection",
-           max_selection as "maxSelection", is_required as "isRequired"
-    FROM public.product_modifier_groups
-    ORDER BY id ASC;
-  `;
+    // 4. Fetch modifier groups
+    sql<
+      Array<{
+        id: string;
+        productId: string;
+        name: string;
+        minSelection: number;
+        maxSelection: number;
+        isRequired: boolean;
+      }>
+    >`
+      SELECT id, product_id as "productId", name, min_selection as "minSelection",
+             max_selection as "maxSelection", is_required as "isRequired"
+      FROM public.product_modifier_groups
+      ORDER BY id ASC;
+    `,
 
-  // 5. Fetch available modifiers
-  const modifiersRaw = await sql<
-    Array<{
-      id: string;
-      groupId: string;
-      name: string;
-      pricePkr: number;
-      isAvailable: boolean;
-    }>
-  >`
-    SELECT id, group_id as "groupId", name, price_pkr as "pricePkr", is_available as "isAvailable"
-    FROM public.product_modifiers
-    WHERE is_available = true
-    ORDER BY id ASC;
-  `;
+    // 5. Fetch available modifiers
+    sql<
+      Array<{
+        id: string;
+        groupId: string;
+        name: string;
+        pricePkr: number;
+        isAvailable: boolean;
+      }>
+    >`
+      SELECT id, group_id as "groupId", name, price_pkr as "pricePkr", is_available as "isAvailable"
+      FROM public.product_modifiers
+      WHERE is_available = true
+      ORDER BY id ASC;
+    `,
+  ]);
 
   // Assemble hierarchy: Modifiers -> Modifier Groups
   const modifiersByGroup: Record<string, ProductModifier[]> = {};
@@ -187,8 +217,16 @@ export async function getActiveMenu(): Promise<{
 
   const featuredProducts = products.filter((p) => p.isFeatured === 1);
 
-  return {
+  const result = {
     categories,
     featuredProducts,
   };
+
+  // Populate cache
+  menuCache = {
+    data: result,
+    cachedAt: Date.now(),
+  };
+
+  return result;
 }

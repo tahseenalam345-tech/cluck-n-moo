@@ -106,8 +106,18 @@ export function AdminPromotionsSection() {
   };
 
   const handleToggleActiveQuick = async (p: AdminPromotionItem) => {
+    const nextActive = !p.isActive;
+    setActiveMenuId(null);
+
+    // 1. Optimistic Update (Immediate UI response <10ms)
+    const prevPromos = [...promotions];
+    setPromotions((prev) =>
+      prev.map((item) => (item.id === p.id ? { ...item, isActive: nextActive } : item))
+    );
+    showToast(`✓ Promotion ${nextActive ? "activated" : "deactivated"} on homepage`);
+
+    // 2. Background server persistence
     try {
-      const nextActive = !p.isActive;
       const res = await fetch("/api/v1/admin/promotions", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -117,16 +127,14 @@ export function AdminPromotionsSection() {
         }),
       });
       const data = await res.json();
-      if (data.success) {
-        showToast(`✓ Promotion ${nextActive ? "activated" : "deactivated"} on homepage`);
-        fetchPromotions();
-      } else {
-        alert(data.error?.message || "Failed to toggle status");
+      if (!res.ok || !data.success) {
+        throw new Error(data.error?.message || "Failed to toggle status");
       }
-    } catch {
-      alert("Network error updating promotion");
-    } finally {
-      setActiveMenuId(null);
+    } catch (err: any) {
+      console.error("Promotion toggle error:", err);
+      // Rollback to previous state on failure
+      setPromotions(prevPromos);
+      showToast("Could not update promotion. Please try again.");
     }
   };
 

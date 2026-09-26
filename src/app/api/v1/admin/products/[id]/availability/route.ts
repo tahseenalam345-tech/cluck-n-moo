@@ -6,6 +6,8 @@ import { products } from "@/db/postgres/schema";
 import { eq } from "drizzle-orm";
 import { recordAuditLog } from "@/lib/auditLogger";
 
+import { invalidateMenuCache } from "@/db/postgres/repositories/menuRepository";
+
 export const dynamic = "force-dynamic";
 
 /**
@@ -38,18 +40,22 @@ export async function PATCH(
 
   await db.update(products).set(updates).where(eq(products.id, id));
 
-  await recordAuditLog({
+  // Invalidate in-memory menu cache immediately
+  invalidateMenuCache();
+
+  // Audit log asynchronously in background without delaying user
+  recordAuditLog({
     userId: auth.session.userId,
     userEmail: auth.session.email,
     action: "TOGGLE_PRODUCT_AVAILABILITY",
     entityType: "PRODUCT",
     entityId: id,
     details: updates,
-  });
+  }).catch((err) => console.warn("Audit log error:", err));
 
   try {
-    revalidatePath("/", "layout");
     revalidatePath("/menu");
+    revalidatePath("/");
   } catch (err) {
     console.warn("Revalidation error:", err);
   }

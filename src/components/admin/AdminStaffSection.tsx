@@ -206,7 +206,7 @@ export function AdminStaffSection() {
     }
   };
 
-  // Quick toggle active state
+  // Quick toggle active state with Optimistic UI & Rollback
   const handleToggleActiveQuick = async (s: StaffProfile) => {
     const nextState = !s.isActive;
     const confirmMsg = nextState
@@ -215,6 +215,14 @@ export function AdminStaffSection() {
 
     if (!window.confirm(confirmMsg)) return;
 
+    // 1. Optimistic Update (Immediate UI response <10ms)
+    const prevStaff = [...staff];
+    setStaff((prev) =>
+      prev.map((item) => (item.id === s.id ? { ...item, isActive: nextState } : item))
+    );
+    showToast(`✓ Account ${nextState ? "activated" : "disabled"}`);
+
+    // 2. Background server persistence
     try {
       const res = await fetch("/api/v1/admin/staff", {
         method: "PUT",
@@ -227,14 +235,13 @@ export function AdminStaffSection() {
 
       const data = await res.json();
       if (!res.ok || !data.success) {
-        alert(data.error?.message || "Failed to toggle status.");
-        return;
+        throw new Error(data.error?.message || "Failed to toggle status.");
       }
-
-      showToast(`✓ Account ${nextState ? "activated" : "disabled"}`);
-      fetchStaff();
-    } catch {
-      alert("Network error updating status.");
+    } catch (err: any) {
+      console.error("Staff toggle error:", err);
+      // Rollback to previous state on failure
+      setStaff(prevStaff);
+      showToast("Could not update staff status. Please try again.");
     }
   };
 

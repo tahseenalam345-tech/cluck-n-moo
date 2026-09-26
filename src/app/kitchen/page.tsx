@@ -68,6 +68,17 @@ export default function KitchenPage() {
   }, [authStatus]);
 
   const handleAdvance = async (orderId: string, targetStatus: string) => {
+    // 1. Optimistic Update (Immediate UI response <10ms)
+    const prevOrders = [...orders];
+    if (targetStatus === ORDER_STATUSES.PREPARING) {
+      setOrders((prev) =>
+        prev.map((o) => (o.id === orderId ? { ...o, status: ORDER_STATUSES.PREPARING } : o))
+      );
+    } else if (targetStatus === ORDER_STATUSES.READY) {
+      setOrders((prev) => prev.filter((o) => o.id !== orderId));
+    }
+
+    // 2. Background server persistence
     try {
       const res = await fetch(`/api/v1/orders/${orderId}/status`, {
         method: "POST",
@@ -76,8 +87,16 @@ export default function KitchenPage() {
         },
         body: JSON.stringify({ targetStatus }),
       });
-      if (res.ok) loadKitchenOrders();
-    } catch {}
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error?.message || "Failed to update order status");
+      }
+    } catch (err) {
+      console.error("Kitchen status update error:", err);
+      // Rollback to previous state on failure
+      setOrders(prevOrders);
+      alert("Could not update kitchen order status. Please try again.");
+    }
   };
 
   if (authStatus === "loading") {

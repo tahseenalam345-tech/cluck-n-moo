@@ -105,26 +105,34 @@ export default function AdminPage() {
     checkAdminAuth();
   }, [router]);
 
-  // Load operational data and silent polling
-  const loadData = useCallback(async (silent = false) => {
-    if (authStatus !== "authorized") return;
-    if (!silent) setIsLoading(true);
+  // Track visited sections for lazy-mount & instant tab switching
+  const [visitedSections, setVisitedSections] = useState<Set<AdminSectionId>>(
+    () => new Set(["overview", "orders"])
+  );
+
+  const handleSelectSection = (sec: AdminSectionId) => {
+    setActiveSection(sec);
+    setVisitedSections((prev) => {
+      if (prev.has(sec)) return prev;
+      const next = new Set(prev);
+      next.add(sec);
+      return next;
+    });
+  };
+
+  // Initial load for catalog data (categories & products) - executed once
+  const loadCatalog = useCallback(async () => {
     try {
-      const [ordersRes, categoriesRes, productsRes] = await Promise.all([
-        fetch("/api/v1/ops/orders"),
+      const [categoriesRes, productsRes] = await Promise.all([
         fetch("/api/v1/admin/categories"),
         fetch("/api/v1/admin/products"),
       ]);
 
-      const [ordersData, categoriesData, productsData] = await Promise.all([
-        ordersRes.json(),
+      const [categoriesData, productsData] = await Promise.all([
         categoriesRes.json(),
         productsRes.json(),
       ]);
 
-      if (ordersData.success && Array.isArray(ordersData.data)) {
-        setOrders(ordersData.data);
-      }
       if (categoriesData.success && Array.isArray(categoriesData.data)) {
         setCategories(categoriesData.data);
       }
@@ -132,7 +140,23 @@ export default function AdminPage() {
         setProducts(productsData.data);
       }
     } catch (err) {
-      console.error("Failed to load admin data:", err);
+      console.error("Failed to load catalog data:", err);
+    }
+  }, []);
+
+  // Poll only live operational orders in the background
+  const loadOrders = useCallback(async (silent = false) => {
+    if (authStatus !== "authorized") return;
+    if (!silent) setIsLoading(true);
+    try {
+      const ordersRes = await fetch("/api/v1/ops/orders");
+      const ordersData = await ordersRes.json();
+
+      if (ordersData.success && Array.isArray(ordersData.data)) {
+        setOrders(ordersData.data);
+      }
+    } catch (err) {
+      console.error("Failed to load operational orders:", err);
     } finally {
       if (!silent) setIsLoading(false);
     }
@@ -140,11 +164,12 @@ export default function AdminPage() {
 
   useEffect(() => {
     if (authStatus === "authorized") {
-      loadData();
-      const interval = setInterval(() => loadData(true), 4000);
+      loadCatalog();
+      loadOrders(false);
+      const interval = setInterval(() => loadOrders(true), 5000);
       return () => clearInterval(interval);
     }
-  }, [authStatus, loadData]);
+  }, [authStatus, loadCatalog, loadOrders]);
 
   // Microsecond Optimistic Order Update
   const handleUpdateOrderStatus = async (
@@ -452,22 +477,22 @@ export default function AdminPage() {
           showToast(`✓ Item "${itemName}" saved successfully!`);
           setIsProductModalOpen(false);
           setSelectedProductForModal(null);
-          loadData(true);
+          loadCatalog();
         }}
       />
 
-      {/* 12 Admin Sections */}
-      {activeSection === "overview" && (
+      {/* 12 Admin Modular Sections with Instant Sub-Millisecond Tab Switching & State Preservation */}
+      <div style={{ display: activeSection === "overview" ? "block" : "none" }}>
         <AdminOverviewSection
-          onNavigate={(sec) => setActiveSection(sec)}
+          onNavigate={(sec) => handleSelectSection(sec)}
           onOpenAddProductModal={() => {
             setSelectedProductForModal(null);
             setIsProductModalOpen(true);
           }}
         />
-      )}
+      </div>
 
-      {activeSection === "orders" && (
+      <div style={{ display: activeSection === "orders" ? "block" : "none" }}>
         <AdminOrdersSection
           orders={orders}
           onUpdateOrderStatus={handleUpdateOrderStatus}
@@ -478,65 +503,85 @@ export default function AdminPage() {
           }}
           isUpdating={isUpdating}
         />
+      </div>
+
+      {visitedSections.has("categories") && (
+        <div style={{ display: activeSection === "categories" ? "block" : "none" }}>
+          <AdminCategoriesSection />
+        </div>
       )}
 
-      {activeSection === "categories" && (
-        <AdminCategoriesSection />
+      {visitedSections.has("products") && (
+        <div style={{ display: activeSection === "products" ? "block" : "none" }}>
+          <AdminProductsSection
+            categories={categories}
+            onOpenAddModal={() => {
+              setSelectedProductForModal(null);
+              setIsProductModalOpen(true);
+            }}
+            onOpenEditModal={(prod) => {
+              setSelectedProductForModal(prod);
+              setIsProductModalOpen(true);
+            }}
+          />
+        </div>
       )}
 
-      {activeSection === "products" && (
-        <AdminProductsSection
-          categories={categories}
-          onOpenAddModal={() => {
-            setSelectedProductForModal(null);
-            setIsProductModalOpen(true);
-          }}
-          onOpenEditModal={(prod) => {
-            setSelectedProductForModal(prod);
-            setIsProductModalOpen(true);
-          }}
-        />
+      {visitedSections.has("deals") && (
+        <div style={{ display: activeSection === "deals" ? "block" : "none" }}>
+          <AdminDealsSection
+            onOpenAddModal={() => {
+              setSelectedProductForModal(null);
+              setIsProductModalOpen(true);
+            }}
+            onOpenEditModal={(deal) => {
+              setSelectedProductForModal(deal);
+              setIsProductModalOpen(true);
+            }}
+          />
+        </div>
       )}
 
-      {activeSection === "deals" && (
-        <AdminDealsSection
-          onOpenAddModal={() => {
-            setSelectedProductForModal(null);
-            setIsProductModalOpen(true);
-          }}
-          onOpenEditModal={(deal) => {
-            setSelectedProductForModal(deal);
-            setIsProductModalOpen(true);
-          }}
-        />
+      {visitedSections.has("modifiers") && (
+        <div style={{ display: activeSection === "modifiers" ? "block" : "none" }}>
+          <AdminModifiersSection />
+        </div>
       )}
 
-      {activeSection === "modifiers" && (
-        <AdminModifiersSection />
+      {visitedSections.has("media") && (
+        <div style={{ display: activeSection === "media" ? "block" : "none" }}>
+          <AdminMediaLibrarySection />
+        </div>
       )}
 
-      {activeSection === "media" && (
-        <AdminMediaLibrarySection />
+      {visitedSections.has("promotions") && (
+        <div style={{ display: activeSection === "promotions" ? "block" : "none" }}>
+          <AdminPromotionsSection />
+        </div>
       )}
 
-      {activeSection === "promotions" && (
-        <AdminPromotionsSection />
+      {visitedSections.has("delivery") && (
+        <div style={{ display: activeSection === "delivery" ? "block" : "none" }}>
+          <AdminDeliverySection />
+        </div>
       )}
 
-      {activeSection === "delivery" && (
-        <AdminDeliverySection />
+      {visitedSections.has("settings") && (
+        <div style={{ display: activeSection === "settings" ? "block" : "none" }}>
+          <AdminSettingsSection />
+        </div>
       )}
 
-      {activeSection === "settings" && (
-        <AdminSettingsSection />
+      {visitedSections.has("staff") && (
+        <div style={{ display: activeSection === "staff" ? "block" : "none" }}>
+          <AdminStaffSection />
+        </div>
       )}
 
-      {activeSection === "staff" && (
-        <AdminStaffSection />
-      )}
-
-      {activeSection === "audit" && (
-        <AdminAuditSection />
+      {visitedSections.has("audit") && (
+        <div style={{ display: activeSection === "audit" ? "block" : "none" }}>
+          <AdminAuditSection />
+        </div>
       )}
     </AdminShell>
   );

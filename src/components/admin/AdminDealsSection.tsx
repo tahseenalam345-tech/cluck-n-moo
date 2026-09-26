@@ -43,25 +43,60 @@ export function AdminDealsSection({ onOpenEditModal, onOpenAddModal }: AdminDeal
     fetchDeals();
   }, []);
 
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setToastMsg(msg);
+    setTimeout(() => setToastMsg(null), 3000);
+  };
+
   const handleToggleDealAvailability = async (dealId: string, currentVal: boolean) => {
+    // 1. Optimistic update
+    const nextVal = !currentVal;
+    setDeals((prev) =>
+      prev.map((d) => (d.id === dealId ? { ...d, isAvailable: nextVal } : d))
+    );
+
     try {
       const res = await fetch(`/api/v1/admin/products/${dealId}/availability`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ isAvailable: !currentVal }),
+        body: JSON.stringify({ isAvailable: nextVal }),
       });
-      if (res.ok) {
-        setDeals((prev) =>
-          prev.map((d) => (d.id === dealId ? { ...d, isAvailable: !currentVal } : d))
-        );
+      if (!res.ok) {
+        throw new Error("Server responded with error status");
       }
+      showToast(`✓ Deal availability updated`);
     } catch (err) {
       console.error("Toggle deal error:", err);
+      // Rollback
+      setDeals((prev) =>
+        prev.map((d) => (d.id === dealId ? { ...d, isAvailable: currentVal } : d))
+      );
+      showToast("⚠️ Could not update deal availability. Please try again.");
     }
   };
 
   return (
     <div className="admin-deals-container">
+      {toastMsg && (
+        <div style={{
+          position: "fixed",
+          bottom: "24px",
+          right: "24px",
+          background: "#18181b",
+          color: "#fff",
+          padding: "10px 18px",
+          borderRadius: "8px",
+          fontSize: "13px",
+          fontWeight: 600,
+          boxShadow: "0 8px 24px rgba(0,0,0,0.3)",
+          zIndex: 9999,
+          border: "1px solid rgba(255,255,255,0.1)"
+        }}>
+          {toastMsg}
+        </div>
+      )}
       <div className="admin-section-topbar">
         <div>
           <h1 className="admin-page-title">Deals &amp; Combos</h1>
