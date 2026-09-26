@@ -18,6 +18,7 @@ export async function GET() {
 
   try {
     const db = getPostgresDb();
+    const supabaseAdmin = getSupabaseAdmin();
 
     // Query non-customer profiles
     const staffList = await db
@@ -39,12 +40,82 @@ export async function GET() {
       .from(profiles)
       .where(not(eq(profiles.role, "CUSTOMER")));
 
+    // Cross-reference with Supabase Auth users to detect pending invites and heal any missing profiles
+    let authUsers: any[] = [];
+    try {
+      const { data: authData, error: authErr } = await supabaseAdmin.auth.admin.listUsers();
+      if (!authErr && authData?.users) {
+        authUsers = authData.users;
+      }
+    } catch (e) {
+      console.warn("Could not list Supabase auth users:", e);
+    }
+
+    const authUserMap = new Map(authUsers.map((u) => [u.id, u]));
+    const authEmailMap = new Map(authUsers.map((u) => [(u.email || "").toLowerCase(), u]));
+
+    // Auto-heal any Auth users with staff role who are missing a profile
+    for (const u of authUsers) {
+      const metaRole = u.user_metadata?.role;
+      if (metaRole && ["ADMIN", "KITCHEN_STAFF", "RIDER"].includes(metaRole)) {
+        const uEmail = (u.email || "").toLowerCase();
+        const exists = staffList.some(
+          (s) => s.id === u.id || (s.email && s.email.toLowerCase() === uEmail)
+        );
+        if (!exists) {
+          const autoName = u.user_metadata?.full_name || u.email?.split("@")[0] || "Staff Member";
+          try {
+            await db
+              .insert(profiles)
+              .values({
+                id: u.id,
+                email: uEmail,
+                fullName: autoName,
+                role: metaRole as any,
+                isActive: true,
+                createdAt: new Date(u.created_at),
+                updatedAt: new Date(),
+              })
+              .onConflictDoNothing();
+
+            staffList.push({
+              id: u.id,
+              fullName: autoName,
+              email: u.email || "",
+              phone: u.phone || null,
+              role: metaRole as any,
+              isActive: true,
+              createdAt: new Date(u.created_at),
+              activeOrdersAssigned: 0,
+            });
+          } catch (insertErr) {
+            console.warn("Failed to auto-heal profile for:", u.email, insertErr);
+          }
+        }
+      }
+    }
+
+    const enrichedStaff = staffList.map((s) => {
+      const authUser = authUserMap.get(s.id) || authEmailMap.get((s.email || "").toLowerCase());
+      const isPendingInvite = Boolean(authUser?.invited_at && !authUser?.email_confirmed_at);
+      const inviteStatus = isPendingInvite ? "Invite Pending" : s.isActive ? "Active" : "Disabled";
+
+      return {
+        id: s.id,
+        fullName: s.fullName,
+        email: s.email,
+        phone: s.phone,
+        role: s.role,
+        isActive: s.isActive,
+        createdAt: s.createdAt,
+        inviteStatus,
+        activeOrdersAssigned: Number(s.activeOrdersAssigned || 0),
+      };
+    });
+
     return NextResponse.json({
       success: true,
-      data: staffList.map((s) => ({
-        ...s,
-        activeOrdersAssigned: Number(s.activeOrdersAssigned || 0),
-      })),
+      data: enrichedStaff,
     });
   } catch (err: any) {
     console.error("Admin Staff GET Error:", err?.message || err);
@@ -159,11 +230,14 @@ export async function POST(req: NextRequest) {
       message: `Staff member "${fullName}" created successfully with role ${role}.`,
       data: {
         id: newUserId,
-        email,
-        fullName,
-        phone,
+        email: email.trim().toLowerCase(),
+        fullName: fullName.trim(),
+        phone: phone ? phone.trim() : null,
         role,
         isActive: true,
+        inviteStatus: "Active",
+        activeOrdersAssigned: 0,
+        createdAt: now.toISOString(),
       },
     });
   } catch (err: any) {

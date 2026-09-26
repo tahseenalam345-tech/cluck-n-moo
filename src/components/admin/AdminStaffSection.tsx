@@ -14,6 +14,7 @@ import {
   AlertTriangle,
   X,
   Phone,
+  Clock,
 } from "lucide-react";
 import { EditIcon } from "./AdminIcons";
 
@@ -25,6 +26,7 @@ interface StaffProfile {
   role: "ADMIN" | "KITCHEN_STAFF" | "RIDER" | "CUSTOMER";
   isActive: boolean;
   createdAt: string;
+  inviteStatus?: "Active" | "Invite Pending" | "Disabled" | string;
   activeOrdersAssigned: number;
 }
 
@@ -64,7 +66,10 @@ export function AdminStaffSection() {
   const fetchStaff = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch("/api/v1/admin/staff");
+      const res = await fetch("/api/v1/admin/staff", {
+        cache: "no-store",
+        headers: { "Cache-Control": "no-cache" },
+      });
       const data = await res.json();
       if (data.success && Array.isArray(data.data)) {
         setStaff(data.data);
@@ -84,8 +89,9 @@ export function AdminStaffSection() {
   const filteredStaff = useMemo(() => {
     return staff.filter((s) => {
       if (roleFilter !== "all" && s.role !== roleFilter) return false;
-      if (statusFilter === "active" && !s.isActive) return false;
+      if (statusFilter === "active" && (!s.isActive || s.inviteStatus === "Invite Pending")) return false;
       if (statusFilter === "disabled" && s.isActive) return false;
+      if (statusFilter === "pending" && s.inviteStatus !== "Invite Pending") return false;
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
         const matchesName = (s.fullName || "").toLowerCase().includes(q);
@@ -140,6 +146,16 @@ export function AdminStaffSection() {
         throw new Error(data.error?.message || "Failed to create staff member.");
       }
 
+      if (data.data) {
+        const newMember: StaffProfile = {
+          ...data.data,
+          activeOrdersAssigned: 0,
+          createdAt: new Date().toISOString(),
+          inviteStatus: data.data.inviteStatus || "Active",
+        };
+        setStaff((prev) => [newMember, ...prev.filter((p) => p.id !== newMember.id)]);
+      }
+
       showToast(`✓ Staff member "${newFullName}" added successfully!`);
       setIsAddModalOpen(false);
       setNewFullName("");
@@ -147,7 +163,7 @@ export function AdminStaffSection() {
       setNewPassword("");
       setNewPhone("");
       setNewRole("KITCHEN_STAFF");
-      fetchStaff();
+      await fetchStaff();
     } catch (err: any) {
       setCreateError(err?.message || "Error creating staff user.");
     } finally {
@@ -315,14 +331,19 @@ export function AdminStaffSection() {
           <span className="filter-label" style={{ marginLeft: "8px" }}>
             Status:
           </span>
-          {["all", "active", "disabled"].map((s) => (
+          {[
+            { id: "all", label: "ALL" },
+            { id: "active", label: "ACTIVE" },
+            { id: "pending", label: "PENDING" },
+            { id: "disabled", label: "DISABLED" },
+          ].map((s) => (
             <button
-              key={s}
+              key={s.id}
               type="button"
-              onClick={() => setStatusFilter(s)}
-              className={`pill-btn ${statusFilter === s ? "active" : ""}`}
+              onClick={() => setStatusFilter(s.id)}
+              className={`pill-btn ${statusFilter === s.id ? "active" : ""}`}
             >
-              {s.toUpperCase()}
+              {s.label}
             </button>
           ))}
         </div>
@@ -378,24 +399,45 @@ export function AdminStaffSection() {
                   )}
                 </td>
                 <td>
-                  <span
-                    className={s.isActive ? "badge-active" : "badge-inactive"}
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: "4px",
-                      padding: "3px 8px",
-                      borderRadius: "6px",
-                      fontSize: "11.5px",
-                      fontWeight: 700,
-                      backgroundColor: s.isActive ? "#ecfdf5" : "#fef2f2",
-                      color: s.isActive ? "#047857" : "#b91c1c",
-                      border: s.isActive ? "1px solid #a7f3d0" : "1px solid #fecaca",
-                    }}
-                  >
-                    {s.isActive ? <CheckCircle2 size={12} /> : <XCircle size={12} />}
-                    {s.isActive ? "ACTIVE" : "DISABLED"}
-                  </span>
+                  {s.inviteStatus === "Invite Pending" ? (
+                    <span
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "4px",
+                        padding: "3px 8px",
+                        borderRadius: "6px",
+                        fontSize: "11.5px",
+                        fontWeight: 700,
+                        backgroundColor: "#fffbeb",
+                        color: "#b45309",
+                        border: "1px solid #fde68a",
+                      }}
+                      title="Pending confirmation"
+                    >
+                      <Clock size={12} />
+                      INVITE PENDING
+                    </span>
+                  ) : (
+                    <span
+                      className={s.isActive ? "badge-active" : "badge-inactive"}
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "4px",
+                        padding: "3px 8px",
+                        borderRadius: "6px",
+                        fontSize: "11.5px",
+                        fontWeight: 700,
+                        backgroundColor: s.isActive ? "#ecfdf5" : "#fef2f2",
+                        color: s.isActive ? "#047857" : "#b91c1c",
+                        border: s.isActive ? "1px solid #a7f3d0" : "1px solid #fecaca",
+                      }}
+                    >
+                      {s.isActive ? <CheckCircle2 size={12} /> : <XCircle size={12} />}
+                      {s.isActive ? "ACTIVE" : "DISABLED"}
+                    </span>
+                  )}
                 </td>
                 <td style={{ textAlign: "right" }}>
                   <div style={{ display: "inline-flex", gap: "6px" }}>

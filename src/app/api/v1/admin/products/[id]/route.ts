@@ -4,11 +4,12 @@ import { enforceRole } from "@/lib/authGuard";
 import { getPostgresDb } from "@/db/postgres/client";
 import {
   products,
+  categories,
   productVariants,
   productModifierGroups,
   productModifiers,
 } from "@/db/postgres/schema";
-import { eq, asc, inArray } from "drizzle-orm";
+import { eq, asc, inArray, and, not } from "drizzle-orm";
 import { recordAuditLog } from "@/lib/auditLogger";
 import crypto from "crypto";
 
@@ -131,6 +132,72 @@ export async function PUT(
   const parsedPrice = parseInt(String(basePricePkr), 10);
   const now = new Date();
 
+  // Validate required fields
+  if (name !== undefined && (!name || typeof name !== "string" || name.trim().length === 0)) {
+    return NextResponse.json(
+      { success: false, error: { code: "VALIDATION_ERROR", message: "Product name is required." } },
+      { status: 400 }
+    );
+  }
+
+  if (basePricePkr !== undefined) {
+    if (isNaN(parsedPrice) || parsedPrice < 0) {
+      return NextResponse.json(
+        { success: false, error: { code: "VALIDATION_ERROR", message: "Base price must be a valid non-negative number." } },
+        { status: 400 }
+      );
+    }
+  }
+
+  // Validate category if provided
+  if (categoryId !== undefined) {
+    if (!categoryId || typeof categoryId !== "string") {
+      return NextResponse.json(
+        { success: false, error: { code: "VALIDATION_ERROR", message: "Category is required." } },
+        { status: 400 }
+      );
+    }
+    const catCheck = await db
+      .select({ id: categories.id })
+      .from(categories)
+      .where(and(eq(categories.id, categoryId), eq(categories.isArchived, false)))
+      .limit(1);
+
+    if (catCheck.length === 0) {
+      return NextResponse.json(
+        { success: false, error: { code: "CATEGORY_NOT_FOUND", message: "Selected category does not exist or has been archived." } },
+        { status: 400 }
+      );
+    }
+  }
+
+  // Validate slug uniqueness if provided
+  let targetSlug = oldProduct.slug;
+  if (slug !== undefined && slug.trim()) {
+    const cleanSlug = slug.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+    if (cleanSlug && cleanSlug !== oldProduct.slug) {
+      const slugConflict = await db
+        .select({ id: products.id })
+        .from(products)
+        .where(and(eq(products.slug, cleanSlug), not(eq(products.id, id))))
+        .limit(1);
+
+      if (slugConflict.length > 0) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: {
+              code: "SLUG_CONFLICT",
+              message: `The URL identifier '${cleanSlug}' is already in use by another item. Please choose a unique slug.`,
+            },
+          },
+          { status: 400 }
+        );
+      }
+      targetSlug = cleanSlug;
+    }
+  }
+
   await db.transaction(async (tx) => {
     // 1. Update product root record
     await tx
@@ -229,9 +296,34 @@ export async function PUT(
     console.warn("Revalidation warning:", err);
   }
 
+  // Fetch complete normalized product record
+  const updatedList = await db
+    .select()
+    .from(products)
+    .where(eq(products.id, id))
+    .limit(1);
+
+  const updatedProduct = updatedList[0] || {
+    id,
+    name: name !== undefined ? name.trim() : oldProduct.name,
+    slug: targetSlug,
+    categoryId: categoryId !== undefined ? categoryId : oldProduct.categoryId,
+    description: description !== undefined ? description : oldProduct.description,
+    basePricePkr: !isNaN(parsedPrice) ? parsedPrice : oldProduct.basePricePkr,
+    isAvailable: isAvailable !== undefined ? Boolean(isAvailable) : oldProduct.isAvailable,
+    isFeatured: isFeatured !== undefined ? Boolean(isFeatured) : oldProduct.isFeatured,
+    isArchived: isArchived !== undefined ? Boolean(isArchived) : oldProduct.isArchived,
+    displayOrder: displayOrder !== undefined ? Number(displayOrder) : oldProduct.displayOrder,
+    tags: Array.isArray(tags) ? tags : oldProduct.tags,
+    imageUrl: imageUrl !== undefined ? imageUrl : oldProduct.imageUrl,
+    cloudinaryPublicId: cloudinaryPublicId !== undefined ? cloudinaryPublicId : oldProduct.cloudinaryPublicId,
+    imageAltText: imageAltText !== undefined ? imageAltText : oldProduct.imageAltText,
+  };
+
   return NextResponse.json({
     success: true,
     message: "Product updated successfully.",
+    data: updatedProduct,
   });
 }
 

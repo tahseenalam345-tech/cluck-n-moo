@@ -49,6 +49,12 @@ export function AdminProductsSection({
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
 
+  // Compute popular items count
+  const popularCount = useMemo(
+    () => products.filter((p) => p.isFeatured && !p.isArchived).length,
+    [products]
+  );
+
   // Fetch products from server API
   const fetchProducts = async () => {
     setIsLoading(true);
@@ -277,6 +283,7 @@ export function AdminProductsSection({
               { id: "all", label: "All Items" },
               { id: "available", label: "Available Only" },
               { id: "sold_out", label: "Sold Out Only" },
+              { id: "popular", label: `⭐ Popular (${popularCount})` },
               { id: "archived", label: "Archived" },
             ].map((tab) => (
               <button
@@ -333,6 +340,30 @@ export function AdminProductsSection({
           </div>
         </div>
       </div>
+
+      {/* Popular Picks Limit Info / Warning Banner */}
+      {popularCount > 6 && (
+        <div
+          style={{
+            padding: "10px 16px",
+            backgroundColor: "#fffbeb",
+            border: "1px solid #fde68a",
+            borderRadius: "8px",
+            fontSize: "12.5px",
+            color: "#92400e",
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            marginBottom: "14px",
+          }}
+        >
+          <span style={{ fontSize: "16px" }}>⚠️</span>
+          <span>
+            <strong>{popularCount} dishes</strong> are currently marked as Popular Picks.
+            Note: Customer homepage displays the <strong>first 6 items</strong> (ordered by Display Order).
+          </span>
+        </div>
+      )}
 
       {/* 3. Items View: Grid Mode */}
       {viewMode === "grid" ? (
@@ -504,7 +535,8 @@ export function AdminProductsSection({
                 <th>Base Price</th>
                 <th>Sizes</th>
                 <th>Modifiers</th>
-                <th>Status</th>
+                <th>Stock</th>
+                <th style={{ width: "120px" }}>Popular Pick</th>
                 <th style={{ width: "130px" }}>Actions</th>
               </tr>
             </thead>
@@ -545,6 +577,27 @@ export function AdminProductsSection({
                       className={`btn-stock-pill ${p.isAvailable ? "in" : "out"}`}
                     >
                       {p.isAvailable ? "Available" : "Sold Out"}
+                    </button>
+                  </td>
+                  <td>
+                    <button
+                      type="button"
+                      disabled={actionLoadingId === p.id}
+                      onClick={() => handleToggleFeatured(p.id, p.isFeatured)}
+                      className={`btn-stock-pill ${p.isFeatured ? "in" : "out"}`}
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "4px",
+                        backgroundColor: p.isFeatured ? "#fff7ed" : "#f8fafc",
+                        color: p.isFeatured ? "#ea580c" : "#64748b",
+                        border: p.isFeatured ? "1px solid #fed7aa" : "1px solid #e2e8f0",
+                        fontWeight: 700,
+                      }}
+                      title={p.isFeatured ? "Click to remove from Popular Picks" : "Click to feature in Popular Picks"}
+                    >
+                      <Sparkles size={11} color={p.isFeatured ? "#ea580c" : "#94a3b8"} />
+                      {p.isFeatured ? "Featured" : "Not Featured"}
                     </button>
                   </td>
                   <td>

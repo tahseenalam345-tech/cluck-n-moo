@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { enforceRole } from "@/lib/authGuard";
 import { getPostgresDb } from "@/db/postgres/client";
 import { products } from "@/db/postgres/schema";
@@ -45,6 +46,13 @@ export async function PATCH(
     entityId: id,
     details: updates,
   });
+
+  try {
+    revalidatePath("/", "layout");
+    revalidatePath("/menu");
+  } catch (err) {
+    console.warn("Revalidation error:", err);
+  }
 
   return NextResponse.json({
     success: true,

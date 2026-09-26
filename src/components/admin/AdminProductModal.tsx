@@ -22,9 +22,10 @@ import { buildCloudinaryUrl } from "../ProductImage";
 interface AdminProductModalProps {
   product: Product | null; // null = Add Mode, Product = Edit Mode
   categories: Category[];
+  allProducts?: Product[];
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: (savedProduct: any) => void;
+  onSuccess: (savedProduct?: any) => void;
 }
 
 const PRESET_TAGS = [
@@ -40,6 +41,7 @@ const PRESET_TAGS = [
 export function AdminProductModal({
   product,
   categories,
+  allProducts = [],
   isOpen,
   onClose,
   onSuccess,
@@ -53,10 +55,15 @@ export function AdminProductModal({
   const [isSlugManuallyEdited, setIsSlugManuallyEdited] = useState(false);
   const [categoryId, setCategoryId] = useState("");
   const [description, setDescription] = useState("");
+  const [ingredients, setIngredients] = useState("");
+  const [allergens, setAllergens] = useState("");
+  const [calories, setCalories] = useState("");
+  const [internalNotes, setInternalNotes] = useState("");
   const [basePricePkr, setBasePricePkr] = useState<number | string>(0);
   const [isAvailable, setIsAvailable] = useState(true);
   const [isFeatured, setIsFeatured] = useState(false);
   const [displayOrder, setDisplayOrder] = useState<number>(0);
+  const [isDisplayOrderManuallyEdited, setIsDisplayOrderManuallyEdited] = useState(false);
   const [tags, setTags] = useState<string[]>([]);
 
   // Variants
@@ -121,16 +128,30 @@ export function AdminProductModal({
     setUploadSuccess(null);
     setActiveTab("general");
 
+    // Helper to calculate next order in category
+    const calculateNextOrder = (catId: string) => {
+      if (!allProducts || allProducts.length === 0) return 1;
+      const catProducts = allProducts.filter((p) => p.categoryId === catId);
+      if (catProducts.length === 0) return 1;
+      const maxOrd = catProducts.reduce((max, p) => Math.max(max, p.displayOrder || 0), 0);
+      return maxOrd + 1;
+    };
+
     if (product) {
       setName(product.name || "");
       setSlug(product.slug || "");
       setIsSlugManuallyEdited(true);
       setCategoryId(product.categoryId || (categories[0]?.id || ""));
       setDescription(product.description || "");
+      setIngredients("");
+      setAllergens("");
+      setCalories("");
+      setInternalNotes("");
       setBasePricePkr(product.basePricePkr || 0);
-      setIsAvailable(Boolean(product.isAvailable));
+      setIsAvailable(product.isAvailable !== false);
       setIsFeatured(Boolean(product.isFeatured));
       setDisplayOrder(product.displayOrder || 0);
+      setIsDisplayOrderManuallyEdited(true);
       setTags(product.tags || []);
       setImageUrl(product.imageUrl || "");
       setCloudinaryPublicId(product.cloudinaryPublicId || "");
@@ -176,12 +197,18 @@ export function AdminProductModal({
       setName("");
       setSlug("");
       setIsSlugManuallyEdited(false);
-      setCategoryId(categories[0]?.id || "");
+      const initialCatId = categories[0]?.id || "";
+      setCategoryId(initialCatId);
       setDescription("");
-      setBasePricePkr(0);
+      setIngredients("");
+      setAllergens("");
+      setCalories("");
+      setInternalNotes("");
+      setBasePricePkr("");
       setIsAvailable(true);
       setIsFeatured(false);
-      setDisplayOrder(0);
+      setDisplayOrder(calculateNextOrder(initialCatId));
+      setIsDisplayOrderManuallyEdited(false);
       setTags([]);
       setImageUrl("");
       setCloudinaryPublicId("");
@@ -198,6 +225,20 @@ export function AdminProductModal({
     }
   }, [categories, categoryId]);
 
+  // When category changes, auto-assign next available display order for new items if not manually edited
+  const handleCategoryChange = (newCatId: string) => {
+    setCategoryId(newCatId);
+    if (!isEditMode && !isDisplayOrderManuallyEdited) {
+      if (allProducts && allProducts.length > 0) {
+        const catProducts = allProducts.filter((p) => p.categoryId === newCatId);
+        const maxOrd = catProducts.reduce((max, p) => Math.max(max, p.displayOrder || 0), 0);
+        setDisplayOrder(maxOrd + 1);
+      } else {
+        setDisplayOrder(1);
+      }
+    }
+  };
+
   // Auto-generate slug when name changes (unless manually edited)
   const handleNameChange = (val: string) => {
     setName(val);
@@ -208,6 +249,16 @@ export function AdminProductModal({
         .replace(/^-+|-+$/g, "");
       setSlug(generated);
     }
+  };
+
+  // Explicit auto-regenerate slug button
+  const handleRegenerateSlug = () => {
+    const generated = name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+    setSlug(generated);
+    setIsSlugManuallyEdited(false);
   };
 
   // Toggle tag
@@ -375,32 +426,42 @@ export function AdminProductModal({
     e.preventDefault();
     setValidationError(null);
 
-    // Validation
+    // Validation: Only Name, Category, and Base Price are required
     if (!name.trim()) {
       setValidationError("Product Name is required.");
-      setActiveTab("general");
       return;
     }
     if (!categoryId) {
       setValidationError("Please select a Category.");
-      setActiveTab("general");
       return;
     }
     const priceNum = parseInt(String(basePricePkr), 10);
     if (isNaN(priceNum) || priceNum < 0) {
-      setValidationError("Base Price must be a valid positive integer in PKR.");
-      setActiveTab("general");
+      setValidationError("Base Price must be a valid non-negative integer in PKR (e.g. 850).");
       return;
     }
 
     setIsSaving(true);
 
     try {
+      // Build combined description if optional ingredients/allergens/notes entered
+      let finalDescription = description.trim();
+      const extraParts: string[] = [];
+      if (ingredients.trim()) extraParts.push(`Ingredients: ${ingredients.trim()}`);
+      if (allergens.trim()) extraParts.push(`Allergens: ${allergens.trim()}`);
+      if (calories.trim()) extraParts.push(`Calories: ${calories.trim()}`);
+      if (internalNotes.trim()) extraParts.push(`Notes: ${internalNotes.trim()}`);
+      if (extraParts.length > 0) {
+        finalDescription = finalDescription
+          ? `${finalDescription}\n\n${extraParts.join(" | ")}`
+          : extraParts.join(" | ");
+      }
+
       const payload = {
         name: name.trim(),
         slug: slug.trim() || undefined,
         categoryId,
-        description: description.trim() || null,
+        description: finalDescription || null,
         basePricePkr: priceNum,
         isAvailable,
         isFeatured,
@@ -409,8 +470,8 @@ export function AdminProductModal({
         imageUrl: imageUrl || null,
         cloudinaryPublicId: cloudinaryPublicId || null,
         imageAltText: imageAltText || name.trim(),
-        variants: variants.filter((v) => v.name.trim()),
-        modifierGroups: modifierGroups.filter((g) => g.name.trim()),
+        variants: variants.filter((v) => v.name && v.name.trim()),
+        modifierGroups: modifierGroups.filter((g) => g.name && g.name.trim()),
       };
 
       const url = isEditMode
@@ -429,7 +490,23 @@ export function AdminProductModal({
         throw new Error(resData.error?.message || "Failed to save product.");
       }
 
-      onSuccess(resData.data);
+      // Safe normalized return object ensuring no undefined access in caller
+      const returnedProduct = resData.data || {
+        id: product?.id || "temp",
+        name: name.trim(),
+        slug: slug.trim(),
+        categoryId,
+        description: finalDescription || null,
+        basePricePkr: priceNum,
+        isAvailable,
+        isFeatured,
+        displayOrder: Number(displayOrder) || 0,
+        tags,
+        imageUrl: imageUrl || null,
+        cloudinaryPublicId: cloudinaryPublicId || null,
+      };
+
+      onSuccess(returnedProduct);
       onClose();
     } catch (err: any) {
       console.error("Save product error:", err);
@@ -479,28 +556,28 @@ export function AdminProductModal({
             className={`admin-tab-btn ${activeTab === "media" ? "active" : ""}`}
             onClick={() => setActiveTab("media")}
           >
-            2. Food Imagery {cloudinaryPublicId && "✓"}
+            2. Food Imagery (Optional) {cloudinaryPublicId && "✓"}
           </button>
           <button
             type="button"
             className={`admin-tab-btn ${activeTab === "variants" ? "active" : ""}`}
             onClick={() => setActiveTab("variants")}
           >
-            3. Sizes &amp; Variants ({variants.length})
+            3. Sizes &amp; Variants (Optional) {variants.length > 0 && `(${variants.length})`}
           </button>
           <button
             type="button"
             className={`admin-tab-btn ${activeTab === "modifiers" ? "active" : ""}`}
             onClick={() => setActiveTab("modifiers")}
           >
-            4. Modifiers &amp; Dips ({modifierGroups.length})
+            4. Modifiers &amp; Dips (Optional) {modifierGroups.length > 0 && `(${modifierGroups.length})`}
           </button>
           <button
             type="button"
             className={`admin-tab-btn ${activeTab === "tags" ? "active" : ""}`}
             onClick={() => setActiveTab("tags")}
           >
-            5. Tags &amp; Visibility
+            5. Tags &amp; Badges (Optional) {tags.length > 0 && `(${tags.length})`}
           </button>
         </div>
 
@@ -519,7 +596,7 @@ export function AdminProductModal({
             <div className="admin-form-section">
               <div className="admin-form-row">
                 <div className="admin-field-group flex-2">
-                  <label className="admin-label">Dish Name *</label>
+                  <label className="admin-label">Dish Name * <span style={{ color: "#ef4444", fontSize: "11px", fontWeight: 400 }}>(Required)</span></label>
                   <input
                     type="text"
                     required
@@ -531,11 +608,11 @@ export function AdminProductModal({
                 </div>
 
                 <div className="admin-field-group flex-1">
-                  <label className="admin-label">Category *</label>
+                  <label className="admin-label">Category * <span style={{ color: "#ef4444", fontSize: "11px", fontWeight: 400 }}>(Required)</span></label>
                   <select
                     required
                     value={categoryId}
-                    onChange={(e) => setCategoryId(e.target.value)}
+                    onChange={(e) => handleCategoryChange(e.target.value)}
                     className="admin-select"
                   >
                     {categories.map((c) => (
@@ -549,7 +626,7 @@ export function AdminProductModal({
 
               <div className="admin-form-row">
                 <div className="admin-field-group flex-1">
-                  <label className="admin-label">Base Price (PKR) *</label>
+                  <label className="admin-label">Base Price (PKR) * <span style={{ color: "#ef4444", fontSize: "11px", fontWeight: 400 }}>(Required)</span></label>
                   <input
                     type="number"
                     required
@@ -562,18 +639,45 @@ export function AdminProductModal({
                 </div>
 
                 <div className="admin-field-group flex-1">
-                  <label className="admin-label">Display Order</label>
+                  <label className="admin-label" title="Automatically assigned to next order number in category">
+                    Display Order <span style={{ color: "#64748b", fontSize: "11px", fontWeight: 400 }}>(Auto-assigned)</span>
+                  </label>
                   <input
                     type="number"
                     value={displayOrder}
-                    onChange={(e) => setDisplayOrder(parseInt(e.target.value, 10) || 0)}
+                    onChange={(e) => {
+                      setDisplayOrder(parseInt(e.target.value, 10) || 0);
+                      setIsDisplayOrderManuallyEdited(true);
+                    }}
                     placeholder="0"
                     className="admin-input"
                   />
                 </div>
 
                 <div className="admin-field-group flex-1">
-                  <label className="admin-label">Slug (URL identifier)</label>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <label className="admin-label">
+                      Slug <span style={{ color: "#64748b", fontSize: "11px", fontWeight: 400 }}>(Auto-generated)</span>
+                    </label>
+                    {isSlugManuallyEdited && (
+                      <button
+                        type="button"
+                        onClick={handleRegenerateSlug}
+                        style={{
+                          background: "none",
+                          border: "none",
+                          color: "#ea580c",
+                          fontSize: "10.5px",
+                          fontWeight: 600,
+                          cursor: "pointer",
+                          padding: 0,
+                        }}
+                        title="Re-sync slug from Dish Name"
+                      >
+                        ↺ Auto-sync
+                      </button>
+                    )}
+                  </div>
                   <input
                     type="text"
                     value={slug}
@@ -588,14 +692,44 @@ export function AdminProductModal({
               </div>
 
               <div className="admin-field-group">
-                <label className="admin-label">Customer Description / Ingredients</label>
+                <label className="admin-label">
+                  Customer Description <span style={{ color: "#64748b", fontSize: "11px", fontWeight: 400 }}>(Optional)</span>
+                </label>
                 <textarea
-                  rows={3}
+                  rows={2}
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="Fresh hand-stretched crust topped with fiery tikka chicken chunks, bell peppers, mozzarella, and house signature sauce."
                   className="admin-textarea"
                 />
+              </div>
+
+              <div className="admin-form-row">
+                <div className="admin-field-group flex-1">
+                  <label className="admin-label">
+                    Ingredients &amp; Allergens <span style={{ color: "#64748b", fontSize: "11px", fontWeight: 400 }}>(Optional)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={ingredients}
+                    onChange={(e) => setIngredients(e.target.value)}
+                    placeholder="e.g. Dairy, Gluten, Chicken breast, Peppers"
+                    className="admin-input"
+                  />
+                </div>
+
+                <div className="admin-field-group flex-1">
+                  <label className="admin-label">
+                    Calories / Nutrition <span style={{ color: "#64748b", fontSize: "11px", fontWeight: 400 }}>(Optional)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={calories}
+                    onChange={(e) => setCalories(e.target.value)}
+                    placeholder="e.g. 520 kcal"
+                    className="admin-input"
+                  />
+                </div>
               </div>
 
               <div className="admin-checkbox-row">
@@ -605,7 +739,7 @@ export function AdminProductModal({
                     checked={isAvailable}
                     onChange={(e) => setIsAvailable(e.target.checked)}
                   />
-                  <span><strong>Available for Ordering</strong> (Uncheck to mark Sold Out)</span>
+                  <span><strong>Available for Ordering</strong> (Active by default, uncheck to mark Sold Out)</span>
                 </label>
 
                 <label className="admin-checkbox-label">
@@ -614,7 +748,7 @@ export function AdminProductModal({
                     checked={isFeatured}
                     onChange={(e) => setIsFeatured(e.target.checked)}
                   />
-                  <span><strong>Featured in Popular Picks</strong></span>
+                  <span><strong>Featured in Popular Picks</strong> (Manual Admin setting)</span>
                 </label>
               </div>
             </div>

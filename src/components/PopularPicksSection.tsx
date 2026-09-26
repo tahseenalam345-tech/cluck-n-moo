@@ -16,8 +16,10 @@ export function PopularPicksSection({
   isLoading = false,
   onSelectProduct,
 }: PopularPicksSectionProps) {
-  // Configurable verified popular items (is_featured = 1), take 4–6 items
-  const popularItems = products.filter((p) => p.isFeatured === 1).slice(0, 6);
+  // Verified explicitly chosen popular items (is_featured = 1, available = 1), strictly maximum 6 items
+  const popularItems = products
+    .filter((p) => Number(p.isFeatured) === 1 && Number(p.isAvailable) === 1)
+    .slice(0, 6);
 
   if (!isLoading && popularItems.length === 0) return null;
 

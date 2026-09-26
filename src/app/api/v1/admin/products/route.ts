@@ -124,6 +124,8 @@ export async function GET(req: NextRequest) {
       mapped = mapped.filter((p) => p.isAvailable && !p.isArchived);
     } else if (availability === "sold_out") {
       mapped = mapped.filter((p) => !p.isAvailable && !p.isArchived);
+    } else if (availability === "popular") {
+      mapped = mapped.filter((p) => p.isFeatured && !p.isArchived);
     } else if (availability === "archived") {
       mapped = mapped.filter((p) => p.isArchived);
     } else if (availability === "all_with_archived") {
@@ -213,12 +215,26 @@ export async function POST(req: NextRequest) {
     const parsedPrice = parseInt(String(basePricePkr), 10);
     if (isNaN(parsedPrice) || parsedPrice < 0) {
       return NextResponse.json(
-        { success: false, error: { code: "VALIDATION_ERROR", message: "Valid base price in PKR is required." } },
+        { success: false, error: { code: "VALIDATION_ERROR", message: "Valid base price in PKR (non-negative number) is required." } },
         { status: 400 }
       );
     }
 
     const db = getPostgresDb();
+
+    // Verify category exists and is active
+    const catCheck = await db
+      .select({ id: categories.id })
+      .from(categories)
+      .where(and(eq(categories.id, categoryId), eq(categories.isArchived, false)))
+      .limit(1);
+
+    if (catCheck.length === 0) {
+      return NextResponse.json(
+        { success: false, error: { code: "CATEGORY_NOT_FOUND", message: "Selected category does not exist or has been archived." } },
+        { status: 400 }
+      );
+    }
 
     // Generate unique slug
     let baseSlug = (customSlug || name)
@@ -233,6 +249,19 @@ export async function POST(req: NextRequest) {
       .from(products)
       .where(eq(products.slug, baseSlug))
       .limit(1);
+
+    if (customSlug && existing.length > 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: "SLUG_CONFLICT",
+            message: `The URL identifier '${baseSlug}' is already in use by another item. Please choose a unique slug.`,
+          },
+        },
+        { status: 400 }
+      );
+    }
 
     const finalSlug = existing.length > 0 ? `${baseSlug}-${Date.now().toString().slice(-4)}` : baseSlug;
     const productId = `prod_${crypto.randomBytes(8).toString("hex")}`;
@@ -328,7 +357,23 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      data: { id: productId, slug: finalSlug, name },
+      message: "Product created successfully.",
+      data: {
+        id: productId,
+        name: name.trim(),
+        slug: finalSlug,
+        categoryId,
+        description: description ? description.trim() : null,
+        basePricePkr: parsedPrice,
+        imageUrl: imageUrl || null,
+        cloudinaryPublicId: cloudinaryPublicId || null,
+        imageAltText: imageAltText || name.trim(),
+        isAvailable: Boolean(isAvailable),
+        isFeatured: Boolean(isFeatured),
+        isArchived: false,
+        displayOrder: Number(displayOrder) || 0,
+        tags: Array.isArray(tags) ? tags : [],
+      },
     });
   } catch (err: any) {
     console.error("Admin Product POST Error:", err?.message || err);

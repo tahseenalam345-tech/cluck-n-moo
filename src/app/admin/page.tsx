@@ -51,6 +51,7 @@ export default function AdminPage() {
   // Core Real PostgreSQL Data
   const [orders, setOrders] = useState<Order[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
 
   // Optimistic UI Animation Trackers
   const [animatingOrders, setAnimatingOrders] = useState<Record<string, { targetStatus: OrderStatus; timestamp: number }>>({});
@@ -109,14 +110,16 @@ export default function AdminPage() {
     if (authStatus !== "authorized") return;
     if (!silent) setIsLoading(true);
     try {
-      const [ordersRes, categoriesRes] = await Promise.all([
+      const [ordersRes, categoriesRes, productsRes] = await Promise.all([
         fetch("/api/v1/ops/orders"),
         fetch("/api/v1/admin/categories"),
+        fetch("/api/v1/admin/products"),
       ]);
 
-      const [ordersData, categoriesData] = await Promise.all([
+      const [ordersData, categoriesData, productsData] = await Promise.all([
         ordersRes.json(),
         categoriesRes.json(),
+        productsRes.json(),
       ]);
 
       if (ordersData.success && Array.isArray(ordersData.data)) {
@@ -124,6 +127,9 @@ export default function AdminPage() {
       }
       if (categoriesData.success && Array.isArray(categoriesData.data)) {
         setCategories(categoriesData.data);
+      }
+      if (productsData.success && Array.isArray(productsData.data)) {
+        setProducts(productsData.data);
       }
     } catch (err) {
       console.error("Failed to load admin data:", err);
@@ -435,13 +441,15 @@ export default function AdminPage() {
       <AdminProductModal
         product={selectedProductForModal}
         categories={categories}
+        allProducts={products}
         isOpen={isProductModalOpen}
         onClose={() => {
           setIsProductModalOpen(false);
           setSelectedProductForModal(null);
         }}
         onSuccess={(savedProduct) => {
-          showToast(`✓ Item "${savedProduct.name || "Item"}" saved successfully!`);
+          const itemName = savedProduct?.name || "Item";
+          showToast(`✓ Item "${itemName}" saved successfully!`);
           setIsProductModalOpen(false);
           setSelectedProductForModal(null);
           loadData(true);
