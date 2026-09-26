@@ -166,6 +166,25 @@ export function AdminDealsSection({ onOpenEditModal, onOpenAddModal }: AdminDeal
             </div>
           </div>
         ))}
+        {deals.length === 0 && (
+          <div style={{
+            gridColumn: "1 / -1",
+            textAlign: "center",
+            padding: "60px 16px",
+            color: "var(--admin-text-muted)",
+            background: "var(--admin-card-bg)",
+            border: "1.5px dashed var(--admin-border)",
+            borderRadius: "12px",
+          }}>
+            <Sparkles size={32} color="#ff6b35" style={{ margin: "0 auto 12px" }} />
+            <h3 style={{ margin: "0 0 6px", color: "var(--admin-text-main)", fontSize: "16px", fontWeight: 800 }}>
+              {isLoading ? "Loading Deals..." : "No Deals Configured"}
+            </h3>
+            <p style={{ margin: 0, fontSize: "13px" }}>
+              {isLoading ? "Fetching combo and bundle packages..." : "Click 'Create New Deal' above to add your first feast or combo deal."}
+            </p>
+          </div>
+        )}
       </div>
 
       <style jsx>{`

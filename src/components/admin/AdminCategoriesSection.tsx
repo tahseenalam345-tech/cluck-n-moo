@@ -226,6 +226,13 @@ export function AdminCategoriesSection() {
                 </td>
               </tr>
             ))}
+            {categories.length === 0 && (
+              <tr>
+                <td colSpan={6} style={{ textAlign: "center", padding: "48px 16px", color: "var(--admin-text-muted)" }}>
+                  {isLoading ? "Loading categories..." : "No categories found. Click 'Add Category' above to create one."}
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>

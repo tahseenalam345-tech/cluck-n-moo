@@ -118,7 +118,40 @@ export default function AdminPage() {
       next.add(sec);
       return next;
     });
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.set("tab", sec);
+      window.history.replaceState({}, "", url.toString());
+    }
   };
+
+  // Synchronize visitedSections with activeSection at all times
+  useEffect(() => {
+    setVisitedSections((prev) => {
+      if (prev.has(activeSection)) return prev;
+      const next = new Set(prev);
+      next.add(activeSection);
+      return next;
+    });
+  }, [activeSection]);
+
+  // Support direct URL access (?tab=products or ?section=staff) on initial load & popstate
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const tabParam = (params.get("tab") || params.get("section")) as AdminSectionId | null;
+      if (tabParam) {
+        const validSections: AdminSectionId[] = [
+          "overview", "orders", "categories", "products", "deals",
+          "modifiers", "media", "promotions", "delivery", "settings",
+          "staff", "audit"
+        ];
+        if (validSections.includes(tabParam)) {
+          handleSelectSection(tabParam);
+        }
+      }
+    }
+  }, []);
 
   // Initial load for catalog data (categories & products) - executed once
   const loadCatalog = useCallback(async () => {
@@ -322,10 +355,10 @@ export default function AdminPage() {
   return (
     <AdminShell
       activeSection={activeSection}
-      onSelectSection={setActiveSection}
+      onSelectSection={handleSelectSection}
       userEmail={userEmail}
       pendingOrdersCount={pendingOrdersCount}
-      totalProductsCount={0}
+      totalProductsCount={products.length}
     >
       {/* Toast Notification */}
       {toastMessage && (
@@ -505,13 +538,13 @@ export default function AdminPage() {
         />
       </div>
 
-      {visitedSections.has("categories") && (
+      {(visitedSections.has("categories") || activeSection === "categories") && (
         <div style={{ display: activeSection === "categories" ? "block" : "none" }}>
           <AdminCategoriesSection />
         </div>
       )}
 
-      {visitedSections.has("products") && (
+      {(visitedSections.has("products") || activeSection === "products") && (
         <div style={{ display: activeSection === "products" ? "block" : "none" }}>
           <AdminProductsSection
             categories={categories}
@@ -527,7 +560,7 @@ export default function AdminPage() {
         </div>
       )}
 
-      {visitedSections.has("deals") && (
+      {(visitedSections.has("deals") || activeSection === "deals") && (
         <div style={{ display: activeSection === "deals" ? "block" : "none" }}>
           <AdminDealsSection
             onOpenAddModal={() => {
@@ -542,43 +575,43 @@ export default function AdminPage() {
         </div>
       )}
 
-      {visitedSections.has("modifiers") && (
+      {(visitedSections.has("modifiers") || activeSection === "modifiers") && (
         <div style={{ display: activeSection === "modifiers" ? "block" : "none" }}>
           <AdminModifiersSection />
         </div>
       )}
 
-      {visitedSections.has("media") && (
+      {(visitedSections.has("media") || activeSection === "media") && (
         <div style={{ display: activeSection === "media" ? "block" : "none" }}>
           <AdminMediaLibrarySection />
         </div>
       )}
 
-      {visitedSections.has("promotions") && (
+      {(visitedSections.has("promotions") || activeSection === "promotions") && (
         <div style={{ display: activeSection === "promotions" ? "block" : "none" }}>
           <AdminPromotionsSection />
         </div>
       )}
 
-      {visitedSections.has("delivery") && (
+      {(visitedSections.has("delivery") || activeSection === "delivery") && (
         <div style={{ display: activeSection === "delivery" ? "block" : "none" }}>
           <AdminDeliverySection />
         </div>
       )}
 
-      {visitedSections.has("settings") && (
+      {(visitedSections.has("settings") || activeSection === "settings") && (
         <div style={{ display: activeSection === "settings" ? "block" : "none" }}>
           <AdminSettingsSection />
         </div>
       )}
 
-      {visitedSections.has("staff") && (
+      {(visitedSections.has("staff") || activeSection === "staff") && (
         <div style={{ display: activeSection === "staff" ? "block" : "none" }}>
           <AdminStaffSection />
         </div>
       )}
 
-      {visitedSections.has("audit") && (
+      {(visitedSections.has("audit") || activeSection === "audit") && (
         <div style={{ display: activeSection === "audit" ? "block" : "none" }}>
           <AdminAuditSection />
         </div>

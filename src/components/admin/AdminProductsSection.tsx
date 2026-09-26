@@ -261,7 +261,7 @@ export function AdminProductsSection({
 
   // Active categories for filter
   const activeCategories = useMemo(
-    () => categories.filter((c) => !c.isArchived),
+    () => (categories || []).filter((c) => !c?.isArchived),
     [categories]
   );
 

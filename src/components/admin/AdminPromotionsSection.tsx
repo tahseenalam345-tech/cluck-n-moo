@@ -361,6 +361,25 @@ export function AdminPromotionsSection() {
             </div>
           </div>
         ))}
+        {promotions.length === 0 && (
+          <div style={{
+            gridColumn: "1 / -1",
+            textAlign: "center",
+            padding: "60px 16px",
+            color: "var(--admin-text-muted)",
+            background: "var(--admin-card-bg)",
+            border: "1.5px dashed var(--admin-border)",
+            borderRadius: "12px",
+          }}>
+            <Flame size={32} color="#ff6b35" style={{ margin: "0 auto 12px" }} />
+            <h3 style={{ margin: "0 0 6px", color: "var(--admin-text-main)", fontSize: "16px", fontWeight: 800 }}>
+              {isLoading ? "Loading Promotions..." : "No Promotions Found"}
+            </h3>
+            <p style={{ margin: 0, fontSize: "13px" }}>
+              {isLoading ? "Fetching promotional banners from Cloudinary & database..." : "Upload promotion banners in Media Library or configure banners to display on homepage."}
+            </p>
+          </div>
+        )}
       </div>
 
       {/* EDIT / CONFIGURE MODAL */}
