@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { ACTIVE_PROMOTIONS, PromotionBanner } from "@/lib/promotions";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { buildCloudinaryUrl } from "./ProductImage";
 
 interface PromoCarouselProps {
   onSelectPromotion?: (promo: PromotionBanner) => void;
@@ -112,8 +113,17 @@ export function PromoCarousel({ onSelectPromotion }: PromoCarouselProps) {
                 {/* Visual Deal Banner Image / Artwork (No text or buttons overlaid) */}
                 {promo.imageUrl ? (
                   <img
-                    src={promo.imageUrl}
+                    src={buildCloudinaryUrl(promo.imageUrl, 800) || promo.imageUrl}
+                    srcSet={
+                      promo.imageUrl.includes("cloudinary.com")
+                        ? `${buildCloudinaryUrl(promo.imageUrl, 500)} 500w, ${buildCloudinaryUrl(promo.imageUrl, 800)} 800w, ${buildCloudinaryUrl(promo.imageUrl, 1200)} 1200w`
+                        : undefined
+                    }
+                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 90vw, 1200px"
                     alt={promo.title}
+                    loading={idx === 0 ? "eager" : "lazy"}
+                    decoding="async"
+                    fetchPriority={idx === 0 ? "high" : "low"}
                     style={{
                       width: "100%",
                       height: "100%",

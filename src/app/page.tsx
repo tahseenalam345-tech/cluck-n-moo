@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useMemo } from "react";
+import dynamic from "next/dynamic";
 import { Category, Product, CartItem, Promotion } from "@/types";
 import { AppDownloadBanner } from "@/components/AppDownloadBanner";
 import { CustomerHeader } from "@/components/CustomerHeader";
@@ -9,19 +10,40 @@ import { SignatureNavigationStrip } from "@/components/SignatureNavigationStrip"
 import { MenuSearchBar } from "@/components/MenuSearchBar";
 import { PopularPicksSection } from "@/components/PopularPicksSection";
 import { PromotionsSection } from "@/components/PromotionsSection";
-import { PromotionModal } from "@/components/PromotionModal";
 import { ProductCard } from "@/components/ProductCard";
-import { BrandStorySection } from "@/components/BrandStorySection";
-import { HistoriaSection } from "@/components/HistoriaSection";
 import { recordProductVisit } from "@/lib/userHistory";
-import { ItemCustomizerModal } from "@/components/ItemCustomizerModal";
-import { CartDrawer } from "@/components/CartDrawer";
 import { FloatingMiniCart } from "@/components/FloatingMiniCart";
 import { CustomerFooter } from "@/components/CustomerFooter";
 import { useOrderMode } from "@/context/OrderModeContext";
 import { filterProductsBySignature, SIGNATURE_SECTIONS } from "@/lib/signatureSections";
 import { getCategoryEmoji } from "@/lib/categoryEmojis";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+
+// Lazy-load non-critical modals and below-the-fold sections to shrink initial JS bundle
+const CartDrawer = dynamic(
+  () => import("@/components/CartDrawer").then((m) => m.CartDrawer),
+  { ssr: false }
+);
+
+const ItemCustomizerModal = dynamic(
+  () => import("@/components/ItemCustomizerModal").then((m) => m.ItemCustomizerModal),
+  { ssr: false }
+);
+
+const PromotionModal = dynamic(
+  () => import("@/components/PromotionModal").then((m) => m.PromotionModal),
+  { ssr: false }
+);
+
+const HistoriaSection = dynamic(
+  () => import("@/components/HistoriaSection").then((m) => m.HistoriaSection),
+  { ssr: false }
+);
+
+const BrandStorySection = dynamic(
+  () => import("@/components/BrandStorySection").then((m) => m.BrandStorySection),
+  { ssr: false }
+);
 
 export default function StorefrontPage() {
   const { modeState } = useOrderMode();
@@ -162,8 +184,11 @@ export default function StorefrontPage() {
   const cartCount = cartItems.reduce((acc, item) => acc + item.quantity, 0);
   const cartSubtotal = cartItems.reduce((acc, item) => acc + item.lineTotalPkr, 0);
 
-  // Flatten all products across all categories for Popular Picks
-  const allProducts: Product[] = categories.flatMap((c) => c.products || []);
+  // Flatten all products across all categories for Popular Picks (memoized)
+  const allProducts: Product[] = useMemo(
+    () => categories.flatMap((c) => c.products || []),
+    [categories]
+  );
 
   // Handle signature section selection with smooth scroll if customer is scrolled down
   const handleSelectSignature = (slug: string) => {
@@ -187,40 +212,42 @@ export default function StorefrontPage() {
     }
   };
 
-  // 1. Signature-level filtering
-  const { isHistoria, filteredCategories: signatureFilteredCategories } = filterProductsBySignature(
-    activeSignatureSlug,
-    categories
+  // 1. Signature-level filtering (memoized)
+  const { isHistoria, filteredCategories: signatureFilteredCategories } = useMemo(
+    () => filterProductsBySignature(activeSignatureSlug, categories),
+    [activeSignatureSlug, categories]
   );
 
-  // 2. Category tab level filtering (when applicable)
-  const categoryScoped =
-    selectedCategory === "all"
+  // 2. Category tab level filtering (when applicable) (memoized)
+  const categoryScoped = useMemo(() => {
+    return selectedCategory === "all"
       ? signatureFilteredCategories
       : signatureFilteredCategories.filter((c) => c.id === selectedCategory);
+  }, [selectedCategory, signatureFilteredCategories]);
 
-  // 3. Search query filtering
-  const normalizedQuery = searchQuery.trim().toLowerCase();
+  // 3. Search query filtering (memoized)
+  const finalDisplayCategories = useMemo(() => {
+    const normalizedQuery = searchQuery.trim().toLowerCase();
+    return categoryScoped
+      .map((c) => {
+        if (!normalizedQuery) return c;
+        const matchedProducts = (c.products || []).filter((p) => {
+          const nameMatch = p.name.toLowerCase().includes(normalizedQuery);
+          const descMatch = (p.description || "").toLowerCase().includes(normalizedQuery);
+          const catMatch = c.name.toLowerCase().includes(normalizedQuery);
+          return nameMatch || descMatch || catMatch;
+        });
+        return {
+          ...c,
+          products: matchedProducts,
+        };
+      })
+      .filter((c) => Boolean(c.products && c.products.length > 0));
+  }, [categoryScoped, searchQuery]);
 
-  const finalDisplayCategories = categoryScoped
-    .map((c) => {
-      if (!normalizedQuery) return c;
-      const matchedProducts = (c.products || []).filter((p) => {
-        const nameMatch = p.name.toLowerCase().includes(normalizedQuery);
-        const descMatch = (p.description || "").toLowerCase().includes(normalizedQuery);
-        const catMatch = c.name.toLowerCase().includes(normalizedQuery);
-        return nameMatch || descMatch || catMatch;
-      });
-      return {
-        ...c,
-        products: matchedProducts,
-      };
-    })
-    .filter((c) => Boolean(c.products && c.products.length > 0));
-
-  const totalMatchingProducts = finalDisplayCategories.reduce(
-    (acc, c) => acc + (c.products?.length || 0),
-    0
+  const totalMatchingProducts = useMemo(
+    () => finalDisplayCategories.reduce((acc, c) => acc + (c.products?.length || 0), 0),
+    [finalDisplayCategories]
   );
 
   // Active signature section metadata
@@ -622,7 +649,7 @@ export default function StorefrontPage() {
                 </button>
               </div>
             ) : (
-              finalDisplayCategories.map((cat) => (
+              finalDisplayCategories.map((cat, catIdx) => (
                 <div key={cat.id} style={{ marginBottom: "36px" }}>
                   <div
                     style={{
@@ -652,10 +679,11 @@ export default function StorefrontPage() {
                   </div>
 
                   <div className="product-responsive-grid">
-                    {cat.products?.map((product) => (
+                    {cat.products?.map((product, prodIdx) => (
                       <ProductCard
                         key={product.id}
                         product={product}
+                        priority={catIdx === 0 && prodIdx < 2}
                         onSelect={handleSelectProduct}
                       />
                     ))}

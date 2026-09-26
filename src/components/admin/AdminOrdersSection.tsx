@@ -1119,19 +1119,30 @@ export function AdminOrdersSection({
                       <span style={{ color: "var(--cnm-text-muted)" }}>
                         ⚠️ No active riders available. Add or activate a Rider from Staff & Riders.
                       </span>
-                      {onNavigate && (
+                      <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
                         <button
                           type="button"
-                          onClick={() => {
-                            setSelectedDrawerOrderId(null);
-                            onNavigate("staff");
-                          }}
+                          onClick={() => fetchActiveRiders()}
                           className="btn btn-secondary"
                           style={{ padding: "4px 10px", fontSize: "12px", fontWeight: 700 }}
+                          title="Refresh Available Riders"
                         >
-                          + Go to Staff & Riders
+                          ↻ Refresh
                         </button>
-                      )}
+                        {onNavigate && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedDrawerOrderId(null);
+                              onNavigate("staff");
+                            }}
+                            className="btn btn-secondary"
+                            style={{ padding: "4px 10px", fontSize: "12px", fontWeight: 700 }}
+                          >
+                            + Go to Staff & Riders
+                          </button>
+                        )}
+                      </div>
                     </div>
                   ) : (
                     <div className="rider-assign-controls">

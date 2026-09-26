@@ -7,10 +7,17 @@ export async function GET() {
   try {
     const data = await getActiveMenu();
 
-    return NextResponse.json({
-      success: true,
-      data,
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        data,
+      },
+      {
+        headers: {
+          "Cache-Control": "public, s-maxage=60, stale-while-revalidate=600",
+        },
+      }
+    );
   } catch (err: any) {
     // Log non-sensitive diagnostic message server-side only
     console.error("Storefront Menu API Error:", err?.message || "Database query failure");

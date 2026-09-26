@@ -131,10 +131,11 @@ export function PopularPicksSection({
               </div>
             ))
           ) : (
-            popularItems.map((prod) => (
+            popularItems.map((prod, idx) => (
               <ProductCard
                 key={`popular-${prod.id}`}
                 product={prod}
+                priority={idx < 2}
                 onSelect={onSelectProduct}
               />
             ))

@@ -1,8 +1,33 @@
 import type { Metadata, Viewport } from "next";
+import { Outfit, Inter, Caveat } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/context/ThemeContext";
 import { OrderModeProvider } from "@/context/OrderModeContext";
 import { OrderModeModal } from "@/components/OrderModeModal";
+
+const outfit = Outfit({
+  subsets: ["latin"],
+  weight: ["600", "700", "800", "900"],
+  variable: "--font-outfit",
+  display: "swap",
+  preload: true,
+});
+
+const inter = Inter({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-inter",
+  display: "swap",
+  preload: true,
+});
+
+const caveat = Caveat({
+  subsets: ["latin"],
+  weight: ["700"],
+  variable: "--font-caveat",
+  display: "swap",
+  preload: false,
+});
 
 export const metadata: Metadata = {
   title: "Cluck N Moo (CNM) — juiciest in town | Kharian, Pakistan",
@@ -30,7 +55,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" data-theme="light" suppressHydrationWarning>
+    <html
+      lang="en"
+      data-theme="light"
+      className={`${outfit.variable} ${inter.variable} ${caveat.variable}`}
+      suppressHydrationWarning
+    >
       <head>
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />

@@ -30,31 +30,38 @@ export async function GET() {
       specialSchedules,
     });
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        isOpen: status.isOpen,
-        currentPktTime: status.currentPktTime,
-        scheduleText: status.scheduleText,
-        reason: status.reason,
-        announcementBanner: announcement,
-        manualOverrideStatus: manualOverride,
-        store: {
-          name: settingsMap["restaurant_name"] || BRAND.name,
-          tagline: settingsMap["tagline"] || BRAND.tagline,
-          phone: settingsMap["phone"] || BRAND.branch.phone,
-          address: settingsMap["address"] || BRAND.branch.address,
-          coordinates: {
-            lat: parseFloat(settingsMap["lat"] || BRAND.branch.coordinates.lat.toString()),
-            lng: parseFloat(settingsMap["lng"] || BRAND.branch.coordinates.lng.toString()),
+    return NextResponse.json(
+      {
+        success: true,
+        data: {
+          isOpen: status.isOpen,
+          currentPktTime: status.currentPktTime,
+          scheduleText: status.scheduleText,
+          reason: status.reason,
+          announcementBanner: announcement,
+          manualOverrideStatus: manualOverride,
+          store: {
+            name: settingsMap["restaurant_name"] || BRAND.name,
+            tagline: settingsMap["tagline"] || BRAND.tagline,
+            phone: settingsMap["phone"] || BRAND.branch.phone,
+            address: settingsMap["address"] || BRAND.branch.address,
+            coordinates: {
+              lat: parseFloat(settingsMap["lat"] || BRAND.branch.coordinates.lat.toString()),
+              lng: parseFloat(settingsMap["lng"] || BRAND.branch.coordinates.lng.toString()),
+            },
+            defaultDeliveryFeePkr: parseInt(
+              settingsMap["default_delivery_fee"] || BRAND.defaults.deliveryFeePkr.toString(),
+              10
+            ),
           },
-          defaultDeliveryFeePkr: parseInt(
-            settingsMap["default_delivery_fee"] || BRAND.defaults.deliveryFeePkr.toString(),
-            10
-          ),
         },
       },
-    });
+      {
+        headers: {
+          "Cache-Control": "public, max-age=30, stale-while-revalidate=60",
+        },
+      }
+    );
   } catch (err: any) {
     console.error("Store status API error:", err?.message || "Database query failure");
     return NextResponse.json(

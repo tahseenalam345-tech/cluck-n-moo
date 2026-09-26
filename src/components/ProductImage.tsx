@@ -82,26 +82,29 @@ export function ProductImage({
   // Generate responsive srcSet for Cloudinary
   const isCloudinary = src && (src.includes("res.cloudinary.com") || !src.startsWith("http"));
 
-  // Default sizes based on target context
+  // Default sizes based on target context (Mobile grid is 2-column, so 50vw prevents loading 800w/1000w originals on phones)
   const defaultSizes =
     sizes ||
     (target === "detail"
       ? "(max-width: 768px) 100vw, 800px"
-      : "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, (max-width: 1280px) 33vw, 280px");
+      : target === "thumbnail"
+      ? "120px"
+      : "(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 260px");
 
   // Build responsive srcset
   let srcSet: string | undefined = undefined;
   let primarySrc = src || "";
 
   if (isCloudinary && src) {
+    const w260 = buildCloudinaryUrl(src, 260);
     const w400 = buildCloudinaryUrl(src, 400);
     const w600 = buildCloudinaryUrl(src, 600);
     const w800 = buildCloudinaryUrl(src, 800);
     const w1000 = buildCloudinaryUrl(src, 1000);
 
-    srcSet = `${w400} 400w, ${w600} 600w, ${w800} 800w, ${w1000} 1000w`;
-    // Select default src based on target
-    primarySrc = target === "detail" ? w1000 : target === "thumbnail" ? w400 : w600;
+    srcSet = `${w260} 260w, ${w400} 400w, ${w600} 600w, ${w800} 800w, ${w1000} 1000w`;
+    // Select default src based on target: mobile-friendly w400 for card items
+    primarySrc = target === "detail" ? w1000 : target === "thumbnail" ? w260 : w400;
   }
 
   // Calculate percentage padding for aspect ratio to strictly avoid CLS

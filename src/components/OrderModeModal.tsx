@@ -20,8 +20,38 @@ import {
   RefreshCw,
 } from "lucide-react";
 
-// Fast memory cache so reopening modal is 100% instant (0ms delay)
-let cachedDeliveryAreas: DeliveryArea[] | null = null;
+// Fast persistent cache and pre-baked production delivery areas for 0ms instant first-visit responsiveness
+const DEFAULT_DELIVERY_AREAS: DeliveryArea[] = [
+  { id: "area_kharian-cantt", name: "Kharian Cantt", slug: "kharian-cantt", deliveryFeePkr: 100, estimatedDeliveryMins: 40, isActive: 1, displayOrder: 7 },
+  { id: "area_gt-road-kharian", name: "GT Road Kharian", slug: "gt-road-kharian", deliveryFeePkr: 100, estimatedDeliveryMins: 40, isActive: 1, displayOrder: 3 },
+  { id: "area_lalamusa", name: "Lalamusa", slug: "lalamusa", deliveryFeePkr: 100, estimatedDeliveryMins: 40, isActive: 1, displayOrder: 8 },
+  { id: "area_guliana", name: "Guliana", slug: "guliana", deliveryFeePkr: 100, estimatedDeliveryMins: 40, isActive: 1, displayOrder: 4 },
+  { id: "area_jinnah-mart-hs-block-kharian-cantt", name: "Jinnah Mart HS Block Kharian Cantt", slug: "jinnah-mart-hs-block-kharian-cantt", deliveryFeePkr: 100, estimatedDeliveryMins: 40, isActive: 1, displayOrder: 6 },
+  { id: "area_bidermarjan", name: "Bidermarjan", slug: "bidermarjan", deliveryFeePkr: 100, estimatedDeliveryMins: 40, isActive: 1, displayOrder: 0 },
+  { id: "area_damian", name: "Damian", slug: "damian", deliveryFeePkr: 100, estimatedDeliveryMins: 40, isActive: 1, displayOrder: 1 },
+  { id: "area_dillo-village", name: "Dillo Village", slug: "dillo-village", deliveryFeePkr: 100, estimatedDeliveryMins: 40, isActive: 1, displayOrder: 2 },
+  { id: "area_jadanwala", name: "Jadanwala", slug: "jadanwala", deliveryFeePkr: 100, estimatedDeliveryMins: 40, isActive: 1, displayOrder: 5 },
+  { id: "area_malikpur", name: "Malikpur", slug: "malikpur", deliveryFeePkr: 100, estimatedDeliveryMins: 40, isActive: 1, displayOrder: 9 },
+  { id: "area_marala", name: "Marala", slug: "marala", deliveryFeePkr: 100, estimatedDeliveryMins: 40, isActive: 1, displayOrder: 10 },
+];
+
+function getInitialDeliveryAreas(): DeliveryArea[] {
+  if (typeof window !== "undefined") {
+    try {
+      const stored = localStorage.getItem("cnm_cached_delivery_areas");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
+    } catch {}
+  }
+  return DEFAULT_DELIVERY_AREAS;
+}
+
+let cachedDeliveryAreas: DeliveryArea[] = DEFAULT_DELIVERY_AREAS;
+let isDeliveryAreasFetchInFlight = false;
 
 export function OrderModeModal() {
   const { isModalOpen, closeOrderModeModal, modeState, saveOrderMode } = useOrderMode();
@@ -30,12 +60,22 @@ export function OrderModeModal() {
   const [step, setStep] = useState<"CHOOSE_TYPE" | "DETAILS">("CHOOSE_TYPE");
   const [selectedType, setSelectedType] = useState<OrderType>(modeState.orderType || "DELIVERY");
 
-  // Delivery state
-  const [deliveryAreas, setDeliveryAreas] = useState<DeliveryArea[]>(cachedDeliveryAreas || []);
-  const [selectedAreaId, setSelectedAreaId] = useState<string>(modeState.areaId || "");
+  // Delivery state: pre-initialized so UI is immediately interactive with zero loading freeze
+  const [deliveryAreas, setDeliveryAreas] = useState<DeliveryArea[]>(() => {
+    if (typeof window !== "undefined") {
+      const init = getInitialDeliveryAreas();
+      cachedDeliveryAreas = init;
+      return init;
+    }
+    return DEFAULT_DELIVERY_AREAS;
+  });
+
+  const [selectedAreaId, setSelectedAreaId] = useState<string>(
+    modeState.areaId || cachedDeliveryAreas[0]?.id || "area_kharian-cantt"
+  );
   const [address, setAddress] = useState<string>(modeState.deliveryAddress || "");
   const [landmark, setLandmark] = useState<string>(modeState.deliveryLandmark || "");
-  const [isLoadingAreas, setIsLoadingAreas] = useState<boolean>(!cachedDeliveryAreas);
+  const [isUpdatingAreas, setIsUpdatingAreas] = useState<boolean>(false);
   const [areasError, setAreasError] = useState<string | null>(null);
 
   // Custom compact area picker popover state
@@ -53,7 +93,7 @@ export function OrderModeModal() {
   useEffect(() => {
     if (isModalOpen) {
       setSelectedType(modeState.orderType || "DELIVERY");
-      setSelectedAreaId(modeState.areaId || "");
+      setSelectedAreaId(modeState.areaId || deliveryAreas[0]?.id || "area_kharian-cantt");
       setAddress(modeState.deliveryAddress || "");
       setLandmark(modeState.deliveryLandmark || "");
       setDineInTimePreset(modeState.dineInArrivalTime || "In 30 mins");
@@ -66,48 +106,37 @@ export function OrderModeModal() {
     }
   }, [isModalOpen, modeState]);
 
-  // Fetch delivery areas with caching
-  const loadDeliveryAreas = () => {
-    if (cachedDeliveryAreas && cachedDeliveryAreas.length > 0) {
-      setDeliveryAreas(cachedDeliveryAreas);
-      setIsLoadingAreas(false);
-      if (!selectedAreaId) {
-        setSelectedAreaId(cachedDeliveryAreas[0].id);
-      }
-      return;
-    }
+  // Asynchronous background revalidation with request deduplication
+  const revalidateDeliveryAreas = () => {
+    if (isDeliveryAreasFetchInFlight) return;
+    isDeliveryAreasFetchInFlight = true;
+    setIsUpdatingAreas(true);
 
-    setIsLoadingAreas(true);
-    setAreasError(null);
     fetch("/api/v1/store/delivery-areas")
       .then((res) => res.json())
       .then((data) => {
         if (data.success && Array.isArray(data.data) && data.data.length > 0) {
           cachedDeliveryAreas = data.data;
           setDeliveryAreas(data.data);
-          if (!selectedAreaId) {
-            setSelectedAreaId(data.data[0].id);
-          }
-        } else {
-          setAreasError("No delivery areas found.");
+          try {
+            localStorage.setItem("cnm_cached_delivery_areas", JSON.stringify(data.data));
+          } catch {}
+          setAreasError(null);
         }
       })
       .catch(() => {
-        setAreasError("Unable to load delivery areas. Please retry.");
+        // Fallback already exists, so no destructive error state
       })
-      .finally(() => setIsLoadingAreas(false));
+      .finally(() => {
+        isDeliveryAreasFetchInFlight = false;
+        setIsUpdatingAreas(false);
+      });
   };
 
-  // Pre-load delivery areas on mount so modal never waits
+  // Revalidate once in background when modal is mounted or opened
   useEffect(() => {
-    loadDeliveryAreas();
+    revalidateDeliveryAreas();
   }, []);
-
-  useEffect(() => {
-    if (isModalOpen) {
-      loadDeliveryAreas();
-    }
-  }, [isModalOpen]);
 
   // Filtered areas for search
   const filteredDeliveryAreas = useMemo(() => {
@@ -287,27 +316,28 @@ export function OrderModeModal() {
         {step === "DETAILS" && selectedType === "DELIVERY" && (
           <form onSubmit={handleConfirmDelivery} className="mode-details-form">
             <div className="form-field">
-              <label className="field-label" htmlFor="delivery-area-select">
-                Delivery Area / Village *
-              </label>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <label className="field-label" htmlFor="delivery-area-select">
+                  Delivery Area / Village *
+                </label>
+                {isUpdatingAreas && (
+                  <span style={{ fontSize: "10px", color: "var(--cnm-text-muted)", display: "flex", alignItems: "center", gap: "4px" }}>
+                    <RefreshCw size={10} className="spin" />
+                    Updating rates...
+                  </span>
+                )}
+              </div>
 
-              {isLoadingAreas ? (
-                <div className="field-loading">
-                  <RefreshCw size={14} className="spin" />
-                  <span>Loading delivery areas...</span>
+              {areasError && (
+                <div className="field-error">
+                  <AlertCircle size={14} />
+                  <span>{areasError}</span>
+                  <button type="button" onClick={revalidateDeliveryAreas} className="btn-retry-areas">
+                    Retry
+                  </button>
                 </div>
-              ) : (
-                <>
-                  {areasError && (
-                    <div className="field-error">
-                      <AlertCircle size={14} />
-                      <span>{areasError}</span>
-                      <button type="button" onClick={loadDeliveryAreas} className="btn-retry-areas">
-                        Retry
-                      </button>
-                    </div>
-                  )}
-                  <div className="custom-area-selector">
+              )}
+              <div className="custom-area-selector">
                   <button
                     type="button"
                     id="delivery-area-select-btn"
@@ -400,8 +430,6 @@ export function OrderModeModal() {
                     </div>
                   )}
                 </div>
-              </>
-            )}
             </div>
 
             <div className="form-field">
@@ -444,7 +472,7 @@ export function OrderModeModal() {
               </button>
               <button
                 type="submit"
-                disabled={isLoadingAreas}
+                disabled={deliveryAreas.length === 0}
                 className="btn-mode-primary"
               >
                 Confirm Delivery

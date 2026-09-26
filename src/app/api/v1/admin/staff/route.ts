@@ -33,7 +33,7 @@ export async function GET() {
         activeOrdersAssigned: sql<number>`(
           SELECT count(*) 
           FROM orders 
-          WHERE orders.assigned_rider_id = ${profiles.id} 
+          WHERE orders.assigned_rider_id = "profiles"."id" 
             AND orders.status IN ('Out for delivery', 'Ready')
         )`,
       })
@@ -201,6 +201,8 @@ export async function POST(req: NextRequest) {
 
     const supabaseAdmin = getSupabaseAdmin();
 
+    let newUserId: string;
+
     // 1. Create user in Supabase Auth via Admin API with both user_metadata and app_metadata
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email: cleanEmail,
@@ -217,23 +219,60 @@ export async function POST(req: NextRequest) {
     });
 
     if (authError || !authData.user) {
-      console.error("Supabase Admin createUser error:", authError);
-      return NextResponse.json(
-        {
-          success: false,
-          error: {
-            code: "AUTH_CREATE_ERROR",
-            message: authError?.message || "Failed to create user in authentication provider.",
+      // Check if user already exists in Supabase Auth (e.g. customer promoting to staff or re-invited)
+      if (
+        authError?.message?.toLowerCase().includes("already registered") ||
+        authError?.message?.toLowerCase().includes("already been registered")
+      ) {
+        const { data: listData } = await supabaseAdmin.auth.admin.listUsers();
+        const existingAuth = listData?.users?.find(
+          (u) => (u.email || "").toLowerCase() === cleanEmail
+        );
+        if (existingAuth) {
+          newUserId = existingAuth.id;
+          await supabaseAdmin.auth.admin.updateUserById(newUserId, {
+            password,
+            user_metadata: { full_name: cleanFullName, role, phone: cleanPhone || undefined },
+            app_metadata: { role },
+            email_confirm: true,
+          });
+        } else {
+          return NextResponse.json(
+            { success: false, error: { code: "AUTH_CREATE_ERROR", message: authError.message } },
+            { status: 400 }
+          );
+        }
+      } else {
+        console.error("Supabase Admin createUser error:", authError);
+        return NextResponse.json(
+          {
+            success: false,
+            error: {
+              code: "AUTH_CREATE_ERROR",
+              message: authError?.message || "Failed to create user in authentication provider.",
+            },
           },
-        },
-        { status: 400 }
-      );
+          { status: 400 }
+        );
+      }
+    } else {
+      newUserId = authData.user.id;
     }
 
-    const newUserId = authData.user.id;
     const now = new Date();
 
-    // 2. Insert or upsert profile in PostgreSQL
+    // 2. Clean up any stale orphaned profile that used this email with a mismatched ID
+    const existingByEmail = await db
+      .select({ id: profiles.id })
+      .from(profiles)
+      .where(eq(profiles.email, cleanEmail))
+      .limit(1);
+
+    if (existingByEmail.length > 0 && existingByEmail[0].id !== newUserId) {
+      await db.delete(profiles).where(eq(profiles.id, existingByEmail[0].id));
+    }
+
+    // 3. Insert or upsert profile in PostgreSQL
     await db
       .insert(profiles)
       .values({
@@ -258,17 +297,17 @@ export async function POST(req: NextRequest) {
         },
       });
 
-    // 3. Guarantee auth user metadata is set
+    // 4. Guarantee auth user metadata is set
     try {
       await supabaseAdmin.auth.admin.updateUserById(newUserId, {
-        user_metadata: { full_name: cleanFullName, role },
+        user_metadata: { full_name: cleanFullName, role, phone: cleanPhone || undefined },
         app_metadata: { role },
       });
     } catch {
       // ignore
     }
 
-    // 4. Record Audit Log
+    // 5. Record Audit Log
     await recordAuditLog({
       userId: auth.session.userId,
       userEmail: auth.session.email,
@@ -414,6 +453,100 @@ export async function PUT(req: NextRequest) {
     console.error("Admin Staff PUT Error:", err?.message || err);
     return NextResponse.json(
       { success: false, error: { code: "SERVER_ERROR", message: err?.message || "Failed to update staff member." } },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * DELETE /api/v1/admin/staff
+ * Safely removes a staff member, unassigning active orders and purging auth + profile records.
+ */
+export async function DELETE(req: NextRequest) {
+  const auth = await enforceRole(["ADMIN"]);
+  if (auth.errorResponse) return auth.errorResponse;
+
+  try {
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get("id");
+
+    if (!id) {
+      return NextResponse.json(
+        { success: false, error: { code: "VALIDATION_ERROR", message: "Staff member ID is required." } },
+        { status: 400 }
+      );
+    }
+
+    // Safety Guard 1: Cannot delete self
+    if (id === auth.session.userId) {
+      return NextResponse.json(
+        { success: false, error: { code: "FORBIDDEN", message: "You cannot delete your own administrative account." } },
+        { status: 400 }
+      );
+    }
+
+    const db = getPostgresDb();
+
+    // Fetch existing profile
+    const existing = await db.select().from(profiles).where(eq(profiles.id, id)).limit(1);
+    if (existing.length === 0) {
+      return NextResponse.json(
+        { success: false, error: { code: "NOT_FOUND", message: "Staff profile not found." } },
+        { status: 404 }
+      );
+    }
+
+    const targetStaff = existing[0];
+
+    // Safety Guard 2: Cannot delete sole ADMIN
+    if (targetStaff.role === "ADMIN") {
+      const activeAdmins = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(profiles)
+        .where(and(eq(profiles.role, "ADMIN"), eq(profiles.isActive, true)));
+      if (Number(activeAdmins[0]?.count || 0) <= 1) {
+        return NextResponse.json(
+          { success: false, error: { code: "FORBIDDEN", message: "Cannot delete the sole administrator account." } },
+          { status: 400 }
+        );
+      }
+    }
+
+    // Unassign any orders assigned to this rider so foreign keys / order views don't break
+    await db
+      .update(orders)
+      .set({ assignedRiderId: null })
+      .where(eq(orders.assignedRiderId, id));
+
+    // Delete profile from PostgreSQL
+    await db.delete(profiles).where(eq(profiles.id, id));
+
+    // Delete user from Supabase Auth
+    try {
+      const supabaseAdmin = getSupabaseAdmin();
+      await supabaseAdmin.auth.admin.deleteUser(id);
+    } catch (authDelErr) {
+      console.warn("Could not delete Supabase auth user:", authDelErr);
+    }
+
+    // Audit log
+    await recordAuditLog({
+      userId: auth.session.userId,
+      userEmail: auth.session.email,
+      action: "DELETE_STAFF",
+      entityType: "STAFF",
+      entityId: id,
+      details: { email: targetStaff.email, fullName: targetStaff.fullName, role: targetStaff.role },
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: `Staff member "${targetStaff.fullName}" deleted successfully.`,
+    });
+  } catch (err: any) {
+    console.error("Admin Staff DELETE Error:", err?.message || err);
+    return NextResponse.json(
+      { success: false, error: { code: "SERVER_ERROR", message: err?.message || "Failed to delete staff member." } },
       { status: 500 }
     );
   }

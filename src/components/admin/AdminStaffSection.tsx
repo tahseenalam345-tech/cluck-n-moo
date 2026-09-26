@@ -15,6 +15,7 @@ import {
   X,
   Phone,
   Clock,
+  Trash2,
 } from "lucide-react";
 import { EditIcon } from "./AdminIcons";
 
@@ -63,8 +64,11 @@ export function AdminStaffSection() {
     setTimeout(() => setToastMessage(null), 3500);
   };
 
+  const [loadError, setLoadError] = useState<string | null>(null);
+
   const fetchStaff = async () => {
     setIsLoading(true);
+    setLoadError(null);
     try {
       const res = await fetch("/api/v1/admin/staff", {
         cache: "no-store",
@@ -73,9 +77,12 @@ export function AdminStaffSection() {
       const data = await res.json();
       if (data.success && Array.isArray(data.data)) {
         setStaff(data.data);
+      } else {
+        throw new Error(data.error?.message || "Failed to load staff profiles from server.");
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to load staff:", err);
+      setLoadError(err?.message || "Could not retrieve staff records from server.");
     } finally {
       setIsLoading(false);
     }
@@ -245,6 +252,26 @@ export function AdminStaffSection() {
     }
   };
 
+  const handleDeleteStaff = async (s: StaffProfile) => {
+    if (!confirm(`Are you sure you want to permanently delete staff member "${s.fullName}" (${s.email})? Active orders assigned to this rider will be unassigned.`)) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/v1/admin/staff?id=${encodeURIComponent(s.id)}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error?.message || "Failed to delete staff member.");
+      }
+      showToast(`✓ Staff member "${s.fullName}" deleted successfully.`);
+      await fetchStaff();
+    } catch (err: any) {
+      alert(err.message || "Failed to delete staff member.");
+    }
+  };
+
   const getRoleBadge = (role: string) => {
     switch (role) {
       case "ADMIN":
@@ -356,6 +383,45 @@ export function AdminStaffSection() {
         </div>
       </div>
 
+      {/* Load Error Alert */}
+      {loadError && (
+        <div
+          style={{
+            margin: "0 0 16px 0",
+            padding: "12px 16px",
+            backgroundColor: "#fef2f2",
+            border: "1px solid #fecaca",
+            borderRadius: "8px",
+            color: "#b91c1c",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            fontSize: "13px",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <AlertTriangle size={16} />
+            <span>{loadError}</span>
+          </div>
+          <button
+            type="button"
+            onClick={fetchStaff}
+            style={{
+              padding: "4px 10px",
+              backgroundColor: "#b91c1c",
+              color: "#ffffff",
+              border: "none",
+              borderRadius: "4px",
+              fontSize: "12px",
+              fontWeight: 700,
+              cursor: "pointer",
+            }}
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
       {/* Staff Table / Cards */}
       <div className="admin-table-container">
         <table className="admin-full-table">
@@ -463,6 +529,26 @@ export function AdminStaffSection() {
                       title={s.isActive ? "Disable Account" : "Enable Account"}
                     >
                       {s.isActive ? "Disable" : "Enable"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteStaff(s)}
+                      style={{
+                        padding: "5px 8px",
+                        borderRadius: "6px",
+                        fontSize: "12px",
+                        fontWeight: 700,
+                        cursor: "pointer",
+                        backgroundColor: "#f8fafc",
+                        color: "#dc2626",
+                        border: "1px solid #fecaca",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "3px",
+                      }}
+                      title="Permanently Delete Staff Member"
+                    >
+                      <Trash2 size={12} />
                     </button>
                   </div>
                 </td>
