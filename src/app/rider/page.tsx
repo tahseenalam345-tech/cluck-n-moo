@@ -560,85 +560,99 @@ export default function RiderPage() {
           zIndex: 40,
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
           {currentUser?.role === "ADMIN" && (
             <Link
               href="/admin"
               style={{
                 display: "inline-flex",
                 alignItems: "center",
-                gap: "6px",
-                fontSize: "0.8rem",
-                color: "#ffffff",
-                textDecoration: "none",
-                padding: "6px 12px",
+                justifyContent: "center",
+                width: "30px",
+                height: "30px",
                 borderRadius: "6px",
                 backgroundColor: "#3b82f6",
-                fontWeight: 600,
+                color: "#ffffff",
+                textDecoration: "none",
+                flexShrink: 0,
                 boxShadow: "0 2px 6px rgba(59, 130, 246, 0.3)",
               }}
-              title="Return to Admin Control Center"
+              title="Back to Admin Center"
+              aria-label="Back to Admin Center"
             >
-              <ArrowLeft size={14} />
-              <span>← Back to Admin Center</span>
+              <ArrowLeft size={16} />
             </Link>
           )}
 
-          <div style={{ display: "flex", alignItems: "center", gap: "7px" }}>
-            <div
-              style={{
-                backgroundColor: "rgba(59, 130, 246, 0.15)",
-                color: "#3b82f6",
-                padding: "5px",
-                borderRadius: "6px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <Bike size={19} />
-            </div>
-            <div>
-              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                <h1
-                  style={{
-                    fontSize: "0.98rem",
-                    fontWeight: 700,
-                    letterSpacing: "0.02em",
-                    margin: 0,
-                    lineHeight: 1.2,
-                  }}
-                >
-                  RIDER DELIVERY DISPATCH
-                </h1>
-                {currentUser?.role === "ADMIN" && (
-                  <span
-                    style={{
-                      fontSize: "0.65rem",
-                      backgroundColor: "rgba(59, 130, 246, 0.18)",
-                      color: "#60a5fa",
-                      padding: "2px 5px",
-                      borderRadius: "4px",
-                      fontWeight: 600,
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: "3px",
-                    }}
-                  >
-                    <ShieldCheck size={10} /> ADMIN
-                  </span>
-                )}
-              </div>
-              <span
+          <div
+            style={{
+              backgroundColor: "rgba(59, 130, 246, 0.15)",
+              color: "#3b82f6",
+              width: "30px",
+              height: "30px",
+              borderRadius: "6px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+            }}
+          >
+            <Bike size={18} />
+          </div>
+
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+              <h1
                 style={{
-                  fontSize: "0.7rem",
-                  color: "var(--cnm-text-muted, #94a3b8)",
-                  display: "block",
+                  fontSize: "0.95rem",
+                  fontWeight: 700,
+                  letterSpacing: "0.02em",
+                  margin: 0,
+                  lineHeight: 1.2,
                 }}
               >
-                Rider Station: <strong>{currentUser?.fullName}</strong> · Live dispatch queue
-              </span>
+                RIDER DISPATCH
+              </h1>
+              <div style={{ display: "inline-flex", alignItems: "center", gap: "5px" }}>
+                {currentUser?.fullName && (
+                  <span
+                    style={{
+                      fontSize: "0.78rem",
+                      fontWeight: 600,
+                      color: "var(--cnm-text-primary, #ffffff)",
+                    }}
+                  >
+                    {currentUser.fullName}
+                  </span>
+                )}
+                <span
+                  style={{
+                    fontSize: "0.65rem",
+                    backgroundColor: currentUser?.role === "ADMIN" ? "rgba(59, 130, 246, 0.18)" : "rgba(16, 185, 129, 0.18)",
+                    color: currentUser?.role === "ADMIN" ? "#60a5fa" : "#10b981",
+                    padding: "2px 6px",
+                    borderRadius: "4px",
+                    fontWeight: 700,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "3px",
+                  }}
+                >
+                  {currentUser?.role === "ADMIN" && <ShieldCheck size={10} />}
+                  {currentUser?.role || "RIDER"}
+                </span>
+              </div>
             </div>
+            <span
+              style={{
+                fontSize: "0.7rem",
+                color: "var(--cnm-text-muted, #94a3b8)",
+                display: "block",
+                marginTop: "1px",
+              }}
+            >
+              Live dispatch queue
+            </span>
           </div>
         </div>
 
