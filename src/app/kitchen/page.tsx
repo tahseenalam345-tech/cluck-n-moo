@@ -77,20 +77,25 @@ export default function KitchenPage() {
 
         const res = await fetch("/api/v1/account/profile");
         const data = await res.json();
-        if (
-          data.success &&
-          (data.data?.profile?.role === "KITCHEN_STAFF" || data.data?.profile?.role === "ADMIN")
-        ) {
+        const role = data.data?.profile?.role;
+
+        if (data.success && (role === "KITCHEN_STAFF" || role === "ADMIN")) {
           setCurrentUser({
             id: user.id,
             fullName: data.data.profile.fullName || user.email?.split("@")[0] || "Kitchen Staff",
             role: data.data.profile.role,
           });
           setAuthStatus("authorized");
+        } else if (role === "RIDER") {
+          // Rider belongs to Rider Dashboard
+          router.replace("/rider");
+          return;
         } else {
+          router.replace("/staff/login");
           setAuthStatus("unauthorized");
         }
       } catch {
+        router.replace("/staff/login");
         setAuthStatus("unauthorized");
       }
     };
@@ -464,36 +469,26 @@ export default function KitchenPage() {
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-          {currentUser?.role === "ADMIN" ? (
+          {currentUser?.role === "ADMIN" && (
             <Link
               href="/admin"
               style={{
-                display: "flex",
+                display: "inline-flex",
                 alignItems: "center",
-                gap: "5px",
-                fontSize: "0.78rem",
-                color: "var(--cnm-text-muted, #94a3b8)",
+                gap: "6px",
+                fontSize: "0.8rem",
+                color: "#ffffff",
                 textDecoration: "none",
-                padding: "4px 8px",
-                borderRadius: "5px",
-                backgroundColor: "rgba(255,255,255,0.05)",
-                fontWeight: 500,
+                padding: "6px 12px",
+                borderRadius: "6px",
+                backgroundColor: "var(--cnm-orange, #f97316)",
+                fontWeight: 600,
+                boxShadow: "0 2px 6px rgba(249, 115, 22, 0.3)",
               }}
               title="Return to Admin Control Center"
             >
               <ArrowLeft size={14} />
-              <span>Admin Center</span>
-            </Link>
-          ) : (
-            <Link
-              href="/"
-              style={{
-                color: "var(--cnm-text-muted, #94a3b8)",
-                display: "flex",
-                alignItems: "center",
-              }}
-            >
-              <ArrowLeft size={18} />
+              <span>← Back to Admin Center</span>
             </Link>
           )}
 

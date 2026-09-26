@@ -93,8 +93,15 @@ export default function AdminPage() {
 
         const res = await fetch("/api/v1/account/profile");
         const data = await res.json();
-        if (data.success && data.data?.profile?.role === "ADMIN") {
+        const userRole = data.data?.profile?.role;
+        if (data.success && userRole === "ADMIN") {
           setAuthStatus("authorized");
+        } else if (userRole === "KITCHEN_STAFF") {
+          router.replace("/kitchen");
+          return;
+        } else if (userRole === "RIDER") {
+          router.replace("/rider");
+          return;
         } else {
           setAuthStatus("unauthorized");
         }
@@ -236,7 +243,12 @@ export default function AdminPage() {
   const handleUpdateOrderStatus = async (
     orderId: string,
     targetStatus: OrderStatus,
-    options?: { cancellationReason?: string; note?: string; assignedRiderId?: string }
+    options?: {
+      cancellationReason?: string;
+      note?: string;
+      assignedRiderId?: string;
+      assignedRiderName?: string;
+    }
   ) => {
     const previousOrders = [...orders];
 
@@ -256,6 +268,14 @@ export default function AdminPage() {
               status: targetStatus,
               assignedRiderId:
                 options?.assignedRiderId !== undefined ? options.assignedRiderId : o.assignedRiderId,
+              assignedRiderName:
+                options?.assignedRiderName !== undefined
+                  ? options.assignedRiderName
+                  : options?.assignedRiderId !== undefined
+                  ? options.assignedRiderId
+                    ? "Assigned Rider"
+                    : null
+                  : o.assignedRiderName,
               cancellationReason:
                 targetStatus === ORDER_STATUSES.CANCELLED
                   ? options?.cancellationReason || "Cancelled by staff"
@@ -574,6 +594,7 @@ export default function AdminPage() {
             setCancelReasonText("");
           }}
           isUpdating={isUpdating}
+          onNavigate={(sec) => handleSelectSection(sec as any)}
         />
       </div>
 

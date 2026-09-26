@@ -90,11 +90,9 @@ export default function RiderPage() {
 
         const res = await fetch("/api/v1/account/profile");
         const data = await res.json();
-        if (
-          data.success &&
-          (data.data?.profile?.role === "RIDER" || data.data?.profile?.role === "ADMIN")
-        ) {
-          const userRole = data.data.profile.role;
+        const userRole = data.data?.profile?.role;
+
+        if (data.success && (userRole === "RIDER" || userRole === "ADMIN")) {
           setCurrentUser({
             id: user.id,
             fullName: data.data.profile.fullName || user.email?.split("@")[0] || "Staff Rider",
@@ -104,10 +102,16 @@ export default function RiderPage() {
             setViewMode("MY_RUNS");
           }
           setAuthStatus("authorized");
+        } else if (userRole === "KITCHEN_STAFF") {
+          // Kitchen Staff belongs to Kitchen Display
+          router.replace("/kitchen");
+          return;
         } else {
+          router.replace("/staff/login");
           setAuthStatus("unauthorized");
         }
       } catch {
+        router.replace("/staff/login");
         setAuthStatus("unauthorized");
       }
     };
@@ -118,7 +122,10 @@ export default function RiderPage() {
   // Load active riders list (for Admin assignment dropdown)
   const loadActiveRiders = async () => {
     try {
-      const res = await fetch("/api/v1/admin/staff");
+      const res = await fetch("/api/v1/admin/staff", {
+        cache: "no-store",
+        headers: { "Cache-Control": "no-cache" },
+      });
       const data = await res.json();
       if (data.success && Array.isArray(data.data)) {
         const riders = data.data.filter(
@@ -553,36 +560,26 @@ export default function RiderPage() {
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-          {currentUser?.role === "ADMIN" ? (
+          {currentUser?.role === "ADMIN" && (
             <Link
               href="/admin"
               style={{
-                display: "flex",
+                display: "inline-flex",
                 alignItems: "center",
-                gap: "5px",
-                fontSize: "0.78rem",
-                color: "var(--cnm-text-muted, #94a3b8)",
+                gap: "6px",
+                fontSize: "0.8rem",
+                color: "#ffffff",
                 textDecoration: "none",
-                padding: "4px 8px",
-                borderRadius: "5px",
-                backgroundColor: "rgba(255,255,255,0.05)",
-                fontWeight: 500,
+                padding: "6px 12px",
+                borderRadius: "6px",
+                backgroundColor: "#3b82f6",
+                fontWeight: 600,
+                boxShadow: "0 2px 6px rgba(59, 130, 246, 0.3)",
               }}
               title="Return to Admin Control Center"
             >
               <ArrowLeft size={14} />
-              <span>Admin Center</span>
-            </Link>
-          ) : (
-            <Link
-              href="/"
-              style={{
-                color: "var(--cnm-text-muted, #94a3b8)",
-                display: "flex",
-                alignItems: "center",
-              }}
-            >
-              <ArrowLeft size={18} />
+              <span>← Back to Admin Center</span>
             </Link>
           )}
 

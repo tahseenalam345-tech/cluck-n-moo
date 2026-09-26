@@ -54,16 +54,20 @@ export async function GET() {
     const authUserMap = new Map(authUsers.map((u) => [u.id, u]));
     const authEmailMap = new Map(authUsers.map((u) => [(u.email || "").toLowerCase(), u]));
 
-    // Auto-heal any Auth users with staff role who are missing a profile
+    // Auto-heal any Auth users with staff role who are missing a profile or have stale customer role
     for (const u of authUsers) {
-      const metaRole = u.user_metadata?.role;
+      const metaRole = u.user_metadata?.role || u.app_metadata?.role;
       if (metaRole && ["ADMIN", "KITCHEN_STAFF", "RIDER"].includes(metaRole)) {
-        const uEmail = (u.email || "").toLowerCase();
-        const exists = staffList.some(
+        const uEmail = (u.email || "").trim().toLowerCase();
+        const existingStaff = staffList.find(
           (s) => s.id === u.id || (s.email && s.email.toLowerCase() === uEmail)
         );
-        if (!exists) {
-          const autoName = u.user_metadata?.full_name || u.email?.split("@")[0] || "Staff Member";
+        if (!existingStaff) {
+          const autoName =
+            u.user_metadata?.full_name ||
+            u.app_metadata?.full_name ||
+            u.email?.split("@")[0] ||
+            "Staff Member";
           try {
             await db
               .insert(profiles)
@@ -76,7 +80,16 @@ export async function GET() {
                 createdAt: new Date(u.created_at),
                 updatedAt: new Date(),
               })
-              .onConflictDoNothing();
+              .onConflictDoUpdate({
+                target: profiles.id,
+                set: {
+                  role: metaRole as any,
+                  fullName: autoName,
+                  email: uEmail,
+                  isActive: true,
+                  updatedAt: new Date(),
+                },
+              });
 
             staffList.push({
               id: u.id,
@@ -159,15 +172,46 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanFullName = fullName.trim();
+    const cleanPhone = phone && phone.trim() ? phone.trim() : null;
+
+    const db = getPostgresDb();
+
+    // Validate phone is not duplicate
+    if (cleanPhone) {
+      const existingPhone = await db
+        .select({ id: profiles.id, fullName: profiles.fullName })
+        .from(profiles)
+        .where(eq(profiles.phone, cleanPhone))
+        .limit(1);
+      if (existingPhone.length > 0) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: {
+              code: "PHONE_EXISTS",
+              message: `Phone number "${cleanPhone}" is already assigned to ${existingPhone[0].fullName}.`,
+            },
+          },
+          { status: 400 }
+        );
+      }
+    }
+
     const supabaseAdmin = getSupabaseAdmin();
 
-    // 1. Create user in Supabase Auth via Admin API
+    // 1. Create user in Supabase Auth via Admin API with both user_metadata and app_metadata
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-      email: email.trim().toLowerCase(),
+      email: cleanEmail,
       password,
       email_confirm: true,
       user_metadata: {
-        full_name: fullName.trim(),
+        full_name: cleanFullName,
+        role,
+        phone: cleanPhone || undefined,
+      },
+      app_metadata: {
         role,
       },
     });
@@ -187,7 +231,6 @@ export async function POST(req: NextRequest) {
     }
 
     const newUserId = authData.user.id;
-    const db = getPostgresDb();
     const now = new Date();
 
     // 2. Insert or upsert profile in PostgreSQL
@@ -195,9 +238,9 @@ export async function POST(req: NextRequest) {
       .insert(profiles)
       .values({
         id: newUserId,
-        email: email.trim().toLowerCase(),
-        fullName: fullName.trim(),
-        phone: phone ? phone.trim() : null,
+        email: cleanEmail,
+        fullName: cleanFullName,
+        phone: cleanPhone,
         role: role as any,
         isActive: true,
         createdAt: now,
@@ -206,33 +249,43 @@ export async function POST(req: NextRequest) {
       .onConflictDoUpdate({
         target: profiles.id,
         set: {
-          email: email.trim().toLowerCase(),
-          fullName: fullName.trim(),
-          phone: phone ? phone.trim() : null,
+          email: cleanEmail,
+          fullName: cleanFullName,
+          phone: cleanPhone,
           role: role as any,
           isActive: true,
           updatedAt: now,
         },
       });
 
-    // 3. Record Audit Log
+    // 3. Guarantee auth user metadata is set
+    try {
+      await supabaseAdmin.auth.admin.updateUserById(newUserId, {
+        user_metadata: { full_name: cleanFullName, role },
+        app_metadata: { role },
+      });
+    } catch {
+      // ignore
+    }
+
+    // 4. Record Audit Log
     await recordAuditLog({
       userId: auth.session.userId,
       userEmail: auth.session.email,
       action: "CREATE_STAFF_MEMBER",
       entityType: "STAFF",
       entityId: newUserId,
-      details: { email, fullName, role, phone },
+      details: { email: cleanEmail, fullName: cleanFullName, role, phone: cleanPhone },
     });
 
     return NextResponse.json({
       success: true,
-      message: `Staff member "${fullName}" created successfully with role ${role}.`,
+      message: `Staff member "${cleanFullName}" created successfully with role ${role}.`,
       data: {
         id: newUserId,
-        email: email.trim().toLowerCase(),
-        fullName: fullName.trim(),
-        phone: phone ? phone.trim() : null,
+        email: cleanEmail,
+        fullName: cleanFullName,
+        phone: cleanPhone,
         role,
         isActive: true,
         inviteStatus: "Active",

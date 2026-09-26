@@ -693,13 +693,8 @@ export async function getOpsOrders(
         ORDER_STATUSES.COMPLETED as any,
       ])
     );
-    // Riders see orders assigned to them, or unassigned ready delivery orders
-    conditions.push(
-      or(
-        eq(orders.assignedRiderId, staff.userId),
-        sql`${orders.assignedRiderId} IS NULL AND ${orders.status} = ${ORDER_STATUSES.READY}`
-      )
-    );
+    // Rider sees only their own assigned delivery orders
+    conditions.push(eq(orders.assignedRiderId, staff.userId));
   } else if (staff.role === "ADMIN") {
     if (statusFilter) {
       if (statusFilter === "active") {

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { Order, OrderStatus } from "@/types";
 import { ORDER_STATUSES } from "@/lib/constants";
 import { useTheme } from "@/context/ThemeContext";
@@ -62,11 +62,12 @@ interface AdminOrdersSectionProps {
   onUpdateOrderStatus: (
     orderId: string,
     targetStatus: OrderStatus,
-    options?: { cancellationReason?: string; note?: string; assignedRiderId?: string }
+    options?: { cancellationReason?: string; note?: string; assignedRiderId?: string; assignedRiderName?: string }
   ) => Promise<void>;
   animatingOrders: Record<string, { targetStatus: OrderStatus; timestamp: number }>;
   onOpenCancelModal: (order: Order) => void;
   isUpdating?: boolean;
+  onNavigate?: (section: string) => void;
 }
 
 interface AvailableRider {
@@ -106,6 +107,7 @@ export function AdminOrdersSection({
   animatingOrders,
   onOpenCancelModal,
   isUpdating = false,
+  onNavigate,
 }: AdminOrdersSectionProps) {
   const { theme } = useTheme();
   const isDark = theme === "dark";
@@ -122,9 +124,12 @@ export function AdminOrdersSection({
   const [selectedRiderForAssign, setSelectedRiderForAssign] = useState<string>("");
   const [isAssigningRider, setIsAssigningRider] = useState(false);
 
-  // Fetch active delivery riders
-  useEffect(() => {
-    fetch("/api/v1/admin/staff")
+  // Fetch active delivery riders dynamically
+  const fetchActiveRiders = useCallback(() => {
+    fetch("/api/v1/admin/staff", {
+      cache: "no-store",
+      headers: { "Cache-Control": "no-cache" },
+    })
       .then((r) => r.json())
       .then((d) => {
         if (d.success && Array.isArray(d.data)) {
@@ -141,6 +146,17 @@ export function AdminOrdersSection({
       })
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    fetchActiveRiders();
+  }, [fetchActiveRiders]);
+
+  // Re-fetch whenever an order drawer is opened to guarantee latest riders
+  useEffect(() => {
+    if (selectedDrawerOrderId) {
+      fetchActiveRiders();
+    }
+  }, [selectedDrawerOrderId, fetchActiveRiders]);
 
   // Close modal on Escape key
   useEffect(() => {
@@ -227,8 +243,12 @@ export function AdminOrdersSection({
     setIsAssigningRider(true);
     try {
       const order = orders.find((o) => o.id === orderId);
+      const rider = availableRiders.find((r) => r.id === riderId);
       if (!order) return;
-      await onUpdateOrderStatus(orderId, order.status, { assignedRiderId: riderId });
+      await onUpdateOrderStatus(orderId, order.status, {
+        assignedRiderId: riderId,
+        assignedRiderName: rider?.fullName,
+      });
       setSelectedRiderForAssign("");
     } finally {
       setIsAssigningRider(false);
@@ -516,8 +536,8 @@ export function AdminOrdersSection({
           {isDelivery ? (
             <span className="rider-label">
               <Bike size={12} className="slot-icon" />
-              <span className={assignedRider ? "rider-assigned" : "rider-unassigned"}>
-                {assignedRider ? `Rider: ${assignedRider.fullName}` : "Rider: Unassigned"}
+              <span className={ord.assignedRiderName || assignedRider ? "rider-assigned" : "rider-unassigned"}>
+                {ord.assignedRiderName ? `Rider: ${ord.assignedRiderName}` : assignedRider ? `Rider: ${assignedRider.fullName}` : "Rider: Unassigned"}
               </span>
             </span>
           ) : (
@@ -1083,34 +1103,62 @@ export function AdminOrdersSection({
               {/* SECTION C: Rider Assignment (If Delivery) */}
               {isDeliveryOrder(modalOrder.orderType) && (
                 <div className="modal-section-card">
-                  <h4 className="modal-sec-title">
-                    <Bike size={15} /> Delivery Rider Assignment
-                  </h4>
-
-                  <div className="rider-assign-controls">
-                    <select
-                      value={selectedRiderForAssign || modalOrder.assignedRiderId || ""}
-                      onChange={(e) => setSelectedRiderForAssign(e.target.value)}
-                      className="rider-select-input"
-                    >
-                      <option value="">-- Select Active Delivery Rider --</option>
-                      {availableRiders.map((r) => (
-                        <option key={r.id} value={r.id}>
-                          {r.fullName} ({r.activeOrdersAssigned} active deliveries){" "}
-                          {r.phone ? `• ${r.phone}` : ""}
-                        </option>
-                      ))}
-                    </select>
-
-                    <button
-                      type="button"
-                      disabled={!selectedRiderForAssign || isAssigningRider}
-                      onClick={() => handleAssignRiderSubmit(modalOrder.id, selectedRiderForAssign)}
-                      className="btn-assign-rider"
-                    >
-                      {isAssigningRider ? "Assigning..." : "Assign Rider"}
-                    </button>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px", flexWrap: "wrap", gap: "6px" }}>
+                    <h4 className="modal-sec-title" style={{ margin: 0 }}>
+                      <Bike size={15} /> Delivery Rider Assignment
+                    </h4>
+                    {modalOrder.assignedRiderName && (
+                      <span style={{ fontSize: "12px", color: "var(--status-ready)", fontWeight: 700 }}>
+                        Assigned: {modalOrder.assignedRiderName}
+                      </span>
+                    )}
                   </div>
+
+                  {availableRiders.length === 0 ? (
+                    <div style={{ padding: "10px 12px", backgroundColor: "rgba(249, 115, 22, 0.1)", border: "1px dashed var(--cnm-orange)", borderRadius: "var(--radius-sm)", fontSize: "13px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", flexWrap: "wrap" }}>
+                      <span style={{ color: "var(--cnm-text-muted)" }}>
+                        ⚠️ No active riders available. Add or activate a Rider from Staff & Riders.
+                      </span>
+                      {onNavigate && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedDrawerOrderId(null);
+                            onNavigate("staff");
+                          }}
+                          className="btn btn-secondary"
+                          style={{ padding: "4px 10px", fontSize: "12px", fontWeight: 700 }}
+                        >
+                          + Go to Staff & Riders
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="rider-assign-controls">
+                      <select
+                        value={selectedRiderForAssign || modalOrder.assignedRiderId || ""}
+                        onChange={(e) => setSelectedRiderForAssign(e.target.value)}
+                        className="rider-select-input"
+                      >
+                        <option value="">-- Select Active Delivery Rider --</option>
+                        {availableRiders.map((r) => (
+                          <option key={r.id} value={r.id}>
+                            {r.fullName} ({r.activeOrdersAssigned} active deliveries){" "}
+                            {r.phone ? `• ${r.phone}` : ""}
+                          </option>
+                        ))}
+                      </select>
+
+                      <button
+                        type="button"
+                        disabled={!selectedRiderForAssign || isAssigningRider}
+                        onClick={() => handleAssignRiderSubmit(modalOrder.id, selectedRiderForAssign)}
+                        className="btn-assign-rider"
+                      >
+                        {isAssigningRider ? "Assigning..." : "Assign Rider"}
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
 
