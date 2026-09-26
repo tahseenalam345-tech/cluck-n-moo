@@ -3,6 +3,7 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { Order, OrderStatus } from "@/types";
 import { ORDER_STATUSES } from "@/lib/constants";
+import { useTheme } from "@/context/ThemeContext";
 import {
   Phone,
   Clock,
@@ -18,8 +19,43 @@ import {
   MapPin,
   ChevronRight,
   User,
+  Sparkles,
 } from "lucide-react";
 import { EyeIcon, PackageIcon } from "./AdminIcons";
+
+function CardsGridIcon({ size = 14, className }: { size?: number; className?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <rect width="7" height="7" x="3" y="3" rx="1" />
+      <rect width="7" height="7" x="14" y="3" rx="1" />
+      <rect width="7" height="7" x="14" y="14" rx="1" />
+      <rect width="7" height="7" x="3" y="14" rx="1" />
+    </svg>
+  );
+}
+
+function ColumnsBoardIcon({ size = 14, className }: { size?: number; className?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <rect width="18" height="18" x="3" y="3" rx="2" />
+      <path d="M9 3v18" />
+      <path d="M15 3v18" />
+    </svg>
+  );
+}
+
+function TableListIcon({ size = 14, className }: { size?: number; className?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <line x1="8" x2="21" y1="6" y2="6" />
+      <line x1="8" x2="21" y1="12" y2="12" />
+      <line x1="8" x2="21" y1="18" y2="18" />
+      <line x1="3" x2="3.01" y1="6" y2="6" />
+      <line x1="3" x2="3.01" y1="12" y2="12" />
+      <line x1="3" x2="3.01" y1="18" y2="18" />
+    </svg>
+  );
+}
 
 interface AdminOrdersSectionProps {
   orders: Order[];
@@ -50,7 +86,6 @@ const isTerminalStatus = (status: OrderStatus) => {
   return status === ORDER_STATUSES.COMPLETED || status === ORDER_STATUSES.CANCELLED;
 };
 
-
 const formatRelativeTime = (dateStr: string) => {
   try {
     const diffMs = Date.now() - new Date(dateStr).getTime();
@@ -72,11 +107,14 @@ export function AdminOrdersSection({
   onOpenCancelModal,
   isUpdating = false,
 }: AdminOrdersSectionProps) {
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
+
   const [orderStatusFilter, setOrderStatusFilter] = useState<string>("active");
   const [searchQuery, setSearchQuery] = useState<string>("");
-  const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
+  const [viewMode, setViewMode] = useState<"grid" | "columns" | "table">("grid");
 
-  // Selected Order for the Side Drawer
+  // Selected Order for the Center Modal Dialog
   const [selectedDrawerOrderId, setSelectedDrawerOrderId] = useState<string | null>(null);
 
   // Available Riders for Assignment
@@ -103,6 +141,19 @@ export function AdminOrdersSection({
       })
       .catch(() => {});
   }, []);
+
+  // Close modal on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setSelectedDrawerOrderId(null);
+      }
+    };
+    if (selectedDrawerOrderId) {
+      window.addEventListener("keydown", handleKeyDown);
+    }
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [selectedDrawerOrderId]);
 
   // Filtered orders
   const filteredOrders = useMemo(() => {
@@ -145,8 +196,8 @@ export function AdminOrdersSection({
     });
   }, [orders, orderStatusFilter, searchQuery]);
 
-  // Current order in drawer (reactive to state updates)
-  const drawerOrder = useMemo(() => {
+  // Current order in Center Modal
+  const modalOrder = useMemo(() => {
     if (!selectedDrawerOrderId) return null;
     return orders.find((o) => o.id === selectedDrawerOrderId) || null;
   }, [orders, selectedDrawerOrderId]);
@@ -160,7 +211,6 @@ export function AdminOrdersSection({
   const activePipelineCash = orders
     .filter((o) => !isTerminalStatus(o.status))
     .reduce((acc, curr) => acc + (curr.totalPkr || 0), 0);
-
 
   // Status Counts
   const countNew = orders.filter((o) => o.status === ORDER_STATUSES.NEW).length;
@@ -199,19 +249,19 @@ export function AdminOrdersSection({
       case "Preparing":
         return (
           <span className="pos-badge badge-cooking">
-            <ChefHat size={12} /> KITCHEN
+            <ChefHat size={11} /> KITCHEN
           </span>
         );
       case "Ready":
         return (
           <span className="pos-badge badge-ready">
-            <CheckCircle size={12} /> READY
+            <CheckCircle size={11} /> READY
           </span>
         );
       case "Out for delivery":
         return (
           <span className="pos-badge badge-transit">
-            <Bike size={12} /> IN-TRANSIT
+            <Bike size={11} /> IN-TRANSIT
           </span>
         );
       case "Completed":
@@ -236,8 +286,9 @@ export function AdminOrdersSection({
           }}
           className="btn-action-primary btn-confirm"
           disabled={isUpdating}
+          title="Confirm customer phone call"
         >
-          <Phone size={14} />
+          <Phone size={13} />
           <span>CONFIRM CALL</span>
         </button>
       );
@@ -252,8 +303,9 @@ export function AdminOrdersSection({
           }}
           className="btn-action-primary btn-kitchen"
           disabled={isUpdating}
+          title="Send order ticket to kitchen"
         >
-          <ChefHat size={14} />
+          <ChefHat size={13} />
           <span>SEND TO KITCHEN</span>
         </button>
       );
@@ -268,8 +320,9 @@ export function AdminOrdersSection({
           }}
           className="btn-action-primary btn-ready"
           disabled={isUpdating}
+          title="Mark food ready from kitchen"
         >
-          <CheckCircle size={14} />
+          <CheckCircle size={13} />
           <span>MARK READY</span>
         </button>
       );
@@ -284,8 +337,9 @@ export function AdminOrdersSection({
           }}
           className="btn-action-primary btn-dispatch"
           disabled={isUpdating}
+          title="Dispatch rider for delivery"
         >
-          <Bike size={14} />
+          <Bike size={13} />
           <span>DISPATCH RIDER</span>
         </button>
       );
@@ -300,8 +354,9 @@ export function AdminOrdersSection({
           }}
           className="btn-action-primary btn-ready"
           disabled={isUpdating}
+          title="Hand over to pickup customer"
         >
-          <CheckCircle size={14} />
+          <CheckCircle size={13} />
           <span>HAND OVER ({ord.orderType || "PICKUP"})</span>
         </button>
       );
@@ -316,18 +371,219 @@ export function AdminOrdersSection({
           }}
           className="btn-action-primary btn-ready"
           disabled={isUpdating}
+          title="Mark settled & complete"
         >
-          <CheckCircle size={14} />
+          <CheckCircle size={13} />
           <span>SETTLE &amp; COMPLETE</span>
         </button>
+      );
+    }
+
+    if (ord.status === "Completed") {
+      return (
+        <span className="btn-action-terminal terminal-completed">
+          <CheckCircle size={12} />
+          <span>COMPLETED</span>
+        </span>
+      );
+    }
+
+    if (ord.status === "Cancelled") {
+      return (
+        <span className="btn-action-terminal terminal-cancelled">
+          <XCircle size={12} />
+          <span>CANCELLED</span>
+        </span>
       );
     }
 
     return null;
   };
 
+  // Stage columns definition for Columns View
+  const stageColumns = useMemo(() => {
+    const active = filteredOrders.filter((o) => !isTerminalStatus(o.status));
+    return [
+      {
+        id: "col_confirm",
+        title: "Confirm Call",
+        subtitle: "Awaiting phone verification",
+        badgeColor: "#b45309",
+        badgeBg: isDark ? "#451a03" : "#fef3c7",
+        badgeBorder: isDark ? "#78350f" : "#fde68a",
+        icon: Phone,
+        orders: active.filter((o) => o.status === "New"),
+      },
+      {
+        id: "col_kitchen",
+        title: "Kitchen Cooking",
+        subtitle: "Cooking & prep in progress",
+        badgeColor: "#ea580c",
+        badgeBg: isDark ? "#431407" : "#ffedd5",
+        badgeBorder: isDark ? "#7c2d12" : "#fed7aa",
+        icon: ChefHat,
+        orders: active.filter((o) => o.status === "Confirmed" || o.status === "Preparing"),
+      },
+      {
+        id: "col_ready",
+        title: "Food Ready",
+        subtitle: "Ready for pickup or rider",
+        badgeColor: "#059669",
+        badgeBg: isDark ? "#064e3b" : "#dcfce7",
+        badgeBorder: isDark ? "#065f46" : "#bbf7d0",
+        icon: CheckCircle,
+        orders: active.filter((o) => o.status === "Ready"),
+      },
+      {
+        id: "col_dispatch",
+        title: "Dispatched",
+        subtitle: "Rider in transit",
+        badgeColor: "#7c3aed",
+        badgeBg: isDark ? "#3b0764" : "#f3e8ff",
+        badgeBorder: isDark ? "#581c87" : "#e9d5ff",
+        icon: Bike,
+        orders: active.filter((o) => o.status === "Out for delivery"),
+      },
+    ];
+  }, [filteredOrders, isDark]);
+
+  // Standardized Card Renderer with Fixed Slots (never jumping or overlapping)
+  const renderOrderCard = (ord: Order) => {
+    const isDelivery = isDeliveryOrder(ord.orderType);
+    const itemsCount = (ord.items || []).reduce((sum, it) => sum + (it.quantity || 1), 0);
+    const assignedRider = availableRiders.find((r) => r.id === ord.assignedRiderId);
+
+    return (
+      <div
+        key={ord.id}
+        onClick={() => setSelectedDrawerOrderId(ord.id)}
+        className={`compact-order-card ${ord.status === "New" ? "is-new" : ""}`}
+      >
+        {/* SLOT 1: Header Row (Order #, Time, Mode & Status Badges) */}
+        <div className="card-slot card-top-row">
+          <div className="order-id-box">
+            <span className="order-num">{ord.orderNumber}</span>
+            <span className="time-ago">{formatRelativeTime(ord.createdAt)}</span>
+          </div>
+
+          <div className="status-badges-group">
+            <span className={`type-badge ${isDelivery ? "delivery" : "pickup"}`}>
+              {isDelivery ? <Bike size={11} /> : <ShoppingBag size={11} />}
+              {ord.orderType || "DELIVERY"}
+            </span>
+            {renderStatusBadge(ord.status)}
+          </div>
+        </div>
+
+        {/* SLOT 2: Customer Name & Phone */}
+        <div className="card-slot card-customer-row">
+          <span className="customer-name" title={ord.customerName || ord.customerNameSnapshot || "Customer"}>
+            {ord.customerName || ord.customerNameSnapshot || "Customer"}
+          </span>
+          <a
+            href={`tel:${ord.customerPhone || ord.customerPhoneSnapshot || ""}`}
+            onClick={(e) => e.stopPropagation()}
+            className="customer-phone-chip"
+            title="Dial customer phone"
+          >
+            <Phone size={11} /> {ord.customerPhone || ord.customerPhoneSnapshot || "No Phone"}
+          </a>
+        </div>
+
+        {/* SLOT 3: Delivery Address / Store Pickup (Fixed height - NEVER collapses) */}
+        <div className="card-slot card-address-row">
+          {isDelivery ? (
+            <>
+              <MapPin size={12} className="slot-icon map-icon" />
+              <span
+                className="address-text"
+                title={`${ord.deliveryAreaName || ord.deliveryAreaNameSnapshot || "Area"}: ${ord.deliveryAddress || ord.deliveryAddressSnapshot || "Address"}`}
+              >
+                <strong>{ord.deliveryAreaName || ord.deliveryAreaNameSnapshot || "Area"}:</strong>{" "}
+                {ord.deliveryAddress || ord.deliveryAddressSnapshot || "Address provided"}
+              </span>
+            </>
+          ) : (
+            <div className="slot-empty-placeholder">
+              <ShoppingBag size={12} className="slot-icon" />
+              <span>Store Counter Pickup</span>
+            </div>
+          )}
+        </div>
+
+        {/* SLOT 4: Rider Assignment (Fixed height - NEVER collapses) */}
+        <div className="card-slot card-rider-strip">
+          {isDelivery ? (
+            <span className="rider-label">
+              <Bike size={12} className="slot-icon" />
+              <span className={assignedRider ? "rider-assigned" : "rider-unassigned"}>
+                {assignedRider ? `Rider: ${assignedRider.fullName}` : "Rider: Unassigned"}
+              </span>
+            </span>
+          ) : (
+            <div className="slot-empty-placeholder">
+              <User size={12} className="slot-icon" />
+              <span>Customer Self-Pickup</span>
+            </div>
+          )}
+        </div>
+
+        {/* SLOT 5: Items Summary & View Details (Fixed layout - NEVER wraps) */}
+        <div className="card-slot card-item-summary-strip">
+          <div className="item-count-chip">
+            <PackageIcon size={13} className="slot-icon" />
+            <span className="items-text-snippet">
+              {itemsCount} {itemsCount === 1 ? "Item" : "Items"} (
+              {(ord.items || [])
+                .slice(0, 2)
+                .map((it) => it.productName || it.productNameSnapshot)
+                .join(", ")}
+              {(ord.items || []).length > 2 ? "..." : ""})
+            </span>
+          </div>
+
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setSelectedDrawerOrderId(ord.id);
+            }}
+            className="btn-open-drawer-hint"
+            title="View complete order details in popup"
+          >
+            <span>View Details</span>
+            <ChevronRight size={12} />
+          </button>
+        </div>
+
+        {/* SLOT 6: Bottom Price & Fixed Action Row (Locked to bottom) */}
+        <div className="card-slot card-bottom-row" onClick={(e) => e.stopPropagation()}>
+          <div className="price-block">
+            <span className="price-label">TOTAL (COD)</span>
+            <span className="price-val">{ord.totalPkr.toLocaleString()} PKR</span>
+          </div>
+
+          <div className="actions-block">
+            {renderPrimaryAction(ord)}
+
+            {!isTerminalStatus(ord.status) && (
+              <button
+                onClick={() => onOpenCancelModal(ord)}
+                className="btn-cancel-icon"
+                title="Cancel Order"
+                disabled={isUpdating}
+              >
+                <X size={15} />
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
-    <div className="admin-orders-container">
+    <div className={`admin-orders-container ${isDark ? "theme-dark" : "theme-light"}`}>
       {/* 1. TOP EXECUTIVE KPI METRICS BAR */}
       <div className="orders-kpi-bar">
         <div className="kpi-card">
@@ -394,7 +650,7 @@ export function AdminOrdersSection({
       {/* 2. FILTER & SEARCH CONTROL BAR */}
       <div className="orders-control-bar">
         <div className="search-box-wrapper">
-          <Search size={15} color="#94a3b8" />
+          <Search size={15} className="search-icon-svg" />
           <input
             type="text"
             placeholder="Search order #, customer, phone, item, area..."
@@ -468,130 +724,39 @@ export function AdminOrdersSection({
           </button>
         </div>
 
+        {/* View Mode Toggle: Right-side, icons-only on mobile */}
         <div className="view-mode-toggle">
           <button
             onClick={() => setViewMode("grid")}
             className={`btn-view-toggle ${viewMode === "grid" ? "active" : ""}`}
+            title="Card Grid View"
           >
-            Cards
+            <CardsGridIcon size={14} />
+            <span className="btn-toggle-label">Cards</span>
+          </button>
+          <button
+            onClick={() => setViewMode("columns")}
+            className={`btn-view-toggle ${viewMode === "columns" ? "active" : ""}`}
+            title="Columns Stage View"
+          >
+            <ColumnsBoardIcon size={14} />
+            <span className="btn-toggle-label">Columns</span>
           </button>
           <button
             onClick={() => setViewMode("table")}
             className={`btn-view-toggle ${viewMode === "table" ? "active" : ""}`}
+            title="Data Table View"
           >
-            Table
+            <TableListIcon size={14} />
+            <span className="btn-toggle-label">Table</span>
           </button>
         </div>
       </div>
 
-      {/* 3. COMPACT ORDER CARDS (DESKTOP & MOBILE COMPACT VIEW) */}
+      {/* 3. VIEW 1: COMPACT ORDER CARDS (GRID VIEW - 2x2 ON MOBILE) */}
       {viewMode === "grid" && (
         <div className="compact-orders-grid">
-          {filteredOrders.map((ord) => {
-            const isDelivery = isDeliveryOrder(ord.orderType);
-            const itemsCount = (ord.items || []).reduce((sum, it) => sum + (it.quantity || 1), 0);
-            const assignedRider = availableRiders.find((r) => r.id === ord.assignedRiderId);
-
-            return (
-              <div
-                key={ord.id}
-                onClick={() => setSelectedDrawerOrderId(ord.id)}
-                className={`compact-order-card ${ord.status === "New" ? "is-new" : ""}`}
-              >
-                {/* 1. Header Row */}
-                <div className="card-top-row">
-                  <div className="order-id-box">
-                    <span className="order-num">{ord.orderNumber}</span>
-                    <span className="time-ago">{formatRelativeTime(ord.createdAt)}</span>
-                  </div>
-
-                  <div className="status-badges-group">
-                    <span className={`type-badge ${isDelivery ? "delivery" : "pickup"}`}>
-                      {isDelivery ? <Bike size={11} /> : <ShoppingBag size={11} />}
-                      {ord.orderType || "DELIVERY"}
-                    </span>
-                    {renderStatusBadge(ord.status)}
-                  </div>
-                </div>
-
-                {/* 2. Customer & Phone Line */}
-                <div className="card-customer-row">
-                  <span className="customer-name">{ord.customerName || ord.customerNameSnapshot || "Customer"}</span>
-                  <a
-                    href={`tel:${ord.customerPhone || ord.customerPhoneSnapshot || ""}`}
-                    onClick={(e) => e.stopPropagation()}
-                    className="customer-phone-chip"
-                  >
-                    <Phone size={11} /> {ord.customerPhone || ord.customerPhoneSnapshot}
-                  </a>
-                </div>
-
-                {/* 3. Address Line (if delivery) */}
-                {isDelivery && (
-                  <div className="card-address-row">
-                    <MapPin size={12} color="#ea580c" />
-                    <span className="address-text">
-                      <strong>{ord.deliveryAreaName || ord.deliveryAreaNameSnapshot || "Area"}:</strong> {ord.deliveryAddress || ord.deliveryAddressSnapshot || "Address provided"}
-                    </span>
-                  </div>
-                )}
-
-                {/* 4. Compact Item Summary Strip (Collapsed by default) */}
-                <div className="card-item-summary-strip">
-                  <div className="item-count-chip">
-                    <PackageIcon size={13} color="#475569" />
-                    <span>
-                      {itemsCount} {itemsCount === 1 ? "Item" : "Items"} (
-                      {(ord.items || [])
-                        .slice(0, 2)
-                        .map((it) => it.productName || it.productNameSnapshot)
-                        .join(", ")}
-                      {(ord.items || []).length > 2 ? "..." : ""})
-                    </span>
-                  </div>
-
-                  <span className="btn-open-drawer-hint">
-                    View Details <ChevronRight size={13} />
-                  </span>
-                </div>
-
-                {/* 5. Assigned Rider Strip (If delivery) */}
-                {isDelivery && (
-                  <div className="card-rider-strip">
-                    <span className="rider-label">
-                      <Bike size={12} />
-                      {assignedRider ? `Rider: ${assignedRider.fullName}` : "Rider: Unassigned"}
-                    </span>
-                  </div>
-                )}
-
-                {/* 6. Bottom Price & Primary POS Action Row */}
-                <div className="card-bottom-row" onClick={(e) => e.stopPropagation()}>
-                  <div className="price-block">
-                    <span className="price-label">TOTAL (COD)</span>
-                    <span className="price-val">{ord.totalPkr.toLocaleString()} PKR</span>
-                  </div>
-
-                  <div className="actions-block">
-                    {renderPrimaryAction(ord)}
-
-                    {/* Quick Cancel Button */}
-                    {!isTerminalStatus(ord.status) && (
-                      <button
-                        onClick={() => onOpenCancelModal(ord)}
-                        className="btn-cancel-icon"
-                        title="Cancel Order"
-                        disabled={isUpdating}
-                      >
-
-                        <X size={15} />
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+          {filteredOrders.map((ord) => renderOrderCard(ord))}
 
           {filteredOrders.length === 0 && (
             <div className="empty-orders-state">
@@ -603,7 +768,50 @@ export function AdminOrdersSection({
         </div>
       )}
 
-      {/* 4. TABLE VIEW */}
+      {/* 4. VIEW 2: STAGE COLUMNS VIEW (CONFIRM CALL | KITCHEN | READY | DISPATCH) */}
+      {viewMode === "columns" && (
+        <div className="orders-columns-board">
+          {stageColumns.map((col) => (
+            <div key={col.id} className="stage-column">
+              <div className="stage-column-header">
+                <div className="stage-title-wrap">
+                  <div
+                    className="stage-icon-box"
+                    style={{ background: col.badgeBg, color: col.badgeColor }}
+                  >
+                    <col.icon size={15} />
+                  </div>
+                  <div>
+                    <h3 className="stage-title">{col.title}</h3>
+                    <span className="stage-subtitle">{col.subtitle}</span>
+                  </div>
+                </div>
+                <span
+                  className="stage-count-badge"
+                  style={{
+                    background: col.badgeBg,
+                    color: col.badgeColor,
+                    border: `1px solid ${col.badgeBorder}`,
+                  }}
+                >
+                  {col.orders.length}
+                </span>
+              </div>
+
+              <div className="stage-column-cards">
+                {col.orders.map((ord) => renderOrderCard(ord))}
+                {col.orders.length === 0 && (
+                  <div className="stage-empty-slot">
+                    <p>No orders in this stage</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* 5. VIEW 3: TABLE VIEW */}
       {viewMode === "table" && (
         <div className="orders-table-wrapper">
           <table className="orders-data-table">
@@ -643,15 +851,15 @@ export function AdminOrdersSection({
                       </span>
                     </td>
                     <td>
-                      <strong>{ord.customerName}</strong>
+                      <strong>{ord.customerName || ord.customerNameSnapshot || "Customer"}</strong>
                     </td>
                     <td>
                       <a
-                        href={`tel:${ord.customerPhone}`}
+                        href={`tel:${ord.customerPhone || ord.customerPhoneSnapshot || ""}`}
                         onClick={(e) => e.stopPropagation()}
                         className="customer-phone-chip"
                       >
-                        {ord.customerPhone}
+                        {ord.customerPhone || ord.customerPhoneSnapshot}
                       </a>
                     </td>
                     <td>
@@ -697,120 +905,151 @@ export function AdminOrdersSection({
         </div>
       )}
 
-      {/* 5. ORDER DETAIL SIDE DRAWER (HIGH-CONTRAST FULL POS DETAILS) */}
-      {drawerOrder && (
+      {/* 6. CENTERED ORDER DETAIL MODAL DIALOG */}
+      {modalOrder && (
         <div
-          className="drawer-backdrop"
+          className="order-modal-backdrop"
           onClick={() => setSelectedDrawerOrderId(null)}
           role="dialog"
           aria-modal="true"
         >
-          <div className="drawer-panel" onClick={(e) => e.stopPropagation()}>
-            {/* Drawer Header */}
-            <div className="drawer-header">
-              <div>
-                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                  <h2 className="drawer-order-num">{drawerOrder.orderNumber}</h2>
-                  {renderStatusBadge(drawerOrder.status)}
+          <div className="order-modal-card" onClick={(e) => e.stopPropagation()}>
+            {/* Modal Header */}
+            <div className="order-modal-header">
+              <div className="modal-header-left">
+                <div className="modal-title-row">
+                  <h2 className="modal-order-num">{modalOrder.orderNumber}</h2>
+                  <span
+                    className={`type-badge ${isDeliveryOrder(modalOrder.orderType) ? "delivery" : "pickup"}`}
+                  >
+                    {isDeliveryOrder(modalOrder.orderType) ? (
+                      <Bike size={12} />
+                    ) : (
+                      <ShoppingBag size={12} />
+                    )}
+                    {modalOrder.orderType || "DELIVERY"}
+                  </span>
+                  {renderStatusBadge(modalOrder.status)}
                 </div>
-                <span className="drawer-order-time">
-                  Placed {new Date(drawerOrder.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} • {formatRelativeTime(drawerOrder.createdAt)}
+                <span className="modal-order-time">
+                  Placed{" "}
+                  {new Date(modalOrder.createdAt).toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}{" "}
+                  • {formatRelativeTime(modalOrder.createdAt)}
                 </span>
               </div>
 
               <button
+                type="button"
                 onClick={() => setSelectedDrawerOrderId(null)}
-                className="btn-close-drawer"
-                title="Close drawer (Esc)"
+                className="btn-close-modal"
+                title="Close (Esc or click outside)"
+                aria-label="Close dialog"
               >
-                <X size={20} />
+                <X size={18} />
               </button>
             </div>
 
-            {/* Drawer Scrollable Content */}
-            <div className="drawer-body">
-              {/* SECTION A: CUSTOMER & DESTINATION */}
-              <div className="drawer-section-card">
-                <h4 className="drawer-sec-title">
+            {/* Modal Body with smooth scrolling */}
+            <div className="order-modal-body">
+              {/* SECTION A: Customer & Delivery Info */}
+              <div className="modal-section-card">
+                <h4 className="modal-sec-title">
                   <User size={15} /> Customer &amp; Delivery Destination
                 </h4>
-                <div className="drawer-info-grid">
+                <div className="modal-info-grid">
                   <div>
                     <span className="info-lbl">Customer Name</span>
-                    <strong className="info-val">{drawerOrder.customerName || drawerOrder.customerNameSnapshot || "Customer"}</strong>
+                    <strong className="info-val">
+                      {modalOrder.customerName || modalOrder.customerNameSnapshot || "Customer"}
+                    </strong>
                   </div>
                   <div>
                     <span className="info-lbl">Phone Contact</span>
-                    <a href={`tel:${drawerOrder.customerPhone || drawerOrder.customerPhoneSnapshot || ""}`} className="drawer-phone-link">
-                      <Phone size={13} /> {drawerOrder.customerPhone || drawerOrder.customerPhoneSnapshot}
+                    <a
+                      href={`tel:${modalOrder.customerPhone || modalOrder.customerPhoneSnapshot || ""}`}
+                      className="modal-phone-link"
+                    >
+                      <Phone size={13} />{" "}
+                      {modalOrder.customerPhone || modalOrder.customerPhoneSnapshot || "No phone"}
                     </a>
                   </div>
                   <div>
-                    <span className="info-lbl">Order Type</span>
-                    <span className={`type-badge ${isDeliveryOrder(drawerOrder.orderType) ? "delivery" : "pickup"}`}>
-                      {drawerOrder.orderType || "DELIVERY"}
-                    </span>
+                    <span className="info-lbl">Order Mode</span>
+                    <span className="info-val">{modalOrder.orderType || "DELIVERY"}</span>
                   </div>
                   <div>
                     <span className="info-lbl">Delivery Area</span>
-                    <span className="info-val">{drawerOrder.deliveryAreaName || drawerOrder.deliveryAreaNameSnapshot || "Default Sector"}</span>
+                    <span className="info-val">
+                      {modalOrder.deliveryAreaName ||
+                        modalOrder.deliveryAreaNameSnapshot ||
+                        (isDeliveryOrder(modalOrder.orderType) ? "Default Sector" : "Counter Pickup")}
+                    </span>
                   </div>
                 </div>
 
-                {isDeliveryOrder(drawerOrder.orderType) && (
-                  <div className="drawer-address-box">
+                {isDeliveryOrder(modalOrder.orderType) && (
+                  <div className="modal-address-box">
                     <MapPin size={14} color="#ea580c" />
-                    <span>{drawerOrder.deliveryAddress || drawerOrder.deliveryAddressSnapshot || "Address details"}</span>
+                    <span>
+                      {modalOrder.deliveryAddress ||
+                        modalOrder.deliveryAddressSnapshot ||
+                        "Address provided by customer"}
+                    </span>
                   </div>
                 )}
 
-                {drawerOrder.specialInstructions && (
-                  <div className="drawer-kitchen-notes-box">
-                    <strong>Cooking / Delivery Instructions:</strong>
-                    <p>{drawerOrder.specialInstructions}</p>
+                {modalOrder.specialInstructions && (
+                  <div className="modal-notes-box">
+                    <strong>Special Instructions:</strong>
+                    <p>{modalOrder.specialInstructions}</p>
                   </div>
                 )}
               </div>
 
-              {/* SECTION B: ORDER ITEMS & CUSTOMIZATIONS */}
-              <div className="drawer-section-card">
-                <h4 className="drawer-sec-title">
-                  <PackageIcon size={15} /> Order Items ({(drawerOrder.items || []).length})
+              {/* SECTION B: Ordered Items */}
+              <div className="modal-section-card">
+                <h4 className="modal-sec-title">
+                  <PackageIcon size={15} /> Ordered Items ({(modalOrder.items || []).length})
                 </h4>
 
-                <div className="drawer-items-list">
-                  {(drawerOrder.items || []).map((item, idx) => {
+                <div className="modal-items-list">
+                  {(modalOrder.items || []).map((item, idx) => {
                     const itemName = item.productName || item.productNameSnapshot || "Menu Item";
                     const itemVariant = item.variantName || item.variantNameSnapshot;
                     const unitPrice = item.unitPriceSnapshotPkr || item.unitPricePkr || 0;
-                    const linePrice = item.lineTotalPkr || (unitPrice * item.quantity);
+                    const linePrice = item.lineTotalPkr || unitPrice * item.quantity;
                     const dealItems = (item as any).dealItems as any[] | undefined;
 
                     return (
-                      <div key={item.id || idx} className="drawer-item-row">
+                      <div key={item.id || idx} className="modal-item-row">
                         <div className="item-main-col">
                           <div className="item-title-line">
                             <span className="item-qty-badge">{item.quantity}x</span>
                             <strong className="item-name">{itemName}</strong>
                           </div>
 
-                          {/* Portion Variant */}
                           {itemVariant && (
-                            <div className="item-variant-chip">
-                              Portion: {itemVariant}
-                            </div>
+                            <div className="item-variant-chip">Size / Option: {itemVariant}</div>
                           )}
 
-                          {/* Deal Inclusions */}
                           {dealItems && dealItems.length > 0 && (
-                            <div className="drawer-deal-box">
-                              <span className="deal-box-header">Deal Inclusions:</span>
+                            <div className="modal-deal-box">
+                              <span className="deal-box-header">Deal Selections:</span>
                               {dealItems.map((di: any, dIdx: number) => (
                                 <div key={dIdx} className="deal-bullet-item">
-                                  • {di.quantity ? `${di.quantity}x ` : ""}{di.productName || di.productNameSnapshot}
+                                  • {di.quantity ? `${di.quantity}x ` : ""}
+                                  {di.productName || di.productNameSnapshot}
                                   {di.selectedOptions && di.selectedOptions.length > 0 && (
                                     <span className="deal-sub-options">
-                                      {" "}({di.selectedOptions.map((o: any) => o.optionName || o.name).join(", ")})
+                                      {" "}
+                                      (
+                                      {di.selectedOptions
+                                        .map((o: any) => o.optionName || o.name)
+                                        .join(", ")}
+                                      )
                                     </span>
                                   )}
                                 </div>
@@ -818,10 +1057,15 @@ export function AdminOrdersSection({
                             </div>
                           )}
 
-                          {/* Modifiers / Dips */}
                           {item.modifiers && item.modifiers.length > 0 && (
                             <div className="item-modifiers-row">
-                              Add-ons: {item.modifiers.map((m) => `${m.modifierNameSnapshot || (m as any).name || "Add-on"} (+${m.priceSnapshotPkr ?? (m as any).pricePkr ?? 0} PKR)`).join(", ")}
+                              Add-ons:{" "}
+                              {item.modifiers
+                                .map(
+                                  (m) =>
+                                    `${m.modifierNameSnapshot || (m as any).name || "Add-on"} (+${m.priceSnapshotPkr ?? (m as any).pricePkr ?? 0} PKR)`
+                                )
+                                .join(", ")}
                             </div>
                           )}
                         </div>
@@ -836,23 +1080,24 @@ export function AdminOrdersSection({
                 </div>
               </div>
 
-              {/* SECTION C: RIDER ASSIGNMENT (If Delivery) */}
-              {isDeliveryOrder(drawerOrder.orderType) && (
-                <div className="drawer-section-card">
-                  <h4 className="drawer-sec-title">
+              {/* SECTION C: Rider Assignment (If Delivery) */}
+              {isDeliveryOrder(modalOrder.orderType) && (
+                <div className="modal-section-card">
+                  <h4 className="modal-sec-title">
                     <Bike size={15} /> Delivery Rider Assignment
                   </h4>
 
                   <div className="rider-assign-controls">
                     <select
-                      value={selectedRiderForAssign || drawerOrder.assignedRiderId || ""}
+                      value={selectedRiderForAssign || modalOrder.assignedRiderId || ""}
                       onChange={(e) => setSelectedRiderForAssign(e.target.value)}
                       className="rider-select-input"
                     >
                       <option value="">-- Select Active Delivery Rider --</option>
                       {availableRiders.map((r) => (
                         <option key={r.id} value={r.id}>
-                          {r.fullName} ({r.activeOrdersAssigned} active deliveries) {r.phone ? `• ${r.phone}` : ""}
+                          {r.fullName} ({r.activeOrdersAssigned} active deliveries){" "}
+                          {r.phone ? `• ${r.phone}` : ""}
                         </option>
                       ))}
                     </select>
@@ -860,7 +1105,7 @@ export function AdminOrdersSection({
                     <button
                       type="button"
                       disabled={!selectedRiderForAssign || isAssigningRider}
-                      onClick={() => handleAssignRiderSubmit(drawerOrder.id, selectedRiderForAssign)}
+                      onClick={() => handleAssignRiderSubmit(modalOrder.id, selectedRiderForAssign)}
                       className="btn-assign-rider"
                     >
                       {isAssigningRider ? "Assigning..." : "Assign Rider"}
@@ -869,64 +1114,131 @@ export function AdminOrdersSection({
                 </div>
               )}
 
-              {/* SECTION D: PAYMENT BREAKDOWN */}
-              <div className="drawer-section-card">
-                <h4 className="drawer-sec-title">
-                  <DollarSign size={15} /> Payment Breakdown
+              {/* SECTION D: Payment Breakdown */}
+              <div className="modal-section-card">
+                <h4 className="modal-sec-title">
+                  <DollarSign size={15} /> Payment Summary
                 </h4>
 
                 <div className="payment-summary-rows">
                   <div className="pay-row">
                     <span>Subtotal</span>
-                    <span>{drawerOrder.subtotalPkr.toLocaleString()} PKR</span>
+                    <span>{modalOrder.subtotalPkr.toLocaleString()} PKR</span>
                   </div>
                   <div className="pay-row">
                     <span>Delivery Fee</span>
-                    <span>+{drawerOrder.deliveryFeePkr.toLocaleString()} PKR</span>
+                    <span>+{modalOrder.deliveryFeePkr.toLocaleString()} PKR</span>
                   </div>
-                  {Number(drawerOrder.discountPkr || 0) > 0 && (
+                  {Number(modalOrder.discountPkr || 0) > 0 && (
                     <div className="pay-row discount">
                       <span>Discount</span>
-                      <span>-{Number(drawerOrder.discountPkr || 0).toLocaleString()} PKR</span>
+                      <span>-{Number(modalOrder.discountPkr || 0).toLocaleString()} PKR</span>
                     </div>
                   )}
                   <div className="pay-row total">
                     <strong>Grand Total (COD)</strong>
-                    <strong className="grand-total-val">{drawerOrder.totalPkr.toLocaleString()} PKR</strong>
+                    <strong className="grand-total-val">
+                      {modalOrder.totalPkr.toLocaleString()} PKR
+                    </strong>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Drawer Sticky Action Footer */}
-            <div className="drawer-footer">
-              {renderPrimaryAction(drawerOrder)}
-
-              {!isTerminalStatus(drawerOrder.status) && (
+            {/* Modal Footer */}
+            <div className="order-modal-footer">
+              {!isTerminalStatus(modalOrder.status) && (
                 <button
-                  onClick={() => onOpenCancelModal(drawerOrder)}
-                  className="btn-drawer-cancel"
+                  type="button"
+                  onClick={() => {
+                    const orderToCancel = modalOrder;
+                    setSelectedDrawerOrderId(null);
+                    onOpenCancelModal(orderToCancel);
+                  }}
+                  className="btn-modal-cancel"
                 >
                   <X size={15} /> Cancel Order
                 </button>
               )}
+
+              <div style={{ marginLeft: "auto", display: "flex", gap: "8px" }}>
+                {renderPrimaryAction(modalOrder)}
+              </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* STYLES */}
+      {/* COMPREHENSIVE STYLES (LIGHT + DARK MODE READY) */}
       <style jsx>{`
         .admin-orders-container {
           display: flex;
           flex-direction: column;
           gap: 16px;
+
+          /* LIGHT MODE TOKENS */
+          --ord-card-bg: #ffffff;
+          --ord-card-border: #cbd5e1;
+          --ord-card-hover: #94a3b8;
+          --ord-card-shadow: 0 4px 12px -2px rgba(15, 23, 42, 0.08), 0 2px 4px rgba(15, 23, 42, 0.04);
+          --ord-text-main: #0f172a;
+          --ord-text-sub: #334155;
+          --ord-text-muted: #64748b;
+          --ord-strip-bg: #f8fafc;
+          --ord-strip-border: #e2e8f0;
+          --ord-divider: #e2e8f0;
+          --ord-kpi-bg: #ffffff;
+          --ord-kpi-border: #cbd5e1;
+          --ord-input-bg: #ffffff;
+          --ord-input-border: #cbd5e1;
+          --ord-pill-bg: #ffffff;
+          --ord-pill-border: #cbd5e1;
+          --ord-pill-text: #475569;
+          --ord-table-bg: #ffffff;
+          --ord-table-header-bg: #f8fafc;
+          --ord-table-border: #e2e8f0;
+          --ord-table-hover: #f1f5f9;
+          --ord-modal-bg: #ffffff;
+          --ord-modal-header: #f8fafc;
+          --ord-modal-border: #cbd5e1;
+          --ord-column-bg: #f1f5f9;
+        }
+
+        /* DARK MODE TOKENS (Comprehensive dark mode across cards, text, inputs, tables, modals) */
+        :global([data-theme="dark"]) .admin-orders-container,
+        :global(.theme-dark) .admin-orders-container,
+        .admin-orders-container.theme-dark {
+          --ord-card-bg: #141416;
+          --ord-card-border: #27272a;
+          --ord-card-hover: #3f3f46;
+          --ord-card-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+          --ord-text-main: #f4f4f5;
+          --ord-text-sub: #d4d4d8;
+          --ord-text-muted: #a1a1aa;
+          --ord-strip-bg: #09090b;
+          --ord-strip-border: #27272a;
+          --ord-divider: #27272a;
+          --ord-kpi-bg: #141416;
+          --ord-kpi-border: #27272a;
+          --ord-input-bg: #09090b;
+          --ord-input-border: #27272a;
+          --ord-pill-bg: #141416;
+          --ord-pill-border: #27272a;
+          --ord-pill-text: #d4d4d8;
+          --ord-table-bg: #141416;
+          --ord-table-header-bg: #09090b;
+          --ord-table-border: #27272a;
+          --ord-table-hover: #1f1f23;
+          --ord-modal-bg: #141416;
+          --ord-modal-header: #09090b;
+          --ord-modal-border: #27272a;
+          --ord-column-bg: #09090b;
         }
 
         /* 1. TOP KPI METRICS BAR */
         .orders-kpi-bar {
           display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+          grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
           gap: 12px;
         }
 
@@ -934,11 +1246,12 @@ export function AdminOrdersSection({
           display: flex;
           align-items: center;
           gap: 12px;
-          padding: 12px 16px;
-          background: #ffffff;
-          border: 1px solid #e2e8f0;
+          padding: 12px 14px;
+          background: var(--ord-kpi-bg);
+          border: 1px solid var(--ord-kpi-border);
           border-radius: 12px;
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+          transition: all 0.2s ease;
         }
 
         .kpi-icon-box {
@@ -948,213 +1261,251 @@ export function AdminOrdersSection({
           display: flex;
           align-items: center;
           justify-content: center;
+          flex-shrink: 0;
         }
 
-        .kpi-icon-box.blue { background: #eff6ff; color: #2563eb; }
-        .kpi-icon-box.amber { background: #fffbeb; color: #d97706; }
-        .kpi-icon-box.orange { background: #fff7ed; color: #ea580c; }
-        .kpi-icon-box.green { background: #ecfdf5; color: #059669; }
-        .kpi-icon-box.purple { background: #faf5ff; color: #7c3aed; }
-        .kpi-icon-box.emerald { background: #f0fdf4; color: #16a34a; }
+        .kpi-icon-box.blue { background: rgba(59, 130, 246, 0.15); color: #3b82f6; }
+        .kpi-icon-box.amber { background: rgba(245, 158, 11, 0.15); color: #f59e0b; }
+        .kpi-icon-box.orange { background: rgba(234, 88, 12, 0.15); color: #ea580c; }
+        .kpi-icon-box.green { background: rgba(16, 185, 129, 0.15); color: #10b981; }
+        .kpi-icon-box.purple { background: rgba(139, 92, 246, 0.15); color: #8b5cf6; }
+        .kpi-icon-box.emerald { background: rgba(16, 185, 129, 0.15); color: #10b981; }
 
         .kpi-body {
           display: flex;
           flex-direction: column;
+          min-width: 0;
         }
 
         .kpi-label {
           font-size: 11px;
           font-weight: 700;
-          color: #64748b;
+          color: var(--ord-text-muted);
           text-transform: uppercase;
-          letter-spacing: 0.04em;
+          letter-spacing: 0.03em;
         }
 
         .kpi-val {
-          font-size: 20px;
+          font-size: 19px;
           font-weight: 900;
-          color: #0f172a;
-          line-height: 1.1;
-          margin-top: 2px;
+          color: var(--ord-text-main);
+          letter-spacing: -0.02em;
         }
 
-        .text-amber { color: #d97706; }
-        .text-orange { color: #ea580c; }
-        .text-emerald { color: #059669; }
-        .text-purple { color: #7c3aed; }
+        .text-amber { color: #d97706 !important; }
+        .text-orange { color: #ea580c !important; }
+        .text-emerald { color: #059669 !important; }
+        .text-purple { color: #7c3aed !important; }
 
         /* 2. CONTROL BAR */
         .orders-control-bar {
           display: flex;
           align-items: center;
-          justify-content: space-between;
+          gap: 12px;
           flex-wrap: wrap;
-          gap: 10px;
-          padding: 10px 14px;
-          background: #ffffff;
-          border: 1px solid #e2e8f0;
-          border-radius: 12px;
         }
 
         .search-box-wrapper {
-          display: flex;
-          align-items: center;
-          gap: 8px;
+          position: relative;
           flex: 1;
-          min-width: 260px;
-          padding: 6px 12px;
-          background: #f8fafc;
-          border: 1px solid #e2e8f0;
-          border-radius: 8px;
+          min-width: 240px;
+        }
+
+        .search-box-wrapper :global(.search-icon-svg) {
+          position: absolute;
+          left: 12px;
+          top: 50%;
+          transform: translateY(-50%);
+          color: var(--ord-text-muted);
+          pointer-events: none;
         }
 
         .search-input {
-          border: none;
-          background: transparent;
-          font-size: 13px;
-          color: #0f172a;
           width: 100%;
+          padding: 8px 32px 8px 36px;
+          background: var(--ord-input-bg);
+          border: 1px solid var(--ord-input-border);
+          border-radius: 8px;
+          font-size: 12.5px;
+          color: var(--ord-text-main);
           outline: none;
+          transition: border-color 0.2s ease;
+        }
+
+        .search-input:focus {
+          border-color: #ea580c;
         }
 
         .btn-clear-search {
+          position: absolute;
+          right: 10px;
+          top: 50%;
+          transform: translateY(-50%);
           background: transparent;
           border: none;
-          color: #94a3b8;
+          color: var(--ord-text-muted);
           cursor: pointer;
-          padding: 2px;
+          display: flex;
         }
 
         .filter-pills-scroll {
           display: flex;
           align-items: center;
-          flex-wrap: wrap;
           gap: 6px;
+          overflow-x: auto;
+          padding-bottom: 2px;
         }
 
         .pos-filter-pill {
           display: inline-flex;
           align-items: center;
           gap: 6px;
-          padding: 5px 10px;
+          padding: 6px 11px;
           border-radius: 8px;
           font-size: 11.5px;
-          font-weight: 800;
-          border: 1px solid #e2e8f0;
-          background: #f8fafc;
-          color: #475569;
+          font-weight: 700;
+          background: var(--ord-pill-bg);
+          border: 1px solid var(--ord-pill-border);
+          color: var(--ord-pill-text);
           cursor: pointer;
+          white-space: nowrap;
           transition: all 0.15s ease;
         }
 
+        .pos-filter-pill:hover {
+          border-color: #ea580c;
+          color: #ea580c;
+        }
+
         .pos-filter-pill.active {
-          background: #0f172a;
-          color: #ffffff;
-          border-color: #0f172a;
+          background: #ea580c !important;
+          color: #ffffff !important;
+          border-color: #ea580c !important;
         }
 
         .pill-count {
-          font-size: 10.5px;
+          font-size: 10px;
           padding: 1px 5px;
           border-radius: 999px;
           background: rgba(0, 0, 0, 0.08);
         }
 
         .pos-filter-pill.active .pill-count {
-          background: rgba(255, 255, 255, 0.25);
+          background: rgba(255, 255, 255, 0.3);
           color: #ffffff;
         }
 
+        /* View Mode Toggle: Float right on mobile with icon-only view */
         .view-mode-toggle {
           display: flex;
-          border: 1px solid #cbd5e1;
+          border: 1px solid var(--ord-pill-border);
           border-radius: 8px;
           overflow: hidden;
+          background: var(--ord-pill-bg);
+          flex-shrink: 0;
+          margin-left: auto;
         }
 
         .btn-view-toggle {
-          padding: 5px 12px;
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          padding: 6px 12px;
           font-size: 12px;
           font-weight: 700;
           border: none;
-          background: #f8fafc;
-          color: #475569;
+          background: transparent;
+          color: var(--ord-pill-text);
           cursor: pointer;
+          transition: all 0.15s ease;
         }
 
         .btn-view-toggle.active {
-          background: #0f172a;
+          background: #ea580c;
           color: #ffffff;
         }
 
-        /* 3. COMPACT ORDER CARDS */
+        /* 3. ORDER CARDS GRID (DESKTOP: MULTI-COLUMN, MOBILE: 2-IN-ROW 2x2) */
         .compact-orders-grid {
           display: grid;
           grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
           gap: 14px;
         }
 
+        /* Card Container - Visibly Separated from Page Background */
         .compact-order-card {
-          background: #ffffff;
-          border: 1px solid #e2e8f0;
+          background: var(--ord-card-bg);
+          border: 1.5px solid var(--ord-card-border);
           border-radius: 12px;
           padding: 14px;
           display: flex;
           flex-direction: column;
-          gap: 9px;
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+          min-height: 250px;
+          box-shadow: var(--ord-card-shadow);
           cursor: pointer;
-          transition: border-color 0.2s ease, box-shadow 0.2s ease;
+          transition: border-color 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
           position: relative;
         }
 
         .compact-order-card:hover {
-          border-color: #cbd5e1;
-          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.08);
+          border-color: var(--ord-card-hover);
+          transform: translateY(-2px);
+          box-shadow: 0 6px 16px -2px rgba(0, 0, 0, 0.12);
         }
 
         .compact-order-card.is-new {
           border-left: 4px solid #ea580c;
         }
 
+        /* Standardized Card Slots */
+        .card-slot {
+          width: 100%;
+        }
+
+        /* Slot 1: Top Row */
         .card-top-row {
           display: flex;
           justify-content: space-between;
           align-items: center;
+          height: 28px;
+          margin-bottom: 6px;
         }
 
         .order-id-box {
           display: flex;
           align-items: baseline;
-          gap: 8px;
+          gap: 6px;
+          min-width: 0;
         }
 
         .order-num {
-          font-size: 16px;
+          font-size: 15px;
           font-weight: 900;
-          color: #0f172a;
+          color: var(--ord-text-main);
           letter-spacing: -0.02em;
         }
 
         .time-ago {
-          font-size: 11.5px;
-          color: #64748b;
+          font-size: 11px;
+          color: var(--ord-text-muted);
           font-weight: 600;
+          white-space: nowrap;
         }
 
         .status-badges-group {
           display: flex;
           align-items: center;
-          gap: 5px;
+          gap: 4px;
+          flex-shrink: 0;
         }
 
         .type-badge {
           display: inline-flex;
           align-items: center;
-          gap: 4px;
+          gap: 3px;
           padding: 2px 6px;
           border-radius: 4px;
-          font-size: 10.5px;
+          font-size: 10px;
           font-weight: 800;
           letter-spacing: 0.02em;
         }
@@ -1168,18 +1519,18 @@ export function AdminOrdersSection({
         .type-badge.pickup {
           background: #fff7ed;
           color: #c2410c;
-          border: 1px solid #ffedd5;
+          border: 1px solid #fed7aa;
         }
 
         .pos-badge {
           display: inline-flex;
           align-items: center;
-          gap: 4px;
-          padding: 2px 7px;
+          gap: 3px;
+          padding: 2px 6px;
           border-radius: 4px;
-          font-size: 10.5px;
+          font-size: 10px;
           font-weight: 900;
-          letter-spacing: 0.03em;
+          letter-spacing: 0.02em;
         }
 
         .badge-new { background: #fef3c7; color: #b45309; border: 1px solid #fde68a; }
@@ -1190,73 +1541,209 @@ export function AdminOrdersSection({
         .badge-completed { background: #f1f5f9; color: #475569; }
         .badge-cancelled { background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; }
 
+        /* Dark mode badge colors */
+        :global([data-theme="dark"]) .badge-new,
+        :global(.theme-dark) .badge-new,
+        .admin-orders-container.theme-dark .badge-new {
+          background: rgba(245, 158, 11, 0.2);
+          color: #fbbf24;
+          border-color: rgba(245, 158, 11, 0.4);
+        }
+        :global([data-theme="dark"]) .badge-confirmed,
+        :global(.theme-dark) .badge-confirmed,
+        .admin-orders-container.theme-dark .badge-confirmed {
+          background: rgba(14, 165, 233, 0.2);
+          color: #38bdf8;
+          border-color: rgba(14, 165, 233, 0.4);
+        }
+        :global([data-theme="dark"]) .badge-cooking,
+        :global(.theme-dark) .badge-cooking,
+        .admin-orders-container.theme-dark .badge-cooking {
+          background: rgba(249, 115, 22, 0.2);
+          color: #fb923c;
+          border-color: rgba(249, 115, 22, 0.4);
+        }
+        :global([data-theme="dark"]) .badge-ready,
+        :global(.theme-dark) .badge-ready,
+        .admin-orders-container.theme-dark .badge-ready {
+          background: rgba(16, 185, 129, 0.2);
+          color: #34d399;
+          border-color: rgba(16, 185, 129, 0.4);
+        }
+        :global([data-theme="dark"]) .badge-transit,
+        :global(.theme-dark) .badge-transit,
+        .admin-orders-container.theme-dark .badge-transit {
+          background: rgba(168, 85, 247, 0.2);
+          color: #c084fc;
+          border-color: rgba(168, 85, 247, 0.4);
+        }
+        :global([data-theme="dark"]) .badge-completed,
+        :global(.theme-dark) .badge-completed,
+        .admin-orders-container.theme-dark .badge-completed {
+          background: rgba(148, 163, 184, 0.2);
+          color: #cbd5e1;
+        }
+        :global([data-theme="dark"]) .badge-cancelled,
+        :global(.theme-dark) .badge-cancelled,
+        .admin-orders-container.theme-dark .badge-cancelled {
+          background: rgba(239, 68, 68, 0.2);
+          color: #f87171;
+          border-color: rgba(239, 68, 68, 0.4);
+        }
+        :global([data-theme="dark"]) .type-badge.delivery,
+        :global(.theme-dark) .type-badge.delivery,
+        .admin-orders-container.theme-dark .type-badge.delivery {
+          background: rgba(59, 130, 246, 0.2);
+          color: #60a5fa;
+          border-color: rgba(59, 130, 246, 0.4);
+        }
+        :global([data-theme="dark"]) .type-badge.pickup,
+        :global(.theme-dark) .type-badge.pickup,
+        .admin-orders-container.theme-dark .type-badge.pickup {
+          background: rgba(249, 115, 22, 0.2);
+          color: #fb923c;
+          border-color: rgba(249, 115, 22, 0.4);
+        }
+
         .live-pulse-dot {
-          width: 7px;
-          height: 7px;
+          width: 6px;
+          height: 6px;
           border-radius: 50%;
           background: #b45309;
           animation: pulse 1.5s infinite;
         }
 
+        @keyframes pulse {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.4; transform: scale(1.2); }
+        }
+
+        /* Slot 2: Customer Name & Phone */
         .card-customer-row {
           display: flex;
           justify-content: space-between;
           align-items: center;
           gap: 8px;
+          height: 24px;
+          margin-bottom: 4px;
         }
 
         .customer-name {
-          font-size: 14px;
+          font-size: 13.5px;
           font-weight: 800;
-          color: #0f172a;
+          color: var(--ord-text-main);
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
         }
 
         .customer-phone-chip {
           display: inline-flex;
           align-items: center;
-          gap: 4px;
-          padding: 2px 7px;
+          gap: 3px;
+          padding: 2px 6px;
           border-radius: 4px;
-          background: #f1f5f9;
-          color: #334155;
-          font-size: 11.5px;
+          background: var(--ord-strip-bg);
+          border: 1px solid var(--ord-strip-border);
+          color: var(--ord-text-sub);
+          font-size: 11px;
           font-weight: 700;
           text-decoration: none;
+          flex-shrink: 0;
         }
 
+        /* Slot 3: Address Row (Fixed Height - Never Collapses) */
         .card-address-row {
           display: flex;
           align-items: center;
-          gap: 6px;
-          font-size: 12px;
-          color: #475569;
-          white-space: nowrap;
+          gap: 5px;
+          font-size: 11.5px;
+          color: var(--ord-text-sub);
+          height: 22px;
+          margin-bottom: 4px;
           overflow: hidden;
           text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .map-icon {
+          color: #ea580c;
+          flex-shrink: 0;
         }
 
         .address-text {
           overflow: hidden;
           text-overflow: ellipsis;
+          white-space: nowrap;
         }
 
+        .slot-empty-placeholder {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          font-size: 11px;
+          color: var(--ord-text-muted);
+          font-style: italic;
+        }
+
+        /* Slot 4: Rider Assignment (Fixed Height - Never Collapses) */
+        .card-rider-strip {
+          display: flex;
+          align-items: center;
+          font-size: 11.5px;
+          color: var(--ord-text-muted);
+          height: 22px;
+          margin-bottom: 6px;
+        }
+
+        .rider-label {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          font-weight: 600;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .rider-assigned {
+          color: #2563eb;
+          font-weight: 700;
+        }
+
+        .rider-unassigned {
+          color: var(--ord-text-muted);
+        }
+
+        /* Slot 5: Items Summary & View Details (Fixed Height - Never Wraps) */
         .card-item-summary-strip {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          padding: 8px 10px;
-          background: #f8fafc;
-          border-radius: 8px;
-          border: 1px solid #f1f5f9;
+          padding: 6px 8px;
+          background: var(--ord-strip-bg);
+          border-radius: 6px;
+          border: 1px solid var(--ord-strip-border);
+          height: 32px;
+          margin-bottom: 8px;
+          gap: 6px;
         }
 
         .item-count-chip {
           display: flex;
           align-items: center;
-          gap: 6px;
-          font-size: 12px;
+          gap: 5px;
+          font-size: 11.5px;
           font-weight: 700;
-          color: #334155;
+          color: var(--ord-text-sub);
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          flex: 1;
+          min-width: 0;
+        }
+
+        .items-text-snippet {
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
@@ -1266,32 +1753,30 @@ export function AdminOrdersSection({
           display: inline-flex;
           align-items: center;
           gap: 2px;
-          font-size: 11.5px;
+          font-size: 11px;
           font-weight: 800;
           color: #ea580c;
+          background: transparent;
+          border: none;
+          cursor: pointer;
+          flex-shrink: 0;
+          padding: 0;
+          white-space: nowrap;
         }
 
-        .card-rider-strip {
-          display: flex;
-          align-items: center;
-          font-size: 11.5px;
-          color: #64748b;
+        .btn-open-drawer-hint:hover {
+          text-decoration: underline;
         }
 
-        .rider-label {
-          display: inline-flex;
-          align-items: center;
-          gap: 4px;
-          font-weight: 600;
-        }
-
+        /* Slot 6: Bottom Price & Fixed Action Row */
         .card-bottom-row {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          padding-top: 10px;
-          border-top: 1px solid #f1f5f9;
-          margin-top: 2px;
+          padding-top: 8px;
+          border-top: 1px solid var(--ord-divider);
+          margin-top: auto;
+          height: 38px;
         }
 
         .price-block {
@@ -1300,36 +1785,68 @@ export function AdminOrdersSection({
         }
 
         .price-label {
-          font-size: 10px;
+          font-size: 9.5px;
           font-weight: 800;
-          color: #64748b;
-          letter-spacing: 0.04em;
+          color: var(--ord-text-muted);
+          letter-spacing: 0.03em;
         }
 
         .price-val {
-          font-size: 16px;
+          font-size: 14.5px;
           font-weight: 900;
-          color: #0f172a;
+          color: var(--ord-text-main);
         }
 
         .actions-block {
           display: flex;
           align-items: center;
           gap: 6px;
+          flex-shrink: 0;
         }
 
+        .btn-action-terminal {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          padding: 5px 9px;
+          border-radius: 6px;
+          font-size: 11px;
+          font-weight: 700;
+        }
+
+        .terminal-completed {
+          background: rgba(16, 185, 129, 0.12);
+          color: #059669;
+          border: 1px solid rgba(16, 185, 129, 0.25);
+        }
+
+        .terminal-cancelled {
+          background: rgba(239, 68, 68, 0.12);
+          color: #dc2626;
+          border: 1px solid rgba(239, 68, 68, 0.25);
+        }
+
+        /* Distinct High-Contrast Action Buttons */
         .btn-action-primary {
           display: inline-flex;
           align-items: center;
-          gap: 6px;
-          padding: 7px 12px;
-          border-radius: 8px;
-          font-size: 12px;
+          gap: 5px;
+          padding: 6px 12px;
+          border-radius: 7px;
+          font-size: 11.5px;
           font-weight: 800;
           border: none;
           color: #ffffff;
           cursor: pointer;
-          box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.16);
+          white-space: nowrap;
+          transition: all 0.15s ease;
+        }
+
+        .btn-action-primary:hover {
+          filter: brightness(1.08);
+          transform: translateY(-1px);
+          box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
         }
 
         .btn-confirm { background: #d97706; }
@@ -1337,26 +1854,118 @@ export function AdminOrdersSection({
         .btn-ready { background: #059669; }
         .btn-dispatch { background: #7c3aed; }
 
+        /* Prominent Cancel Button */
         .btn-cancel-icon {
-          padding: 7px;
-          border-radius: 8px;
-          border: 1px solid #fecaca;
+          width: 32px;
+          height: 32px;
+          border-radius: 7px;
+          border: 1.5px solid #fecaca;
           background: #fef2f2;
           color: #dc2626;
           cursor: pointer;
           display: inline-flex;
           align-items: center;
           justify-content: center;
+          transition: all 0.15s ease;
+          flex-shrink: 0;
         }
 
         .btn-cancel-icon:hover {
           background: #fee2e2;
+          border-color: #f87171;
+          color: #b91c1c;
+          transform: translateY(-1px);
         }
 
-        /* 4. TABLE VIEW STYLES */
+        :global([data-theme="dark"]) .btn-cancel-icon,
+        :global(.theme-dark) .btn-cancel-icon,
+        .admin-orders-container.theme-dark .btn-cancel-icon {
+          background: rgba(220, 38, 38, 0.2);
+          border-color: #ef4444;
+          color: #f87171;
+        }
+
+        /* 4. COLUMNS VIEW (STAGE-WISE BOARDS) */
+        .orders-columns-board {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 14px;
+          align-items: start;
+        }
+
+        .stage-column {
+          background: var(--ord-column-bg);
+          border: 1px solid var(--ord-card-border);
+          border-radius: 12px;
+          padding: 12px;
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+        }
+
+        .stage-column-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding-bottom: 8px;
+          border-bottom: 1px solid var(--ord-divider);
+        }
+
+        .stage-title-wrap {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .stage-icon-box {
+          width: 28px;
+          height: 28px;
+          border-radius: 6px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .stage-title {
+          font-size: 13.5px;
+          font-weight: 800;
+          color: var(--ord-text-main);
+          margin: 0;
+        }
+
+        .stage-subtitle {
+          font-size: 10px;
+          color: var(--ord-text-muted);
+          display: block;
+        }
+
+        .stage-count-badge {
+          font-size: 11px;
+          font-weight: 800;
+          padding: 2px 7px;
+          border-radius: 999px;
+        }
+
+        .stage-column-cards {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+          max-height: calc(100vh - 280px);
+          overflow-y: auto;
+        }
+
+        .stage-empty-slot {
+          padding: 30px 12px;
+          text-align: center;
+          font-size: 12px;
+          color: var(--ord-text-muted);
+          font-style: italic;
+        }
+
+        /* 5. TABLE VIEW STYLES */
         .orders-table-wrapper {
-          background: #ffffff;
-          border: 1px solid #e2e8f0;
+          background: var(--ord-table-bg);
+          border: 1px solid var(--ord-table-border);
           border-radius: 12px;
           overflow-x: auto;
         }
@@ -1368,20 +1977,20 @@ export function AdminOrdersSection({
         }
 
         .orders-data-table th {
-          background: #f8fafc;
+          background: var(--ord-table-header-bg);
           padding: 10px 14px;
-          font-size: 11.5px;
+          font-size: 11px;
           font-weight: 800;
-          color: #475569;
-          border-bottom: 1px solid #e2e8f0;
+          color: var(--ord-text-muted);
+          border-bottom: 1px solid var(--ord-table-border);
           text-transform: uppercase;
         }
 
         .orders-data-table td {
           padding: 10px 14px;
-          font-size: 12.5px;
-          color: #0f172a;
-          border-bottom: 1px solid #f1f5f9;
+          font-size: 12px;
+          color: var(--ord-text-main);
+          border-bottom: 1px solid var(--ord-divider);
         }
 
         .table-order-row {
@@ -1389,25 +1998,26 @@ export function AdminOrdersSection({
         }
 
         .table-order-row:hover {
-          background: #f8fafc;
+          background: var(--ord-table-hover);
         }
 
         .tbl-order-num {
-          font-size: 13.5px;
+          font-size: 13px;
           font-weight: 900;
-          color: #0f172a;
+          color: var(--ord-text-main);
         }
 
         .tbl-items-pill {
           padding: 2px 6px;
           border-radius: 4px;
-          background: #f1f5f9;
-          font-size: 11.5px;
+          background: var(--ord-strip-bg);
+          font-size: 11px;
           font-weight: 700;
+          color: var(--ord-text-sub);
         }
 
         .rider-tag {
-          font-size: 11.5px;
+          font-size: 11px;
           font-weight: 700;
           padding: 2px 6px;
           border-radius: 4px;
@@ -1419,190 +2029,215 @@ export function AdminOrdersSection({
         }
 
         .rider-tag.unassigned {
-          background: #f1f5f9;
-          color: #64748b;
+          background: var(--ord-strip-bg);
+          color: var(--ord-text-muted);
         }
 
         .tbl-time {
-          font-size: 11.5px;
-          color: #64748b;
+          font-size: 11px;
+          color: var(--ord-text-muted);
         }
 
-        /* 5. SIDE DRAWER */
-        .drawer-backdrop {
+        /* 6. CENTERED ORDER DETAIL MODAL DIALOG */
+        .order-modal-backdrop {
           position: fixed;
           inset: 0;
-          background: rgba(15, 23, 42, 0.65);
-          backdrop-filter: blur(4px);
+          background: rgba(15, 23, 42, 0.7);
+          backdrop-filter: blur(5px);
           z-index: 10000;
           display: flex;
-          justify-content: flex-end;
+          align-items: center;
+          justify-content: center;
+          padding: 16px;
         }
 
-        .drawer-panel {
+        .order-modal-card {
           width: 100%;
-          max-width: 520px;
-          height: 100vh;
-          background: #ffffff;
-          box-shadow: -10px 0 25px -5px rgba(0, 0, 0, 0.2);
+          max-width: 620px;
+          max-height: 88vh;
+          background: var(--ord-modal-bg);
+          border: 1px solid var(--ord-modal-border);
+          border-radius: 16px;
+          box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.35);
           display: flex;
           flex-direction: column;
-          animation: slideIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+          animation: modalPopIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+          overflow: hidden;
         }
 
-        @keyframes slideIn {
-          from { transform: translateX(100%); }
-          to { transform: translateX(0); }
+        @keyframes modalPopIn {
+          from {
+            opacity: 0;
+            transform: scale(0.95) translateY(10px);
+          }
+          to {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+          }
         }
 
-        .drawer-header {
+        .order-modal-header {
           display: flex;
           justify-content: space-between;
           align-items: flex-start;
           padding: 16px 20px;
-          border-bottom: 1px solid #e2e8f0;
-          background: #f8fafc;
+          border-bottom: 1px solid var(--ord-divider);
+          background: var(--ord-modal-header);
         }
 
-        .drawer-order-num {
+        .modal-header-left {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+
+        .modal-title-row {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+
+        .modal-order-num {
           font-size: 20px;
           font-weight: 900;
-          color: #0f172a;
+          color: var(--ord-text-main);
           margin: 0;
         }
 
-        .drawer-order-time {
-          font-size: 12px;
-          color: #64748b;
-          margin-top: 3px;
-          display: block;
+        .modal-order-time {
+          font-size: 11.5px;
+          color: var(--ord-text-muted);
         }
 
-        .btn-close-drawer {
+        .btn-close-modal {
           background: transparent;
           border: none;
-          color: #64748b;
+          color: var(--ord-text-muted);
           cursor: pointer;
-          padding: 4px;
+          padding: 6px;
           border-radius: 6px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.15s ease;
         }
 
-        .btn-close-drawer:hover {
-          background: #e2e8f0;
-          color: #0f172a;
+        .btn-close-modal:hover {
+          background: var(--ord-strip-bg);
+          color: var(--ord-text-main);
         }
 
-        .drawer-body {
-          padding: 16px 20px;
+        .order-modal-body {
+          padding: 18px 20px;
           overflow-y: auto;
           display: flex;
           flex-direction: column;
           gap: 14px;
-          flex: 1;
         }
 
-        .drawer-section-card {
-          border: 1px solid #e2e8f0;
+        .modal-section-card {
+          background: var(--ord-strip-bg);
+          border: 1px solid var(--ord-strip-border);
           border-radius: 10px;
-          padding: 14px;
-          background: #ffffff;
-          display: flex;
-          flex-direction: column;
-          gap: 10px;
+          padding: 12px 14px;
         }
 
-        .drawer-sec-title {
-          font-size: 13.5px;
+        .modal-sec-title {
+          font-size: 12.5px;
           font-weight: 800;
-          color: #0f172a;
-          margin: 0;
+          color: var(--ord-text-main);
+          margin: 0 0 10px 0;
           display: flex;
           align-items: center;
           gap: 6px;
         }
 
-        .drawer-info-grid {
+        .modal-info-grid {
           display: grid;
-          grid-template-columns: 1fr 1fr;
+          grid-template-columns: repeat(2, 1fr);
           gap: 10px;
+          font-size: 12px;
         }
 
         .info-lbl {
-          font-size: 11px;
+          font-size: 10.5px;
           font-weight: 700;
-          color: #64748b;
+          color: var(--ord-text-muted);
           text-transform: uppercase;
           display: block;
+          margin-bottom: 2px;
         }
 
         .info-val {
-          font-size: 13px;
-          font-weight: 700;
-          color: #0f172a;
-          margin-top: 2px;
-          display: block;
+          font-weight: 800;
+          color: var(--ord-text-main);
         }
 
-        .drawer-phone-link {
+        .modal-phone-link {
           display: inline-flex;
           align-items: center;
           gap: 4px;
-          font-size: 13px;
+          color: #2563eb;
           font-weight: 800;
-          color: #ea580c;
           text-decoration: none;
-          margin-top: 2px;
         }
 
-        .drawer-address-box {
+        .modal-phone-link:hover {
+          text-decoration: underline;
+        }
+
+        .modal-address-box {
+          margin-top: 10px;
+          padding-top: 10px;
+          border-top: 1px solid var(--ord-divider);
           display: flex;
-          align-items: flex-start;
+          align-items: center;
           gap: 6px;
-          padding: 8px 10px;
-          background: #f8fafc;
-          border-radius: 6px;
-          font-size: 12.5px;
-          color: #334155;
+          font-size: 12px;
+          color: var(--ord-text-main);
         }
 
-        .drawer-kitchen-notes-box {
+        .modal-notes-box {
+          margin-top: 10px;
           padding: 8px 10px;
+          border-radius: 6px;
           background: #fffbeb;
           border: 1px solid #fde68a;
-          border-radius: 6px;
+          color: #92400e;
           font-size: 12px;
-          color: #78350f;
         }
 
-        .drawer-kitchen-notes-box p {
-          margin: 3px 0 0;
-          font-weight: 600;
+        :global([data-theme="dark"]) .modal-notes-box,
+        :global(.theme-dark) .modal-notes-box,
+        .admin-orders-container.theme-dark .modal-notes-box {
+          background: #451a03;
+          border-color: #78350f;
+          color: #fde68a;
         }
 
-        .drawer-items-list {
+        .modal-items-list {
           display: flex;
           flex-direction: column;
-          gap: 10px;
+          gap: 8px;
         }
 
-        .drawer-item-row {
+        .modal-item-row {
           display: flex;
           justify-content: space-between;
           align-items: flex-start;
-          padding-bottom: 10px;
-          border-bottom: 1px solid #f1f5f9;
+          padding: 8px 0;
+          border-bottom: 1px solid var(--ord-divider);
         }
 
-        .drawer-item-row:last-child {
+        .modal-item-row:last-child {
           border-bottom: none;
-          padding-bottom: 0;
         }
 
         .item-main-col {
           display: flex;
           flex-direction: column;
-          gap: 3px;
-          flex: 1;
+          gap: 2px;
         }
 
         .item-title-line {
@@ -1612,106 +2247,105 @@ export function AdminOrdersSection({
         }
 
         .item-qty-badge {
-          padding: 1px 6px;
-          border-radius: 4px;
-          background: #ffedd5;
-          color: #c2410c;
           font-size: 11px;
           font-weight: 800;
+          color: #ea580c;
+          background: rgba(234, 88, 12, 0.12);
+          padding: 1px 5px;
+          border-radius: 4px;
         }
 
         .item-name {
-          font-size: 13.5px;
-          font-weight: 800;
-          color: #0f172a;
+          font-size: 13px;
+          color: var(--ord-text-main);
         }
 
         .item-variant-chip {
-          font-size: 11.5px;
-          font-weight: 700;
-          color: #475569;
+          font-size: 11px;
+          color: var(--ord-text-muted);
+          font-weight: 600;
         }
 
-        .drawer-deal-box {
+        .modal-deal-box {
           margin-top: 4px;
-          padding: 6px 8px;
-          background: #fffbeb;
-          border: 1px solid #fde68a;
+          padding: 5px 8px;
           border-radius: 6px;
-          font-size: 11.5px;
-          color: #78350f;
+          background: rgba(0, 0, 0, 0.04);
+          font-size: 11px;
+          color: var(--ord-text-sub);
         }
 
         .deal-box-header {
-          font-weight: 800;
+          font-weight: 700;
+          color: #ea580c;
           display: block;
           margin-bottom: 2px;
         }
 
         .deal-bullet-item {
-          line-height: 1.35;
+          font-size: 11px;
+          line-height: 1.4;
         }
 
         .deal-sub-options {
-          color: #92400e;
+          color: var(--ord-text-muted);
           font-style: italic;
         }
 
         .item-modifiers-row {
-          font-size: 11.5px;
-          color: #64748b;
+          font-size: 11px;
+          color: var(--ord-text-muted);
+          margin-top: 2px;
         }
 
         .item-price-col {
-          text-align: right;
-          font-size: 13.5px;
-          color: #0f172a;
+          display: flex;
+          flex-direction: column;
+          align-items: flex-end;
+          color: var(--ord-text-main);
+          font-size: 13px;
+          flex-shrink: 0;
         }
 
         .unit-price-sub {
-          display: block;
-          font-size: 11px;
-          color: #64748b;
+          font-size: 10px;
+          color: var(--ord-text-muted);
         }
 
         .rider-assign-controls {
           display: flex;
           gap: 8px;
+          margin-top: 6px;
         }
 
         .rider-select-input {
           flex: 1;
           padding: 8px 10px;
-          border-radius: 8px;
-          border: 1px solid #cbd5e1;
-          font-size: 12.5px;
-          color: #0f172a;
+          border-radius: 6px;
+          border: 1px solid var(--ord-input-border);
+          background: var(--ord-input-bg);
+          color: var(--ord-text-main);
+          font-size: 12px;
           outline: none;
-          background: #ffffff;
         }
 
         .btn-assign-rider {
           padding: 8px 14px;
-          border-radius: 8px;
-          border: none;
-          background: #0f172a;
+          border-radius: 6px;
+          background: #7c3aed;
           color: #ffffff;
-          font-size: 12.5px;
+          border: none;
+          font-size: 12px;
           font-weight: 700;
           cursor: pointer;
-        }
-
-        .btn-assign-rider:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
         }
 
         .payment-summary-rows {
           display: flex;
           flex-direction: column;
           gap: 6px;
-          font-size: 12.5px;
-          color: #475569;
+          font-size: 12px;
+          color: var(--ord-text-sub);
         }
 
         .pay-row {
@@ -1726,48 +2360,56 @@ export function AdminOrdersSection({
 
         .pay-row.total {
           padding-top: 8px;
-          border-top: 1px solid #e2e8f0;
-          font-size: 14px;
-          color: #0f172a;
+          border-top: 1px solid var(--ord-divider);
+          font-size: 13.5px;
+          color: var(--ord-text-main);
         }
 
         .grand-total-val {
           font-size: 16px;
           font-weight: 900;
-          color: #0f172a;
+          color: var(--ord-text-main);
         }
 
-        .drawer-footer {
+        .order-modal-footer {
           display: flex;
           align-items: center;
           justify-content: space-between;
           gap: 10px;
           padding: 14px 20px;
-          border-top: 1px solid #e2e8f0;
-          background: #ffffff;
+          border-top: 1px solid var(--ord-divider);
+          background: var(--ord-modal-header);
         }
 
-        .btn-drawer-cancel {
+        .btn-modal-cancel {
           display: inline-flex;
           align-items: center;
           gap: 4px;
-          padding: 8px 14px;
-          border-radius: 8px;
+          padding: 7px 12px;
+          border-radius: 7px;
           border: 1px solid #fecaca;
           background: #fff1f2;
           color: #dc2626;
-          font-size: 12.5px;
+          font-size: 12px;
           font-weight: 700;
           cursor: pointer;
+        }
+
+        :global([data-theme="dark"]) .btn-modal-cancel,
+        :global(.theme-dark) .btn-modal-cancel,
+        .admin-orders-container.theme-dark .btn-modal-cancel {
+          background: rgba(220, 38, 38, 0.2);
+          border-color: #ef4444;
+          color: #f87171;
         }
 
         .empty-orders-state {
           grid-column: 1 / -1;
           padding: 60px 16px;
           text-align: center;
-          color: #64748b;
-          background: #ffffff;
-          border: 1px dashed #cbd5e1;
+          color: var(--ord-text-muted);
+          background: var(--ord-card-bg);
+          border: 1.5px dashed var(--ord-card-border);
           border-radius: 12px;
           display: flex;
           flex-direction: column;
@@ -1777,9 +2419,152 @@ export function AdminOrdersSection({
 
         .empty-orders-state h3 {
           margin: 4px 0 0;
-          color: #0f172a;
-          font-size: 17px;
+          color: var(--ord-text-main);
+          font-size: 16px;
           font-weight: 800;
+        }
+
+        /* RESPONSIVE MEDIA QUERIES */
+        @media (max-width: 1024px) {
+          .orders-columns-board {
+            grid-template-columns: repeat(2, 1fr);
+          }
+        }
+
+        /* MOBILE VIEWPORT OPTIMIZATIONS (2x2 GRID, ICON-ONLY TOGGLE) */
+        @media (max-width: 768px) {
+          .compact-orders-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            gap: 8px !important;
+          }
+
+          .compact-order-card {
+            padding: 9px 8px !important;
+            border-radius: 10px !important;
+            min-height: 230px !important;
+          }
+
+          .order-num {
+            font-size: 12px !important;
+          }
+
+          .time-ago {
+            font-size: 9.5px !important;
+          }
+
+          .type-badge, .pos-badge {
+            font-size: 8.5px !important;
+            padding: 1px 4px !important;
+          }
+
+          .customer-name {
+            font-size: 11.5px !important;
+          }
+
+          .customer-phone-chip {
+            font-size: 9.5px !important;
+            padding: 1px 4px !important;
+          }
+
+          .card-address-row, .card-rider-strip {
+            font-size: 10px !important;
+          }
+
+          .card-item-summary-strip {
+            padding: 4px 6px !important;
+            height: 28px !important;
+          }
+
+          .item-count-chip {
+            font-size: 10px !important;
+          }
+
+          .btn-open-drawer-hint {
+            font-size: 9.5px !important;
+          }
+
+          .card-bottom-row {
+            flex-direction: column !important;
+            align-items: stretch !important;
+            height: auto !important;
+            gap: 5px !important;
+            padding-top: 6px !important;
+          }
+
+          .price-block {
+            flex-direction: row !important;
+            justify-content: space-between !important;
+            align-items: baseline !important;
+          }
+
+          .price-label {
+            font-size: 8.5px !important;
+          }
+
+          .price-val {
+            font-size: 12.5px !important;
+          }
+
+          .actions-block {
+            display: flex !important;
+            width: 100% !important;
+            gap: 5px !important;
+          }
+
+          .btn-action-primary {
+            flex: 1 !important;
+            justify-content: center !important;
+            padding: 5px 6px !important;
+            font-size: 10px !important;
+            gap: 4px !important;
+          }
+
+          .btn-cancel-icon {
+            width: 28px !important;
+            height: 28px !important;
+            flex-shrink: 0 !important;
+          }
+
+          .orders-columns-board {
+            grid-template-columns: 1fr;
+          }
+        }
+
+        @media (max-width: 640px) {
+          .orders-control-bar {
+            flex-wrap: wrap;
+            gap: 8px;
+          }
+
+          .search-box-wrapper {
+            order: 1;
+            width: 100%;
+            flex: 1 1 100%;
+          }
+
+          .filter-pills-scroll {
+            order: 2;
+            flex: 1;
+            min-width: 0;
+          }
+
+          .view-mode-toggle {
+            order: 3;
+            margin-left: auto;
+            flex-shrink: 0;
+          }
+
+          .btn-toggle-label {
+            display: none !important;
+          }
+
+          .btn-view-toggle {
+            padding: 6px 8px !important;
+          }
+
+          .modal-info-grid {
+            grid-template-columns: 1fr;
+          }
         }
       `}</style>
     </div>
