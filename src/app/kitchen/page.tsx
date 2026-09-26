@@ -51,7 +51,7 @@ export default function KitchenPage() {
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [orderTypeFilter, setOrderTypeFilter] = useState<string>("ALL");
   const [priorityFilter, setPriorityFilter] = useState<string>("ALL");
-  const [sortBy, setSortBy] = useState<"OLDEST" | "NEWEST" | "ORDER_NO">("OLDEST");
+  const [sortBy, setSortBy] = useState<"OLDEST" | "NEWEST" | "ORDER_NO">("NEWEST");
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState<boolean>(false);
 
   // Selected Order for Detail Drawer / Modal
@@ -287,12 +287,20 @@ export default function KitchenPage() {
         return true;
       })
       .sort((a, b) => {
+        const aIsTerminal = [ORDER_STATUSES.COMPLETED, ORDER_STATUSES.CANCELLED].includes(a.status as any);
+        const bIsTerminal = [ORDER_STATUSES.COMPLETED, ORDER_STATUSES.CANCELLED].includes(b.status as any);
+
+        // Active orders first, completed/cancelled last
+        if (!aIsTerminal && bIsTerminal) return -1;
+        if (aIsTerminal && !bIsTerminal) return 1;
+
         if (sortBy === "OLDEST") {
           return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-        } else if (sortBy === "NEWEST") {
-          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-        } else {
+        } else if (sortBy === "ORDER_NO") {
           return (a.orderNumber || "").localeCompare(b.orderNumber || "");
+        } else {
+          // Default: NEWEST first
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
         }
       });
   }, [orders, statusFilter, orderTypeFilter, priorityFilter, debouncedSearch, sortBy]);
@@ -313,7 +321,7 @@ export default function KitchenPage() {
     statusFilter !== "ALL" ||
     orderTypeFilter !== "ALL" ||
     priorityFilter !== "ALL" ||
-    sortBy !== "OLDEST";
+    sortBy !== "NEWEST";
 
   const clearFilters = () => {
     setSearchQuery("");
@@ -321,7 +329,7 @@ export default function KitchenPage() {
     setStatusFilter("ALL");
     setOrderTypeFilter("ALL");
     setPriorityFilter("ALL");
-    setSortBy("OLDEST");
+    setSortBy("NEWEST");
   };
 
   const getElapsedString = (createdAt: string) => {

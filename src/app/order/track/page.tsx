@@ -330,6 +330,18 @@ export default function TrackOrderPage() {
         return !ACTIVE_STATUSES.has(o.status);
       }
       return true;
+    }).sort((a, b) => {
+      const aIsActive = ACTIVE_STATUSES.has(a.status);
+      const bIsActive = ACTIVE_STATUSES.has(b.status);
+
+      // Active orders first, completed/cancelled last
+      if (aIsActive && !bIsActive) return -1;
+      if (!aIsActive && bIsActive) return 1;
+
+      // By default newest order first
+      const timeA = new Date(a.createdAt || 0).getTime();
+      const timeB = new Date(b.createdAt || 0).getTime();
+      return timeB - timeA;
     });
   }, [orders, searchQuery, statusFilter]);
 

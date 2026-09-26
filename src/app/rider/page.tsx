@@ -64,7 +64,7 @@ export default function RiderPage() {
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [assignmentFilter, setAssignmentFilter] = useState<string>("ALL");
   const [selectedRiderFilter, setSelectedRiderFilter] = useState<string>("ALL");
-  const [sortBy, setSortBy] = useState<"OLDEST" | "NEWEST" | "ORDER_NO" | "TOTAL">("OLDEST");
+  const [sortBy, setSortBy] = useState<"OLDEST" | "NEWEST" | "ORDER_NO" | "TOTAL">("NEWEST");
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState<boolean>(false);
 
   // Selected Order for Detail Drawer / Modal
@@ -396,14 +396,22 @@ export default function RiderPage() {
         return true;
       })
       .sort((a, b) => {
+        const aIsTerminal = [ORDER_STATUSES.COMPLETED, ORDER_STATUSES.CANCELLED].includes(a.status as any);
+        const bIsTerminal = [ORDER_STATUSES.COMPLETED, ORDER_STATUSES.CANCELLED].includes(b.status as any);
+
+        // Active deliveries first, completed/cancelled last
+        if (!aIsTerminal && bIsTerminal) return -1;
+        if (aIsTerminal && !bIsTerminal) return 1;
+
         if (sortBy === "OLDEST") {
           return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-        } else if (sortBy === "NEWEST") {
-          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
         } else if (sortBy === "TOTAL") {
           return (b.totalPkr || 0) - (a.totalPkr || 0);
-        } else {
+        } else if (sortBy === "ORDER_NO") {
           return (a.orderNumber || "").localeCompare(b.orderNumber || "");
+        } else {
+          // Default: NEWEST first
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
         }
       });
   }, [orders, viewMode, currentUser, statusFilter, assignmentFilter, selectedRiderFilter, debouncedSearch, sortBy]);
@@ -413,7 +421,7 @@ export default function RiderPage() {
     statusFilter !== "ALL" ||
     assignmentFilter !== "ALL" ||
     selectedRiderFilter !== "ALL" ||
-    sortBy !== "OLDEST";
+    sortBy !== "NEWEST";
 
   const clearFilters = () => {
     setSearchQuery("");
@@ -421,7 +429,7 @@ export default function RiderPage() {
     setStatusFilter("ALL");
     setAssignmentFilter("ALL");
     setSelectedRiderFilter("ALL");
-    setSortBy("OLDEST");
+    setSortBy("NEWEST");
   };
 
   if (authStatus === "loading") {

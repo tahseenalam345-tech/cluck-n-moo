@@ -209,6 +209,18 @@ export function AdminOrdersSection({
       }
 
       return true;
+    }).sort((a, b) => {
+      const aIsTerminal = isTerminalStatus(a.status);
+      const bIsTerminal = isTerminalStatus(b.status);
+
+      // Active orders first, completed/cancelled last
+      if (!aIsTerminal && bIsTerminal) return -1;
+      if (aIsTerminal && !bIsTerminal) return 1;
+
+      // By default newest order first
+      const timeA = new Date(a.createdAt || 0).getTime();
+      const timeB = new Date(b.createdAt || 0).getTime();
+      return timeB - timeA;
     });
   }, [orders, orderStatusFilter, searchQuery]);
 
