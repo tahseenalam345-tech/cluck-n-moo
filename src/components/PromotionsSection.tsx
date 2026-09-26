@@ -59,7 +59,6 @@ export function PromotionsSection({ onSelectPromotion }: PromotionsSectionProps)
                 onClick={() => onSelectPromotion(promo)}
                 role="button"
                 tabIndex={0}
-                aria-label={`View deal: ${promo.title}`}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === " ") {
                     e.preventDefault();
@@ -74,6 +73,8 @@ export function PromotionsSection({ onSelectPromotion }: PromotionsSectionProps)
                     srcSet={srcSet}
                     sizes="(max-width: 640px) 50vw, (max-width: 1024px) 50vw, 300px"
                     alt={promo.title}
+                    width={600}
+                    height={200}
                     loading="lazy"
                     decoding="async"
                     className="promotion-image"
@@ -128,10 +129,10 @@ export function PromotionsSection({ onSelectPromotion }: PromotionsSectionProps)
         .promotions-pill {
           font-size: 9px;
           font-weight: 800;
-          color: var(--cnm-orange);
-          background: rgba(255, 130, 67, 0.12);
-          border: 1px solid rgba(255, 130, 67, 0.25);
-          padding: 2px 6px;
+          color: var(--status-preparing-text, #9A3412);
+          background: var(--status-preparing-bg, #FFEDD5);
+          border: 1px solid rgba(194, 65, 12, 0.25);
+          padding: 2px 7px;
           border-radius: var(--radius-full);
           letter-spacing: 0.05em;
         }
@@ -165,7 +166,7 @@ export function PromotionsSection({ onSelectPromotion }: PromotionsSectionProps)
           border: 1px solid var(--cnm-border);
           background: var(--cnm-surface);
           box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-          transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+          transition: transform 0.2s ease, border-color 0.2s ease;
         }
         .promotion-card:hover {
           transform: translateY(-2px);

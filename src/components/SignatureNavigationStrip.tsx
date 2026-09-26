@@ -75,7 +75,12 @@ export function SignatureNavigationStrip({
         borderBottom: "1px solid var(--cnm-border)",
         boxShadow: "0 2px 8px rgba(0, 0, 0, 0.05)",
         backdropFilter: "blur(10px)",
-        transition: "top 0.15s ease, background-color 0.2s ease",
+        transition: "background-color 0.2s ease",
+        height: "110px",
+        minHeight: "110px",
+        maxHeight: "110px",
+        boxSizing: "border-box",
+        overflow: "hidden",
       }}
     >
       <div className="container">
@@ -122,7 +127,6 @@ export function SignatureNavigationStrip({
           <div
             ref={scrollRef}
             onScroll={checkScroll}
-            role="tablist"
             className="signature-strip-track no-scrollbar"
             style={{
               display: "flex",
@@ -134,6 +138,7 @@ export function SignatureNavigationStrip({
               scrollBehavior: "smooth",
               width: "100%",
               justifyContent: "flex-start",
+              minHeight: "86px",
             }}
           >
             {SIGNATURE_SECTIONS.filter((s) => s.isActive).map((sec, idx) => {
@@ -151,16 +156,16 @@ export function SignatureNavigationStrip({
                     scrollSnapAlign: "center",
                     flexShrink: 0,
                     userSelect: "none",
+                    minWidth: "74px",
+                    minHeight: "86px",
                   }}
                 >
                   {/* Black Circular Icon Button (64-76px) */}
                   <button
                     id={`sig-btn-${sec.slug}`}
                     type="button"
-                    role="tab"
-                    aria-selected={isActive}
-                    aria-controls={`section-${sec.slug}`}
-                    tabIndex={isActive ? 0 : -1}
+                    aria-pressed={isActive}
+                    aria-label={`${sec.displayName}: ${sec.subtitle}`}
                     onClick={() => onSelectSection(sec.slug)}
                     onKeyDown={(e) => handleKeyDown(e, idx, sec.slug)}
                     title={sec.subtitle}
@@ -181,7 +186,7 @@ export function SignatureNavigationStrip({
                       alignItems: "center",
                       justifyContent: "center",
                       cursor: "pointer",
-                      transition: "all 0.22s cubic-bezier(0.16, 1, 0.3, 1)",
+                      transition: "transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.22s ease, box-shadow 0.22s ease",
                       position: "relative",
                       overflow: "hidden",
                       padding: 0,
@@ -260,15 +265,19 @@ export function SignatureNavigationStrip({
                     style={{
                       fontFamily: "var(--font-display)",
                       fontSize: "12px",
+                      lineHeight: "18px",
+                      height: "18px",
+                      boxSizing: "border-box",
                       fontWeight: isActive ? 800 : 600,
                       color: "var(--cnm-text-primary)",
-                      padding: "2px 6px",
+                      padding: "0 6px",
                       borderRadius: "var(--radius-full)",
                       textAlign: "center",
                       whiteSpace: "nowrap",
                       letterSpacing: "0.01em",
-                      transition: "all 0.15s ease",
                       textTransform: "capitalize",
+                      display: "block",
+                      overflow: "hidden",
                     }}
                   >
                     {sec.displayName}

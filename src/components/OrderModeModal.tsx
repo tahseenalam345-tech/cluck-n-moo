@@ -138,6 +138,17 @@ export function OrderModeModal() {
     revalidateDeliveryAreas();
   }, []);
 
+  // Keyboard accessibility: Escape key closes modal if already configured
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isModalOpen && modeState.isConfigured) {
+        closeOrderModeModal();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isModalOpen, modeState.isConfigured, closeOrderModeModal]);
+
   // Filtered areas for search
   const filteredDeliveryAreas = useMemo(() => {
     if (!areaSearch.trim()) return deliveryAreas;
@@ -724,15 +735,17 @@ export function OrderModeModal() {
         .mode-fee-badge {
           font-size: 10px;
           font-weight: 800;
-          padding: 1px 6px;
+          padding: 2px 7px;
           border-radius: 4px;
-          background-color: rgba(249, 115, 22, 0.15);
-          color: #f97316;
+          background-color: var(--status-preparing-bg);
+          color: var(--status-preparing-text);
+          border: 1px solid rgba(194, 65, 12, 0.25);
         }
 
         .mode-fee-badge.free {
-          background-color: rgba(16, 185, 129, 0.15);
-          color: #10b981;
+          background-color: var(--status-ready-bg);
+          color: var(--status-ready-text);
+          border: 1px solid rgba(5, 150, 105, 0.25);
         }
 
         .mode-option-sub {

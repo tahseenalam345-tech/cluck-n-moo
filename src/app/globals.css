@@ -24,12 +24,12 @@
   --cnm-text-muted: #5C544E;          /* Readable neutral dark gray (5.6:1 contrast) */
   --cnm-text-subtle: #756B64;         /* Tertiary labels (4.6:1 contrast) */
 
-  /* CNM Brand Orange (Action / Highlight Only - Never Small Body Text) */
-  --cnm-orange: #FF8243;
-  --cnm-orange-hover: #F26F2D;
-  --cnm-orange-dark: #D45B1A;
-  --cnm-orange-glow: rgba(255, 130, 67, 0.22);
-  --cnm-orange-subtle: rgba(255, 130, 67, 0.10);
+  /* CNM Brand Orange (WCAG AA Compliant: 5.18:1 on white #FFFFFF, 4.81:1 on cream #FAF6F0) */
+  --cnm-orange: #C2410C;
+  --cnm-orange-hover: #9A3412;
+  --cnm-orange-dark: #7C2D12;
+  --cnm-orange-glow: rgba(194, 65, 12, 0.22);
+  --cnm-orange-subtle: rgba(194, 65, 12, 0.10);
 
   /* Neutrals */
   --cnm-white: #FFFFFF;
@@ -287,6 +287,20 @@ p {
   }
 }
 
+/* Layout stability rules to guarantee 0 CLS across all viewports */
+@media (max-width: 899px) {
+  .desktop-top-stripe {
+    display: none !important;
+  }
+}
+
+.promo-carousel-container,
+.promo-slide-item {
+  width: 100%;
+  aspect-ratio: 3 / 1;
+  max-height: 400px;
+}
+
 /* Responsive Product Grid System */
 .product-grid,
 .product-responsive-grid {
@@ -393,6 +407,12 @@ p {
   color: #FFFFFF !important;
   box-shadow: var(--shadow-cta);
   border: 1px solid transparent;
+}
+
+[data-theme="dark"] .btn-primary {
+  background-color: var(--cnm-orange);
+  color: #0C0C0C !important;
+  font-weight: 800;
 }
 
 .btn-primary:hover:not(:disabled) {
@@ -718,5 +738,54 @@ p {
 @media (min-width: 768px) {
   .mobile-sticky-cart-bar {
     display: none;
+  }
+}
+
+/* Layout shift prevention for responsive top stripe and carousel */
+@media (max-width: 899px) {
+  .desktop-top-stripe {
+    display: none !important;
+  }
+}
+
+.promo-carousel-container {
+  width: 100%;
+  padding-top: 33.333%;
+  position: relative;
+}
+
+/* Critical layout stability for Signature Nav and Popular Picks Grid */
+.signature-navigation-wrapper {
+  height: 110px !important;
+  min-height: 110px !important;
+  max-height: 110px !important;
+  box-sizing: border-box !important;
+  overflow: hidden !important;
+}
+
+.popular-picks-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+@media (max-width: 1024px) {
+  .popular-picks-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+  }
+}
+
+@media (max-width: 767px) {
+  .popular-picks-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .popular-picks-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
   }
 }

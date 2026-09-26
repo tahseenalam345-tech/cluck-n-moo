@@ -254,7 +254,6 @@ export function ProductCard({ product, onSelect, priority = false }: ProductCard
                   fontSize: "10.5px",
                   fontWeight: 800,
                   color: "var(--cnm-orange)",
-                  opacity: 0.9,
                   letterSpacing: "0.02em",
                 }}
               >

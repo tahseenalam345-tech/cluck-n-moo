@@ -24,12 +24,19 @@ export function AppDownloadBanner() {
     <aside
       aria-label="App Download Notice"
       style={{
-        backgroundColor: "var(--cnm-surface-elevated)",
-        borderBottom: "1px solid var(--cnm-border)",
+        position: "fixed",
+        bottom: "16px",
+        left: "50%",
+        transform: "translateX(-50%)",
+        width: "calc(100% - 32px)",
+        maxWidth: "640px",
+        backgroundColor: "var(--cnm-surface)",
+        border: "1px solid var(--cnm-border)",
+        borderRadius: "var(--radius-md)",
         color: "var(--cnm-text-primary)",
-        padding: "8px 16px",
-        position: "relative",
-        zIndex: 50,
+        padding: "10px 16px",
+        boxShadow: "0 8px 30px rgba(0, 0, 0, 0.16)",
+        zIndex: 90,
       }}
     >
       <div

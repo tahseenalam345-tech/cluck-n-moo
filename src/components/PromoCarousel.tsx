@@ -72,6 +72,7 @@ export function PromoCarousel({ onSelectPromotion }: PromoCarouselProps) {
           style={{
             position: "relative",
             width: "100%",
+            paddingTop: "33.333%",
             borderRadius: "var(--radius-lg)",
             overflow: "hidden",
             boxShadow: "0 6px 20px rgba(0, 0, 0, 0.08)",
@@ -82,8 +83,11 @@ export function PromoCarousel({ onSelectPromotion }: PromoCarouselProps) {
           {/* Smooth Sliding Track */}
           <div
             style={{
+              position: "absolute",
+              inset: 0,
               display: "flex",
               width: "100%",
+              height: "100%",
               transform: `translateX(-${currentIndex * 100}%)`,
               transition: "transform 0.45s cubic-bezier(0.25, 1, 0.5, 1)",
               willChange: "transform",
@@ -100,6 +104,7 @@ export function PromoCarousel({ onSelectPromotion }: PromoCarouselProps) {
                 style={{
                   minWidth: "100%",
                   width: "100%",
+                  height: "100%",
                   position: "relative",
                   cursor: "pointer",
                   display: "flex",
@@ -121,10 +126,14 @@ export function PromoCarousel({ onSelectPromotion }: PromoCarouselProps) {
                     }
                     sizes="(max-width: 640px) 100vw, (max-width: 1024px) 90vw, 1200px"
                     alt={promo.title}
+                    width={1200}
+                    height={400}
                     loading={idx === 0 ? "eager" : "lazy"}
                     decoding="async"
                     fetchPriority={idx === 0 ? "high" : "low"}
                     style={{
+                      position: "absolute",
+                      inset: 0,
                       width: "100%",
                       height: "100%",
                       objectFit: "cover",
@@ -317,16 +326,29 @@ export function PromoCarousel({ onSelectPromotion }: PromoCarouselProps) {
                 }}
                 aria-label={`Go to slide ${idx + 1}`}
                 style={{
-                  width: idx === currentIndex ? "18px" : "6px",
-                  height: "6px",
-                  borderRadius: "3px",
-                  backgroundColor: idx === currentIndex ? "var(--cnm-orange)" : "rgba(255, 255, 255, 0.45)",
-                  transition: "all 0.25s ease",
-                  cursor: "pointer",
+                  minWidth: "44px",
+                  minHeight: "44px",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  background: "transparent",
                   border: "none",
-                  padding: 0,
+                  padding: "0",
+                  cursor: "pointer",
+                  touchAction: "manipulation",
                 }}
-              />
+              >
+                <span
+                  style={{
+                    width: idx === currentIndex ? "18px" : "6px",
+                    height: "6px",
+                    borderRadius: "3px",
+                    backgroundColor: idx === currentIndex ? "var(--cnm-orange)" : "rgba(255, 255, 255, 0.55)",
+                    transition: "opacity 0.25s ease, background-color 0.25s ease",
+                    display: "block",
+                  }}
+                />
+              </button>
             ))}
           </div>
         </div>
@@ -335,29 +357,15 @@ export function PromoCarousel({ onSelectPromotion }: PromoCarouselProps) {
       <style jsx>{`
         .promo-carousel-container {
           width: 100%;
-          aspect-ratio: 3 / 1;
-          max-height: 400px;
+          padding-top: 33.333%;
+          position: relative;
         }
         .promo-slide-item {
           width: 100%;
           height: 100%;
-          aspect-ratio: 3 / 1;
-          max-height: 400px;
         }
 
         @media (max-width: 640px) {
-          .promo-carousel-container {
-            width: 100% !important;
-            aspect-ratio: 3 / 1 !important;
-            height: auto !important;
-            max-height: 160px;
-          }
-          .promo-slide-item {
-            width: 100% !important;
-            aspect-ratio: 3 / 1 !important;
-            height: auto !important;
-            max-height: 160px;
-          }
           .carousel-desktop-arrows {
             display: none !important;
           }

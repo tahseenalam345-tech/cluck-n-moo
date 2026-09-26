@@ -97,8 +97,8 @@ export default function StorefrontPage() {
   };
 
   // Fetch full verified menu from API
-  const fetchMenu = () => {
-    setIsLoading(true);
+  const fetchMenu = (hasCached = false) => {
+    if (!hasCached) setIsLoading(true);
     setLoadError(null);
     fetch("/api/v1/menu")
       .then((res) => {
@@ -108,19 +108,36 @@ export default function StorefrontPage() {
       .then((data) => {
         if (data.success && data.data?.categories) {
           setCategories(data.data.categories);
+          try {
+            localStorage.setItem("cnm_cached_menu", JSON.stringify(data.data.categories));
+          } catch (e) {}
         } else {
           throw new Error(data.error?.message || "Failed to load categories");
         }
       })
       .catch((err) => {
         console.error("Menu fetch error:", err);
-        setLoadError(err.message || "Failed to connect to menu service");
+        if (!hasCached) {
+          setLoadError(err.message || "Failed to connect to menu service");
+        }
       })
       .finally(() => setIsLoading(false));
   };
 
   useEffect(() => {
-    fetchMenu();
+    let hasCached = false;
+    try {
+      const cached = localStorage.getItem("cnm_cached_menu");
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setCategories(parsed);
+          setIsLoading(false);
+          hasCached = true;
+        }
+      }
+    } catch (e) {}
+    fetchMenu(hasCached);
   }, []);
 
   // Cart operations
@@ -607,7 +624,7 @@ export default function StorefrontPage() {
                 </p>
                 <button
                   type="button"
-                  onClick={fetchMenu}
+                  onClick={() => fetchMenu(false)}
                   className="btn btn-primary"
                   style={{
                     fontSize: "13px",

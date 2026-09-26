@@ -29,6 +29,7 @@ export function PopularPicksSection({
       className="popular-picks-section"
       style={{
         padding: "16px 0 28px",
+        minHeight: "720px",
       }}
     >
       <div className="container">
@@ -100,13 +101,13 @@ export function PopularPicksSection({
         {/* Responsive Popular Picks Grid */}
         <div className="popular-picks-grid">
           {isLoading ? (
-            [1, 2, 3, 4].map((n) => (
+            [1, 2, 3, 4, 5, 6].map((n) => (
               <div
                 key={`pop-skeleton-${n}`}
                 className="card"
                 style={{
                   padding: "16px",
-                  minHeight: "260px",
+                  minHeight: "290px",
                   backgroundColor: "var(--cnm-surface)",
                   border: "1px solid var(--cnm-border)",
                   borderRadius: "var(--radius-md)",
@@ -118,7 +119,7 @@ export function PopularPicksSection({
                 <div>
                   <div
                     className="skeleton-shimmer"
-                    style={{ width: "100%", height: "105px", borderRadius: "var(--radius-sm)", marginBottom: "8px" }}
+                    style={{ width: "100%", height: "140px", borderRadius: "var(--radius-sm)", marginBottom: "8px" }}
                   />
                   <div className="skeleton-shimmer" style={{ width: "35%", height: "10px", marginBottom: "6px" }} />
                   <div className="skeleton-shimmer" style={{ width: "70%", height: "14px", marginBottom: "6px" }} />

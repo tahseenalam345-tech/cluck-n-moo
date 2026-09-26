@@ -110,8 +110,8 @@ export function BrandLogo({ size = "md", showTagline = true, layout = "horizonta
           <span
             className="brand-logo-badge"
             style={{
-              backgroundColor: "rgba(255, 130, 67, 0.12)",
-              border: "1px solid rgba(255, 130, 67, 0.35)",
+              backgroundColor: "var(--cnm-surface)",
+              border: "1.5px solid var(--cnm-orange)",
               color: "var(--cnm-orange)",
               fontWeight: 800,
               padding: "1px 5px",

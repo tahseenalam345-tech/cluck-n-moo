@@ -156,11 +156,11 @@ export function CustomerHeader({
                 width: "7px",
                 height: "7px",
                 borderRadius: "50%",
-                backgroundColor: storeStatus.isOpen ? "#10b981" : "#ef4444",
-                boxShadow: storeStatus.isOpen ? "0 0 8px #10b981" : "none",
+                backgroundColor: storeStatus.isOpen ? "var(--status-ready)" : "var(--status-cancelled)",
+                boxShadow: storeStatus.isOpen ? "0 0 6px rgba(5, 150, 105, 0.4)" : "none",
               }}
             />
-            <span style={{ fontWeight: 800, color: storeStatus.isOpen ? "#10b981" : "#ef4444" }}>
+            <span style={{ fontWeight: 800, color: storeStatus.isOpen ? "var(--status-ready-text)" : "var(--status-cancelled-text)" }}>
               {storeStatus.isOpen ? "OPEN NOW" : "CLOSED"}
             </span>
             <span style={{ opacity: 0.5 }}>•</span>
@@ -175,11 +175,11 @@ export function CustomerHeader({
                 display: "flex",
                 alignItems: "center",
                 gap: "4px",
-                color: "var(--cnm-orange)",
-                fontWeight: 700,
+                color: "var(--cnm-text-primary)",
+                fontWeight: 750,
               }}
             >
-              <Phone size={11} />
+              <Phone size={11} color="var(--cnm-orange)" />
               <span className="status-phone-text">{BRAND.branch.phone}</span>
             </a>
           </div>
@@ -199,7 +199,7 @@ export function CustomerHeader({
           }}
         >
           {/* Brand Logo */}
-          <Link href="/" aria-label="Cluck N Moo Home" style={{ display: "flex", alignItems: "center", minWidth: 0, flexShrink: 1 }}>
+          <Link href="/" title="Cluck N Moo Home" style={{ display: "flex", alignItems: "center", minWidth: 0, flexShrink: 1 }}>
             <BrandLogo size="md" showTagline={true} />
           </Link>
 

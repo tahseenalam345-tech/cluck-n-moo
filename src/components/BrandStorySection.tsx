@@ -214,13 +214,13 @@ export function BrandStorySection({ isHighlighted = false }: BrandStorySectionPr
                   display: "inline-flex",
                   alignItems: "center",
                   gap: "6px",
-                  color: "var(--cnm-orange)",
+                  color: "var(--cnm-text-primary)",
                   fontSize: "13px",
-                  fontWeight: 700,
+                  fontWeight: 750,
                   marginTop: "4px",
                 }}
               >
-                <Phone size={13} />
+                <Phone size={13} color="var(--cnm-orange)" />
                 <span>Direct Hotline: {BRAND.branch.phone}</span>
               </a>
             </div>
