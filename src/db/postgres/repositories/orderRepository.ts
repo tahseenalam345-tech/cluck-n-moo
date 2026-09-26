@@ -606,10 +606,33 @@ export async function getCustomerOrders(userId: string) {
     .from(orderItems)
     .where(inArray(orderItems.orderId, orderIds));
 
-  const itemsByOrder = new Map<string, typeof items>();
+  const itemIds = items.map((i) => i.id);
+  let modifiers: Array<{ orderItemId: string; modifierName: string; pricePkr: number }> = [];
+  if (itemIds.length > 0) {
+    modifiers = await db
+      .select({
+        orderItemId: orderItemModifiers.orderItemId,
+        modifierName: orderItemModifiers.modifierNameSnapshot,
+        pricePkr: orderItemModifiers.priceSnapshotPkr,
+      })
+      .from(orderItemModifiers)
+      .where(inArray(orderItemModifiers.orderItemId, itemIds));
+  }
+
+  const modifiersByItem = new Map<string, Array<{ name: string; pricePkr: number }>>();
+  for (const m of modifiers) {
+    const list = modifiersByItem.get(m.orderItemId) || [];
+    list.push({ name: m.modifierName, pricePkr: m.pricePkr });
+    modifiersByItem.set(m.orderItemId, list);
+  }
+
+  const itemsByOrder = new Map<string, Array<any>>();
   for (const item of items) {
     const list = itemsByOrder.get(item.orderId) || [];
-    list.push(item);
+    list.push({
+      ...item,
+      modifiers: modifiersByItem.get(item.id) || [],
+    });
     itemsByOrder.set(item.orderId, list);
   }
 
@@ -623,6 +646,16 @@ export async function getCustomerOrders(userId: string) {
     subtotalPkr: o.subtotalPkr,
     deliveryFeePkr: o.deliveryFeePkr,
     discountPkr: o.discountPkr,
+    paymentMethod: o.paymentMethod,
+    paymentStatus: o.paymentStatus,
+    deliveryAddress: o.deliveryAddressSnapshot,
+    deliveryAreaName: o.deliveryAreaNameSnapshot,
+    deliveryLandmark: o.deliveryLandmarkSnapshot,
+    dineInPreferredTime: o.dineInPreferredTime,
+    specialInstructions: o.specialInstructions,
+    customerName: o.customerNameSnapshot,
+    customerPhone: o.customerPhoneSnapshot,
+    cancellationReason: o.cancellationReason,
     createdAt: o.createdAt.toISOString(),
     items: itemsByOrder.get(o.id) || [],
   }));

@@ -1,1389 +1,1232 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CustomerHeader } from "@/components/CustomerHeader";
 import { CustomerFooter } from "@/components/CustomerFooter";
 import { CartDrawer } from "@/components/CartDrawer";
-import { BrandLogo } from "@/components/BrandLogo";
-import { getLocalOrders, LocalOrderRecord, updateLocalOrderStatus } from "@/lib/orderHistory";
-import { CartItem } from "@/types";
+import { createClient } from "@/lib/supabase/client";
+import { getLocalOrders } from "@/lib/orderHistory";
 import { ORDER_STATUSES, BRAND } from "@/lib/constants";
-import { OrderTrackTimeline } from "@/components/OrderTrackTimeline";
+import { CartItem } from "@/types";
 import {
   Clock,
-  PhoneCall,
   MapPin,
   CheckCircle2,
   Bike,
-  ChefHat,
   ShoppingBag,
   ArrowRight,
-  AlertCircle,
-  Sparkles,
-  ChevronDown,
   AlertTriangle,
-  Check,
+  ChevronDown,
+  ChevronUp,
   RefreshCw,
+  Search,
+  Utensils,
+  Phone,
+  Flame,
+  AlertCircle,
+  User,
+  ShieldCheck,
+  Check,
 } from "lucide-react";
+import { ExternalLinkIcon } from "@/components/admin/AdminIcons";
 
-interface OrderDetailItem {
+interface OrderModifier {
+  name: string;
+  pricePkr: number;
+}
+
+interface OrderItem {
   id: string;
-  productId: string;
   productName: string;
-  variantName?: string;
+  variantName?: string | null;
   unitPricePkr: number;
   quantity: number;
   lineTotalPkr: number;
-  customDealId?: string;
-  modifiers?: { id?: string; modifierName?: string; name?: string; pricePkr: number }[];
+  modifiers?: OrderModifier[];
 }
 
-interface OrderDetailHistory {
-  id: string;
-  fromStatus: string;
-  toStatus: string;
-  note?: string;
-  createdAt: string;
-}
-
-interface DetailedOrder {
+interface CustomerOrder {
   id: string;
   orderNumber: string;
   trackingToken: string;
   orderType: "DELIVERY" | "TAKEAWAY" | "DINE_IN" | string;
   status: string;
-  paymentMethod: string;
-  paymentStatus?: string;
-  paymentLocation?: string;
-  customerName?: string;
-  customerPhone?: string;
-  deliveryAreaName?: string;
-  deliveryAddress?: string;
-  deliveryLandmark?: string;
-  dineInPreferredTime?: string;
-  specialInstructions?: string;
-  subtotalPkr: number;
-  deliveryFeePkr: number;
-  discountPkr?: number;
-  discountRate?: number;
-  discountType?: string;
-  customDealSubtotalPkr?: number;
   totalPkr: number;
-  cancellationReason?: string;
+  subtotalPkr?: number;
+  deliveryFeePkr?: number;
+  discountPkr?: number;
+  paymentMethod?: string;
+  paymentStatus?: string;
+  deliveryAddress?: string | null;
+  deliveryAreaName?: string | null;
+  deliveryLandmark?: string | null;
+  dineInPreferredTime?: string | null;
+  specialInstructions?: string | null;
+  customerName?: string | null;
+  customerPhone?: string | null;
+  cancellationReason?: string | null;
   createdAt: string;
-  items: OrderDetailItem[];
-  history: OrderDetailHistory[];
+  items: OrderItem[];
 }
 
-const TIMELINE_STEPS = [
-  { key: ORDER_STATUSES.NEW, label: "Placed", short: "Placed" },
-  { key: ORDER_STATUSES.CONFIRMED, label: "Confirmed", short: "Confirmed" },
-  { key: ORDER_STATUSES.PREPARING, label: "Preparing", short: "Preparing" },
-  { key: ORDER_STATUSES.READY, label: "Ready", short: "Ready" },
-  { key: ORDER_STATUSES.OUT_FOR_DELIVERY, label: "Out for Delivery", short: "Dispatched", deliveryOnly: true },
-  { key: ORDER_STATUSES.COMPLETED, label: "Completed", short: "Completed" },
-];
+const ACTIVE_STATUSES = new Set<string>([
+  ORDER_STATUSES.NEW,
+  ORDER_STATUSES.CONFIRMED,
+  ORDER_STATUSES.PREPARING,
+  ORDER_STATUSES.READY,
+  ORDER_STATUSES.OUT_FOR_DELIVERY,
+]);
 
 export default function TrackOrderPage() {
   const router = useRouter();
 
-  // Local device orders
-  const [localOrders, setLocalOrders] = useState<LocalOrderRecord[]>([]);
-  const [hasLoadedLocal, setHasLoadedLocal] = useState(false);
+  // Auth & customer states
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState<any>(null);
 
-  // Selected order details for live view
-  const [selectedToken, setSelectedToken] = useState<string | null>(null);
-  const [detailedOrder, setDetailedOrder] = useState<DetailedOrder | null>(null);
-  const [isLoadingDetail, setIsLoadingDetail] = useState(false);
-  const [detailError, setDetailError] = useState<string | null>(null);
+  // Orders data
+  const [orders, setOrders] = useState<CustomerOrder[]>([]);
+  const [isLoadingOrders, setIsLoadingOrders] = useState(true);
+  const [ordersError, setOrdersError] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Cart drawer integration for "Order Again"
+  // Expanded card state: set of expanded order IDs (default: all collapsed)
+  const [expandedOrderIds, setExpandedOrderIds] = useState<Set<string>>(new Set());
+
+  // Search & filter
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"ALL" | "ACTIVE" | "COMPLETED">("ALL");
+
+  // Direct manual lookup (for guests or quick lookup)
+  const [manualQuery, setManualQuery] = useState("");
+  const [manualError, setManualError] = useState<string | null>(null);
+  const [isManualSearching, setIsManualSearching] = useState(false);
+
+  // Cart state for "Order Again"
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
-  const [orderAgainNotice, setOrderAgainNotice] = useState<{ message: string; type: "success" | "warning" } | null>(null);
-  const [isReordering, setIsReordering] = useState(false);
 
-  // Secondary manual lookup
-  const [manualToken, setManualToken] = useState("");
-  const [manualLookupError, setManualLookupError] = useState<string | null>(null);
-  const [showManualLookup, setShowManualLookup] = useState(false);
+  // Quick Inline Sign-In state for non-authenticated guests
+  const [showSignInModal, setShowSignInModal] = useState(false);
+  const [authEmail, setAuthEmail] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [isSubmittingAuth, setIsSubmittingAuth] = useState(false);
 
-  // Load local orders on mount
-  useEffect(() => {
-    const orders = getLocalOrders();
-    setLocalOrders(orders);
-    setHasLoadedLocal(true);
+  // Fetch real authenticated customer orders
+  const loadCustomerOrders = useCallback(async (isSilent = false) => {
+    if (!isSilent) setIsLoadingOrders(true);
+    else setIsRefreshing(true);
+    setOrdersError(null);
 
-    // Auto-select the first active order, or the newest one
-    if (orders.length > 0) {
-      const activeOrder = orders.find((o) => o.currentStatus !== ORDER_STATUSES.COMPLETED && o.currentStatus !== ORDER_STATUSES.CANCELLED);
-      setSelectedToken(activeOrder ? activeOrder.trackingToken : orders[0].trackingToken);
+    try {
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      setCurrentUser(user);
+
+      if (user) {
+        // Automatically claim any guest tokens saved locally to this account
+        try {
+          const localOrders = getLocalOrders();
+          const tokens = localOrders.map((o) => o.trackingToken).filter(Boolean);
+          if (tokens.length > 0) {
+            await fetch("/api/v1/account/claim-orders", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ trackingTokens: tokens }),
+            });
+          }
+        } catch {
+          // ignore local claim failures
+        }
+
+        // Fetch real database orders for this customer
+        const res = await fetch("/api/v1/account/orders");
+        const json = await res.json();
+
+        if (json.success && Array.isArray(json.data)) {
+          setOrders(json.data);
+        } else {
+          setOrdersError(json.error?.message || "Failed to load recent orders.");
+        }
+      } else {
+        // User not logged in - check if there are recent guest orders placed on this device
+        const local = getLocalOrders();
+        if (local.length > 0) {
+          // Fetch full real details for these local orders via track API
+          const fetchedOrders: CustomerOrder[] = [];
+          for (const rec of local.slice(0, 5)) {
+            try {
+              const res = await fetch(
+                `/api/v1/orders/${encodeURIComponent(rec.trackingToken)}/track?token=${encodeURIComponent(rec.trackingToken)}`
+              );
+              const trackData = await res.json();
+              if (trackData.success && trackData.data) {
+                const o = trackData.data;
+                fetchedOrders.push({
+                  id: o.id,
+                  orderNumber: o.orderNumber,
+                  trackingToken: o.trackingToken,
+                  orderType: o.orderType,
+                  status: o.status,
+                  totalPkr: o.totalPkr,
+                  subtotalPkr: o.subtotalPkr,
+                  deliveryFeePkr: o.deliveryFeePkr,
+                  discountPkr: o.discountPkr,
+                  paymentMethod: o.paymentMethod,
+                  paymentStatus: o.paymentStatus,
+                  deliveryAddress: o.deliveryAddress,
+                  deliveryAreaName: o.deliveryAreaName,
+                  deliveryLandmark: o.deliveryLandmark,
+                  dineInPreferredTime: o.dineInPreferredTime,
+                  specialInstructions: o.specialInstructions,
+                  customerName: o.customerName,
+                  customerPhone: o.customerPhone,
+                  cancellationReason: o.cancellationReason,
+                  createdAt: o.createdAt,
+                  items: (o.items || []).map((it: any) => ({
+                    id: it.id,
+                    productName: it.productName,
+                    variantName: it.variantName,
+                    unitPricePkr: it.unitPricePkr,
+                    quantity: it.quantity,
+                    lineTotalPkr: it.lineTotalPkr,
+                    modifiers: it.modifiers || [],
+                  })),
+                });
+              }
+            } catch {
+              // ignore individual failure
+            }
+          }
+          setOrders(fetchedOrders);
+        } else {
+          setOrders([]);
+        }
+      }
+    } catch (err: any) {
+      console.error("Failed to load customer orders:", err);
+      setOrdersError("Network error. Could not retrieve orders.");
+    } finally {
+      setIsLoadingOrders(false);
+      setIsAuthLoading(false);
+      setIsRefreshing(false);
     }
   }, []);
 
-  // Fetch detailed tracking info when selectedToken changes
-  const loadOrderDetail = useCallback(async (token: string, silent = false) => {
-    if (!silent) setIsLoadingDetail(true);
-    setDetailError(null);
+  // Initial load on mount
+  useEffect(() => {
+    loadCustomerOrders();
+  }, [loadCustomerOrders]);
+
+  // Periodic polling for active orders (every 8s) to update status live without full reload
+  useEffect(() => {
+    const hasActive = orders.some((o) => ACTIVE_STATUSES.has(o.status));
+    if (!hasActive) return;
+
+    const interval = setInterval(() => {
+      loadCustomerOrders(true);
+    }, 8000);
+
+    return () => clearInterval(interval);
+  }, [orders, loadCustomerOrders]);
+
+  // Toggle order expanded / collapsed
+  const toggleOrderExpand = (orderId: string) => {
+    setExpandedOrderIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(orderId)) {
+        next.delete(orderId);
+      } else {
+        next.add(orderId);
+      }
+      return next;
+    });
+  };
+
+  // Expand all / collapse all
+  const toggleAll = (expand: boolean) => {
+    if (expand) {
+      setExpandedOrderIds(new Set(orders.map((o) => o.id)));
+    } else {
+      setExpandedOrderIds(new Set());
+    }
+  };
+
+  // Direct manual order tracking submission
+  const handleManualSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const query = manualQuery.trim();
+    if (!query) return;
+
+    setIsManualSearching(true);
+    setManualError(null);
 
     try {
-      const res = await fetch(`/api/v1/orders/${token}/track`);
+      const res = await fetch(`/api/v1/orders/${encodeURIComponent(query)}/track`);
       const data = await res.json();
 
       if (data.success && data.data) {
-        setDetailedOrder(data.data);
-        // Sync back status in local history
-        if (data.data.trackingToken && data.data.status) {
-          updateLocalOrderStatus(data.data.trackingToken, data.data.status);
-          setLocalOrders((prev) =>
-            prev.map((o) => (o.trackingToken === data.data.trackingToken ? { ...o, currentStatus: data.data.status } : o))
-          );
-        }
+        // Navigate to the existing designed Live Tracking page with the real reference
+        const targetToken = data.data.trackingToken || data.data.id;
+        router.push(`/order/track/${targetToken}?token=${encodeURIComponent(data.data.trackingToken)}`);
       } else {
-        setDetailError(data.error?.message || "Order details could not be found.");
+        setManualError(data.error?.message || "Order not found. Please verify your order number.");
       }
     } catch {
-      setDetailError("Unable to connect to order tracking service. Please try again.");
+      setManualError("Unable to reach tracking server. Please try again.");
     } finally {
-      if (!silent) setIsLoadingDetail(false);
+      setIsManualSearching(false);
     }
-  }, []);
-
-  useEffect(() => {
-    if (selectedToken) {
-      loadOrderDetail(selectedToken);
-
-      // Periodic fast poll every 3 seconds for active live orders
-      const interval = setInterval(() => {
-        loadOrderDetail(selectedToken, true);
-      }, 3000);
-
-      return () => clearInterval(interval);
-    } else {
-      setDetailedOrder(null);
-    }
-  }, [selectedToken, loadOrderDetail]);
-
-  // Manual lookup handler
-  const handleManualSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    const clean = manualToken.trim();
-    if (!clean) {
-      setManualLookupError("Please enter your Order Number (e.g. CNM-2609-1234) or Tracking Token.");
-      return;
-    }
-    router.push(`/order/track/${clean}`);
   };
 
-  // Order Again handler: reconstruct cart from current database menu prices
-  const handleOrderAgain = async (orderToReorder: DetailedOrder | LocalOrderRecord) => {
-    setIsReordering(true);
-    setOrderAgainNotice(null);
+  // Handle Quick Sign In
+  const handleQuickSignIn = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmittingAuth(true);
+    setAuthError(null);
 
     try {
-      // Fetch full order detail if we only have the local summary record
-      let targetOrder: DetailedOrder;
-      if ("items" in orderToReorder && orderToReorder.items) {
-        targetOrder = orderToReorder;
-      } else {
-        const orderRes = await fetch(`/api/v1/orders/${orderToReorder.trackingToken}/track`);
-        const orderData = await orderRes.json();
-        if (!orderData.success || !orderData.data) {
-          throw new Error("Unable to fetch historical order details.");
-        }
-        targetOrder = orderData.data;
-      }
+      const supabase = createClient();
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: authEmail.trim(),
+        password: authPassword,
+      });
 
-      // Fetch current database menu
-      const menuRes = await fetch("/api/v1/menu");
-      const menuData = await menuRes.json();
-
-      if (!menuRes.ok || !menuData.success || !menuData.data?.categories) {
-        throw new Error("Failed to load current menu to verify availability.");
-      }
-
-      // Flatten active products
-      const allActiveProducts: any[] = menuData.data.categories.flatMap((c: any) => c.products || []);
-
-      const newCartItems: CartItem[] = [];
-      const skippedItems: string[] = [];
-      const priceChanges: string[] = [];
-
-      for (const item of targetOrder.items) {
-        const product = allActiveProducts.find((p) => p.id === item.productId && p.isAvailable);
-
-        if (!product) {
-          skippedItems.push(item.productName);
-          continue;
-        }
-
-        let unitPricePkr = product.basePricePkr;
-        let selectedVariant: any = null;
-
-        // Verify variant if applicable
-        if (item.variantName) {
-          const variant = product.variants?.find((v: any) => v.name === item.variantName && v.isAvailable);
-          if (!variant) {
-            skippedItems.push(`${item.productName} (${item.variantName})`);
-            continue;
-          }
-          selectedVariant = variant;
-          unitPricePkr = variant.pricePkr;
-        }
-
-        // Price change detection
-        if (unitPricePkr !== item.unitPricePkr) {
-          priceChanges.push(`${product.name}: ${item.unitPricePkr} -> ${unitPricePkr} PKR`);
-        }
-
-        // Verify modifiers if applicable
-        const activeModifiers: any[] = [];
-        if (item.modifiers && item.modifiers.length > 0) {
-          const availableModifiers = product.modifierGroups?.flatMap((g: any) => g.modifiers || []) || [];
-          for (const oldMod of item.modifiers) {
-            const modName = oldMod.modifierName || oldMod.name;
-            const validMod = availableModifiers.find((m: any) => m.name === modName && m.isAvailable);
-            if (validMod) {
-              activeModifiers.push(validMod);
-              unitPricePkr += validMod.pricePkr;
-            }
-          }
-        }
-
-        const lineTotalPkr = unitPricePkr * item.quantity;
-
-        newCartItems.push({
-          cartItemId: `reorder_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-          productId: product.id,
-          productName: product.name,
-          variantId: selectedVariant?.id,
-          variantName: selectedVariant?.name,
-          unitPricePkr,
-          quantity: item.quantity,
-          lineTotalPkr,
-          modifiers: activeModifiers,
-          customDealId: undefined, // Custom deal discounts are re-evaluated if re-added
-        });
-      }
-
-      if (newCartItems.length === 0) {
-        setOrderAgainNotice({
-          message: "All items from this past order are currently out of stock or unavailable.",
-          type: "warning",
-        });
+      if (error) {
+        setAuthError(error.message);
         return;
       }
 
-      // Add verified items to cart
-      setCartItems((prev) => [...prev, ...newCartItems]);
-      setIsCartOpen(true);
-
-      let msg = `Added ${newCartItems.reduce((acc, i) => acc + i.quantity, 0)} item(s) to your tray at current menu prices!`;
-      if (skippedItems.length > 0) {
-        msg += ` Skipped unavailable: ${skippedItems.join(", ")}.`;
-      }
-      if (priceChanges.length > 0) {
-        msg += ` Updated prices applied.`;
-      }
-
-      setOrderAgainNotice({
-        message: msg,
-        type: skippedItems.length > 0 ? "warning" : "success",
-      });
+      setShowSignInModal(false);
+      await loadCustomerOrders();
     } catch (err: any) {
-      setOrderAgainNotice({
-        message: err.message || "Failed to reconstruct order into tray.",
-        type: "warning",
-      });
+      setAuthError(err.message || "Failed to sign in.");
     } finally {
-      setIsReordering(false);
+      setIsSubmittingAuth(false);
     }
   };
 
-  // Helper to format timestamps
-  const formatDateTime = (iso: string) => {
-    try {
-      const d = new Date(iso);
-      return d.toLocaleDateString("en-PK", {
-        month: "short",
-        day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-    } catch {
-      return iso;
-    }
-  };
+  // Filtered orders list
+  const filteredOrders = useMemo(() => {
+    return orders.filter((o) => {
+      const matchesSearch =
+        !searchQuery ||
+        o.orderNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        o.items.some((i) => i.productName.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (o.deliveryAddress && o.deliveryAddress.toLowerCase().includes(searchQuery.toLowerCase()));
 
-  // Find actual transition timestamp from history
-  const getStepTimestamp = (stepKey: string, order: DetailedOrder) => {
-    if (stepKey === ORDER_STATUSES.NEW) {
-      return formatDateTime(order.createdAt);
-    }
-    const transition = order.history?.find((h) => h.toStatus === stepKey);
-    return transition ? formatDateTime(transition.createdAt) : null;
-  };
+      if (!matchesSearch) return false;
 
-  // Status visual badge styling
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case ORDER_STATUSES.NEW:
-        return { label: "Placed", bg: "rgba(245, 158, 11, 0.15)", color: "var(--status-new)", border: "var(--status-new)" };
-      case ORDER_STATUSES.CONFIRMED:
-        return { label: "Confirmed", bg: "rgba(59, 130, 246, 0.15)", color: "var(--status-confirmed)", border: "var(--status-confirmed)" };
-      case ORDER_STATUSES.PREPARING:
-        return { label: "Sizzling in Kitchen", bg: "rgba(255, 130, 67, 0.18)", color: "var(--cnm-orange)", border: "var(--cnm-orange)" };
-      case ORDER_STATUSES.READY:
-        return { label: "Ready", bg: "rgba(16, 185, 129, 0.18)", color: "var(--status-ready)", border: "var(--status-ready)" };
-      case ORDER_STATUSES.OUT_FOR_DELIVERY:
-        return { label: "Out for Delivery", bg: "rgba(236, 72, 153, 0.18)", color: "var(--status-delivery)", border: "var(--status-delivery)" };
-      case ORDER_STATUSES.COMPLETED:
-        return { label: "Completed", bg: "rgba(16, 185, 129, 0.12)", color: "var(--status-ready)", border: "rgba(16, 185, 129, 0.3)" };
-      case ORDER_STATUSES.CANCELLED:
-        return { label: "Cancelled", bg: "rgba(239, 68, 68, 0.15)", color: "var(--status-cancelled)", border: "var(--status-cancelled)" };
-      default:
-        return { label: status, bg: "var(--cnm-surface-elevated)", color: "var(--cnm-text-muted)", border: "var(--cnm-border)" };
-    }
-  };
+      if (statusFilter === "ACTIVE") {
+        return ACTIVE_STATUSES.has(o.status);
+      }
+      if (statusFilter === "COMPLETED") {
+        return !ACTIVE_STATUSES.has(o.status);
+      }
+      return true;
+    });
+  }, [orders, searchQuery, statusFilter]);
 
-  const cartCount = cartItems.reduce((acc, itm) => acc + itm.quantity, 0);
-  const cartSubtotal = cartItems.reduce((acc, itm) => acc + itm.lineTotalPkr, 0);
+  // Active orders count
+  const activeCount = useMemo(() => {
+    return orders.filter((o) => ACTIVE_STATUSES.has(o.status)).length;
+  }, [orders]);
+
+  // Order Again handler
+  const handleOrderAgain = (order: CustomerOrder) => {
+    const itemsToAdd: CartItem[] = order.items.map((item) => ({
+      cartItemId: `reorder-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      productId: item.id || `prod-${item.productName}`,
+      productName: item.productName,
+      unitPricePkr: item.unitPricePkr,
+      quantity: item.quantity,
+      lineTotalPkr: item.lineTotalPkr,
+      variantName: item.variantName || undefined,
+      modifiers: (item.modifiers || []).map((m) => ({
+        id: `mod-${m.name}`,
+        name: m.name,
+        pricePkr: m.pricePkr,
+      })),
+      specialInstructions: "",
+    }));
+
+    setCartItems(itemsToAdd);
+    setIsCartOpen(true);
+  };
 
   return (
-    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", backgroundColor: "var(--cnm-bg)" }}>
+    <div
+      style={{
+        backgroundColor: "var(--cnm-bg, #0f1117)",
+        minHeight: "100vh",
+        display: "flex",
+        flexDirection: "column",
+        color: "var(--cnm-text-primary, #ffffff)",
+        fontFamily: "-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Inter, sans-serif",
+      }}
+    >
+      {/* 1. Header with Cart Navigation */}
       <CustomerHeader
-        cartCount={cartCount}
-        cartTotalPkr={cartSubtotal}
+        cartCount={cartItems.reduce((acc, i) => acc + i.quantity, 0)}
+        cartTotalPkr={cartItems.reduce((acc, i) => acc + (i.lineTotalPkr || i.unitPricePkr * i.quantity), 0)}
         onOpenCart={() => setIsCartOpen(true)}
       />
 
-      <main style={{ flex: 1, padding: "28px 0 60px" }}>
-        <div className="container" style={{ maxWidth: "860px" }}>
-
-          {/* 1. TOP CENTER: CNM Brand Header */}
-          <div style={{ textAlign: "center", marginBottom: "28px" }}>
-            <div style={{ display: "inline-flex", justifyContent: "center", marginBottom: "8px" }}>
-              <BrandLogo size="md" showTagline={false} />
+      <main style={{ flex: 1, padding: "24px 16px 48px", maxWidth: "980px", margin: "0 auto", width: "100%" }}>
+        {/* Breadcrumb / Top Info */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px", flexWrap: "wrap", gap: "10px" }}>
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <h1 style={{ fontSize: "1.45rem", fontWeight: 700, margin: 0, letterSpacing: "-0.01em" }}>
+                Track Order
+              </h1>
+              {activeCount > 0 && (
+                <span
+                  style={{
+                    backgroundColor: "rgba(249, 115, 22, 0.15)",
+                    color: "#f97316",
+                    border: "1px solid rgba(249, 115, 22, 0.35)",
+                    fontSize: "0.72rem",
+                    fontWeight: 600,
+                    padding: "2px 8px",
+                    borderRadius: "12px",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "4px",
+                  }}
+                >
+                  <span className="live-pulse-dot" />
+                  {activeCount} {activeCount === 1 ? "Active Order" : "Active Orders"}
+                </span>
+              )}
             </div>
-            <h1
-              style={{
-                fontFamily: "var(--font-display)",
-                fontSize: "28px",
-                fontWeight: 900,
-                color: "var(--cnm-text-primary)",
-                margin: "4px 0 2px",
-                letterSpacing: "0.02em",
-              }}
-            >
-              Cluck N Moo
-            </h1>
-            <p
-              style={{
-                fontFamily: "var(--font-hand)",
-                fontSize: "18px",
-                color: "var(--cnm-orange)",
-                margin: 0,
-                fontWeight: 700,
-              }}
-            >
-              juiciest in town
+            <p style={{ margin: "4px 0 0", fontSize: "0.82rem", color: "var(--cnm-text-muted, #94a3b8)" }}>
+              View and track real-time kitchen progress, live rider status, and past receipts.
             </p>
           </div>
 
-          {/* 2. RESTAURANT CONTACT SECTION */}
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <button
+              type="button"
+              onClick={() => loadCustomerOrders(true)}
+              disabled={isRefreshing}
+              style={{
+                backgroundColor: "var(--cnm-surface, #1e2230)",
+                border: "1px solid var(--cnm-border, rgba(255,255,255,0.08))",
+                color: "var(--cnm-text-primary, #ffffff)",
+                padding: "6px 12px",
+                borderRadius: "6px",
+                fontSize: "0.76rem",
+                fontWeight: 500,
+                cursor: "pointer",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "5px",
+              }}
+              title="Refresh recent orders"
+            >
+              <RefreshCw size={12} className={isRefreshing ? "spin" : ""} />
+              <span>{isRefreshing ? "Syncing..." : "Sync"}</span>
+            </button>
+
+            {!currentUser && (
+              <button
+                type="button"
+                onClick={() => setShowSignInModal(true)}
+                style={{
+                  backgroundColor: "var(--cnm-orange, #f97316)",
+                  color: "#ffffff",
+                  border: "none",
+                  padding: "6px 14px",
+                  borderRadius: "6px",
+                  fontSize: "0.76rem",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "5px",
+                }}
+              >
+                <User size={12} />
+                <span>Customer Sign In</span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* 2. Quick Direct Order Lookup Form */}
+        <div
+          style={{
+            backgroundColor: "var(--cnm-surface, #1e2230)",
+            border: "1px solid var(--cnm-border, rgba(255,255,255,0.08))",
+            borderRadius: "8px",
+            padding: "12px 14px",
+            marginBottom: "20px",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px", flexWrap: "wrap", gap: "4px" }}>
+            <span style={{ fontSize: "0.76rem", fontWeight: 600, color: "var(--cnm-text-primary, #ffffff)", display: "flex", alignItems: "center", gap: "5px" }}>
+              <Search size={13} color="var(--cnm-orange, #f97316)" />
+              <span>Track By Order # or Token:</span>
+            </span>
+            <span style={{ fontSize: "0.7rem", color: "var(--cnm-text-muted, #94a3b8)" }}>
+              e.g. CNM-2609-6587 or 8-character token
+            </span>
+          </div>
+
+          <form onSubmit={handleManualSearch} style={{ display: "flex", gap: "8px" }}>
+            <input
+              type="text"
+              placeholder="Enter Order Number or Tracking Token..."
+              value={manualQuery}
+              onChange={(e) => setManualQuery(e.target.value)}
+              style={{
+                flex: 1,
+                backgroundColor: "var(--cnm-surface-elevated, #161922)",
+                border: "1px solid var(--cnm-border, rgba(255,255,255,0.12))",
+                borderRadius: "6px",
+                padding: "8px 12px",
+                fontSize: "0.82rem",
+                color: "var(--cnm-text-primary, #ffffff)",
+                outline: "none",
+              }}
+            />
+            <button
+              type="submit"
+              disabled={isManualSearching || !manualQuery.trim()}
+              style={{
+                backgroundColor: "var(--cnm-orange, #f97316)",
+                color: "#ffffff",
+                border: "none",
+                borderRadius: "6px",
+                padding: "8px 16px",
+                fontSize: "0.8rem",
+                fontWeight: 600,
+                cursor: !manualQuery.trim() || isManualSearching ? "not-allowed" : "pointer",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "5px",
+                opacity: !manualQuery.trim() || isManualSearching ? 0.6 : 1,
+                whiteSpace: "nowrap",
+              }}
+            >
+              {isManualSearching ? (
+                <>
+                  <RefreshCw size={13} className="spin" />
+                  <span>Tracking...</span>
+                </>
+              ) : (
+                <>
+                  <span>Track Live</span>
+                  <ArrowRight size={13} />
+                </>
+              )}
+            </button>
+          </form>
+
+          {manualError && (
+            <div style={{ marginTop: "8px", fontSize: "0.76rem", color: "#ef4444", display: "flex", alignItems: "center", gap: "4px" }}>
+              <AlertCircle size={12} />
+              <span>{manualError}</span>
+            </div>
+          )}
+        </div>
+
+        {/* 3. Non-Authenticated Banner (Prompts Sign In to see full account orders) */}
+        {!isAuthLoading && !currentUser && (
           <div
-            className="card"
             style={{
-              padding: "14px 16px",
-              marginBottom: "28px",
-              backgroundColor: "var(--cnm-surface)",
-              border: "1px solid var(--cnm-border)",
-              borderRadius: "var(--radius-lg)",
+              backgroundColor: "rgba(59, 130, 246, 0.08)",
+              border: "1px solid rgba(59, 130, 246, 0.25)",
+              borderRadius: "8px",
+              padding: "10px 14px",
+              marginBottom: "16px",
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
               flexWrap: "wrap",
-              gap: "16px",
+              gap: "8px",
             }}
           >
-            <div style={{ display: "flex", alignItems: "flex-start", gap: "14px", maxWidth: "560px" }}>
-              <div
-                style={{
-                  width: "40px",
-                  height: "40px",
-                  borderRadius: "var(--radius-md)",
-                  backgroundColor: "rgba(255, 130, 67, 0.12)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: "var(--cnm-orange)",
-                  flexShrink: 0,
-                }}
-              >
-                <MapPin size={22} />
-              </div>
-              <div>
-                <h2
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <ShieldCheck size={16} color="#60a5fa" />
+              <span style={{ fontSize: "0.78rem", color: "var(--cnm-text-primary, #ffffff)" }}>
+                Sign in to view your complete order history and save delivery addresses.
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowSignInModal(true)}
+              style={{
+                backgroundColor: "#3b82f6",
+                color: "#ffffff",
+                border: "none",
+                padding: "5px 12px",
+                borderRadius: "5px",
+                fontSize: "0.74rem",
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              Sign In to Account
+            </button>
+          </div>
+        )}
+
+        {/* 4. Controls Bar: Filter tabs & Search */}
+        {orders.length > 0 && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              flexWrap: "wrap",
+              gap: "10px",
+              marginBottom: "14px",
+            }}
+          >
+            {/* Filter Tabs */}
+            <div style={{ display: "flex", gap: "6px" }}>
+              {(["ALL", "ACTIVE", "COMPLETED"] as const).map((tab) => (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => setStatusFilter(tab)}
                   style={{
-                    fontSize: "14.5px",
-                    fontWeight: 800,
-                    color: "var(--cnm-text-primary)",
-                    marginBottom: "3px",
+                    backgroundColor:
+                      statusFilter === tab
+                        ? "var(--cnm-orange, #f97316)"
+                        : "var(--cnm-surface, #1e2230)",
+                    color: statusFilter === tab ? "#ffffff" : "var(--cnm-text-muted, #94a3b8)",
+                    border: "1px solid var(--cnm-border, rgba(255,255,255,0.08))",
+                    padding: "5px 12px",
+                    borderRadius: "6px",
+                    fontSize: "0.74rem",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    transition: "all 0.15s ease",
                   }}
                 >
-                  Cluck N Moo Kharian Branch
-                </h2>
-                <p style={{ fontSize: "12.5px", color: "var(--cnm-text-muted)", margin: "0 0 4px", lineHeight: 1.4 }}>
-                  Main GT Road, near Total Petrol Station / Raza CNG, Kharian, Pakistan
-                </p>
-                <div style={{ display: "flex", alignItems: "center", gap: "10px", fontSize: "12px", color: "var(--cnm-text-subtle)" }}>
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
-                    <Clock size={13} color="var(--cnm-orange)" /> Daily: 12:01 PM – 02:00 AM
-                  </span>
-                  <span>•</span>
-                  <span>0302-1949067</span>
-                </div>
-              </div>
+                  {tab === "ALL" ? `All (${orders.length})` : tab === "ACTIVE" ? `Active (${activeCount})` : "Completed"}
+                </button>
+              ))}
             </div>
 
-            <a
-              href="tel:03021949067"
-              className="btn btn-primary"
+            {/* Expand / Collapse All Toggle */}
+            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+              <button
+                type="button"
+                onClick={() => toggleAll(expandedOrderIds.size === 0)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: "var(--cnm-text-muted, #94a3b8)",
+                  fontSize: "0.72rem",
+                  fontWeight: 500,
+                  cursor: "pointer",
+                  textDecoration: "underline",
+                  padding: "4px 6px",
+                }}
+              >
+                {expandedOrderIds.size === 0 ? "Expand All" : "Collapse All"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* 5. Orders List States */}
+        {isLoadingOrders ? (
+          /* Loading Skeletons */
+          <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+            {[1, 2, 3].map((n) => (
+              <div
+                key={n}
+                className="order-row-skeleton"
+                style={{
+                  height: "64px",
+                  borderRadius: "8px",
+                  backgroundColor: "var(--cnm-surface, #1e2230)",
+                  border: "1px solid var(--cnm-border, rgba(255,255,255,0.06))",
+                }}
+              />
+            ))}
+          </div>
+        ) : ordersError ? (
+          /* Error State with Retry Button */
+          <div
+            style={{
+              padding: "24px 20px",
+              textAlign: "center",
+              backgroundColor: "rgba(239, 68, 68, 0.08)",
+              border: "1px solid rgba(239, 68, 68, 0.25)",
+              borderRadius: "8px",
+            }}
+          >
+            <AlertTriangle size={24} color="#ef4444" style={{ margin: "0 auto 8px" }} />
+            <h3 style={{ fontSize: "0.95rem", fontWeight: 600, margin: "0 0 6px" }}>
+              Unable to load orders
+            </h3>
+            <p style={{ fontSize: "0.78rem", color: "var(--cnm-text-muted, #94a3b8)", margin: "0 0 14px" }}>
+              {ordersError}
+            </p>
+            <button
+              type="button"
+              onClick={() => loadCustomerOrders()}
               style={{
-                padding: "10px 18px",
-                fontSize: "13.5px",
-                fontWeight: 800,
-                borderRadius: "var(--radius-full)",
+                backgroundColor: "#ef4444",
+                color: "#ffffff",
+                border: "none",
+                padding: "7px 16px",
+                borderRadius: "6px",
+                fontSize: "0.76rem",
+                fontWeight: 600,
+                cursor: "pointer",
                 display: "inline-flex",
                 alignItems: "center",
-                gap: "8px",
-                textDecoration: "none",
-                flexShrink: 0,
+                gap: "5px",
               }}
             >
-              <PhoneCall size={16} />
-              <span>Call Branch</span>
-            </a>
+              <RefreshCw size={12} />
+              <span>Retry</span>
+            </button>
           </div>
-
-          {/* Feedback Notice for Order Again */}
-          {orderAgainNotice && (
-            <div
+        ) : filteredOrders.length === 0 ? (
+          /* Empty State */
+          <div
+            style={{
+              padding: "48px 20px",
+              textAlign: "center",
+              backgroundColor: "var(--cnm-surface, #1e2230)",
+              border: "1px dashed var(--cnm-border, rgba(255,255,255,0.1))",
+              borderRadius: "8px",
+            }}
+          >
+            <ShoppingBag size={36} color="var(--cnm-text-muted, #94a3b8)" style={{ margin: "0 auto 12px" }} />
+            <h3 style={{ fontSize: "1.05rem", fontWeight: 700, margin: "0 0 6px" }}>
+              No recent orders found
+            </h3>
+            <p style={{ fontSize: "0.8rem", color: "var(--cnm-text-muted, #94a3b8)", maxWidth: "340px", margin: "0 auto 18px" }}>
+              {searchQuery
+                ? "No orders matched your search query. Try searching by order number."
+                : currentUser
+                ? "You haven't placed any orders yet. Fresh, hot gourmet meals are waiting!"
+                : "No orders found on this device. Sign in to view your account orders or track using your order number above."}
+            </p>
+            <Link
+              href="/menu"
               style={{
-                marginBottom: "20px",
-                padding: "12px 16px",
-                borderRadius: "var(--radius-md)",
-                backgroundColor:
-                  orderAgainNotice.type === "success" ? "rgba(16, 185, 129, 0.12)" : "rgba(245, 158, 11, 0.12)",
-                border: `1px solid ${
-                  orderAgainNotice.type === "success" ? "var(--status-ready)" : "var(--status-new)"
-                }`,
-                color: orderAgainNotice.type === "success" ? "var(--status-ready)" : "var(--status-new)",
-                fontSize: "13.5px",
-                display: "flex",
+                display: "inline-flex",
                 alignItems: "center",
-                gap: "8px",
+                gap: "6px",
+                backgroundColor: "var(--cnm-orange, #f97316)",
+                color: "#ffffff",
+                padding: "8px 18px",
+                borderRadius: "6px",
+                fontWeight: 600,
+                fontSize: "0.82rem",
+                textDecoration: "none",
               }}
             >
-              {orderAgainNotice.type === "success" ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}
-              <span>{orderAgainNotice.message}</span>
-            </div>
-          )}
-
-          {/* 3. RECENT ORDERS SECTION */}
-          <div style={{ marginBottom: "32px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                <h2 style={{ fontFamily: "var(--font-display)", fontSize: "20px", fontWeight: 850, color: "var(--cnm-text-primary)" }}>
-                  Your Recent Orders
-                </h2>
-                {localOrders.length > 0 && (
-                  <span
-                    style={{
-                      fontSize: "11px",
-                      fontWeight: 800,
-                      backgroundColor: "var(--cnm-surface-elevated)",
-                      color: "var(--cnm-text-muted)",
-                      padding: "2px 8px",
-                      borderRadius: "var(--radius-full)",
-                      border: "1px solid var(--cnm-border)",
-                    }}
-                  >
-                    This Device
-                  </span>
-                )}
-              </div>
-
-              {localOrders.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => selectedToken && loadOrderDetail(selectedToken, true)}
-                  disabled={isLoadingDetail}
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: "6px",
-                    background: "none",
-                    border: "none",
-                    color: "var(--cnm-text-muted)",
-                    fontSize: "12.5px",
-                    cursor: "pointer",
-                    padding: "4px 8px",
-                  }}
-                >
-                  <RefreshCw size={13} className={isLoadingDetail ? "spin" : ""} />
-                  <span>Refresh</span>
-                </button>
-              )}
-            </div>
-
-            {hasLoadedLocal && localOrders.length === 0 ? (
-              /* EMPTY STATE */
-              <div
-                className="card"
-                style={{
-                  padding: "44px 20px",
-                  textAlign: "center",
-                  backgroundColor: "var(--cnm-surface)",
-                  border: "1px dashed var(--cnm-border)",
-                  borderRadius: "var(--radius-lg)",
-                }}
-              >
-                <div
-                  style={{
-                    width: "56px",
-                    height: "56px",
-                    borderRadius: "50%",
-                    backgroundColor: "rgba(255, 130, 67, 0.1)",
-                    display: "inline-flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    color: "var(--cnm-orange)",
-                    marginBottom: "14px",
-                  }}
-                >
-                  <ShoppingBag size={28} />
-                </div>
-                <h3 style={{ fontSize: "17px", fontWeight: 800, color: "var(--cnm-text-primary)", marginBottom: "6px" }}>
-                  No Recent Orders Found
-                </h3>
-                <p style={{ fontSize: "13.5px", color: "var(--cnm-text-muted)", maxWidth: "420px", margin: "0 auto 20px" }}>
-                  You haven&apos;t placed any orders on this device yet. Browse our verified menu or build a custom deal to get started!
-                </p>
-                <div style={{ display: "flex", justifyContent: "center", gap: "12px", flexWrap: "wrap" }}>
-                  <Link
-                    href="/"
-                    className="btn btn-primary"
-                    style={{ padding: "11px 22px", fontSize: "14px", fontWeight: 800, borderRadius: "var(--radius-full)" }}
-                  >
-                    <span>Start an Order</span>
-                    <ArrowRight size={16} />
-                  </Link>
-                  <Link
-                    href="/deals"
-                    className="btn btn-secondary"
-                    style={{ padding: "11px 20px", fontSize: "14px", fontWeight: 700, borderRadius: "var(--radius-full)" }}
-                  >
-                    <span>Build Your Own Deal</span>
-                  </Link>
-                </div>
-              </div>
-            ) : (
-              /* LIST OF LOCAL DEVICE ORDERS */
-              <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "12px" }}>
-                {localOrders.map((order) => {
-                  const isSelected = selectedToken === order.trackingToken;
-                  const isCompleted = order.currentStatus === ORDER_STATUSES.COMPLETED;
-                  const badge = getStatusBadge(order.currentStatus);
-
-                  return (
-                    <div
-                      key={order.trackingToken}
-                      className="card"
-                      onClick={() => setSelectedToken(order.trackingToken)}
-                      style={{
-                        padding: "12px 14px",
-                        backgroundColor: isSelected
-                          ? "var(--cnm-surface-elevated)"
-                          : isCompleted
-                          ? "rgba(23, 23, 23, 0.65)"
-                          : "var(--cnm-surface)",
-                        border: isSelected
-                          ? "1.5px solid var(--cnm-orange)"
-                          : "1px solid var(--cnm-border)",
-                        borderRadius: "var(--radius-md)",
-                        cursor: "pointer",
-                        opacity: isCompleted && !isSelected ? 0.85 : 1,
-                        transition: "all 0.15s ease-in-out",
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: "10px",
-                      }}
-                    >
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "8px" }}>
-                        <div>
-                          <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
-                            <span
-                              style={{
-                                fontFamily: "var(--font-display)",
-                                fontSize: "16px",
-                                fontWeight: 900,
-                                color: "var(--cnm-text-primary)",
-                                letterSpacing: "0.02em",
-                              }}
-                            >
-                              {order.orderNumber}
-                            </span>
-
-                            <span
-                              style={{
-                                fontSize: "11px",
-                                fontWeight: 800,
-                                textTransform: "uppercase",
-                                padding: "2px 7px",
-                                borderRadius: "var(--radius-xs)",
-                                backgroundColor:
-                                  order.orderType === "delivery"
-                                    ? "rgba(255, 130, 67, 0.15)"
-                                    : order.orderType === "dine_in"
-                                    ? "rgba(59, 130, 246, 0.15)"
-                                    : "rgba(16, 185, 129, 0.15)",
-                                color:
-                                  order.orderType === "delivery"
-                                    ? "var(--cnm-orange)"
-                                    : order.orderType === "dine_in"
-                                    ? "var(--status-confirmed)"
-                                    : "var(--status-ready)",
-                              }}
-                            >
-                              {order.orderType.replace("_", " ")}
-                            </span>
-                          </div>
-
-                          <span style={{ fontSize: "12px", color: "var(--cnm-text-muted)" }}>
-                            {formatDateTime(order.createdAt)}
-                          </span>
-                        </div>
-
-                        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                          <span
-                            style={{
-                              fontSize: "12px",
-                              fontWeight: 800,
-                              padding: "3px 9px",
-                              borderRadius: "var(--radius-full)",
-                              backgroundColor: badge.bg,
-                              color: badge.color,
-                              border: `1px solid ${badge.border}`,
-                              display: "inline-flex",
-                              alignItems: "center",
-                              gap: "4px",
-                            }}
-                          >
-                            <span
-                              style={{
-                                width: "6px",
-                                height: "6px",
-                                borderRadius: "50%",
-                                backgroundColor: badge.color,
-                              }}
-                            />
-                            {badge.label}
-                          </span>
-
-                          <span
-                            style={{
-                              fontFamily: "var(--font-display)",
-                              fontSize: "16px",
-                              fontWeight: 900,
-                              color: "var(--cnm-orange)",
-                            }}
-                          >
-                            {order.finalTotalPkr.toLocaleString()} PKR
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Items preview snippet */}
-                      <div
-                        style={{
-                          fontSize: "12.5px",
-                          color: isCompleted ? "var(--cnm-text-subtle)" : "var(--cnm-text-muted)",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {order.itemsSummary || `${order.itemCount} item(s)`}
-                      </div>
-
-                      {/* Actions Bar for Card */}
-                      <div
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "center",
-                          paddingTop: "8px",
-                          borderTop: "1px solid var(--cnm-border)",
-                          fontSize: "12px",
-                        }}
-                      >
-                        <span style={{ color: isSelected ? "var(--cnm-orange)" : "var(--cnm-text-muted)", fontWeight: 700 }}>
-                          {isSelected ? "● Viewing live tracking below" : "Tap to view live tracking"}
-                        </span>
-
-                        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                          {isCompleted && (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleOrderAgain(order);
-                              }}
-                              disabled={isReordering}
-                              className="btn btn-secondary"
-                              style={{
-                                padding: "4px 12px",
-                                fontSize: "11.5px",
-                                fontWeight: 800,
-                                borderRadius: "var(--radius-full)",
-                                display: "inline-flex",
-                                alignItems: "center",
-                                gap: "5px",
-                              }}
-                            >
-                              <RefreshCw size={12} className={isReordering ? "spin" : ""} />
-                              <span>Order Again</span>
-                            </button>
-                          )}
-                          <ChevronDown
-                            size={16}
-                            color={isSelected ? "var(--cnm-orange)" : "var(--cnm-text-muted)"}
-                            style={{
-                              transform: isSelected ? "rotate(180deg)" : "rotate(0deg)",
-                              transition: "transform 0.2s ease",
-                            }}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+              <span>Explore Our Menu</span>
+              <ArrowRight size={14} />
+            </Link>
           </div>
+        ) : (
+          /* 6. Compact Collapsed Orders List */
+          <div style={{ display: "flex", flexDirection: "column", gap: "9px" }}>
+            {filteredOrders.map((order) => {
+              const isExpanded = expandedOrderIds.has(order.id);
+              const isActive = ACTIVE_STATUSES.has(order.status);
+              const itemCount = order.items.reduce((acc, i) => acc + (i.quantity || 1), 0);
 
-          {/* 4 & 5. SELECTED ORDER DETAIL & LIVE TIMELINE */}
-          {selectedToken && (
-            <div
-              id="selected-order-details"
-              style={{
-                backgroundColor: "var(--cnm-surface)",
-                border: "1px solid var(--cnm-border)",
-                borderRadius: "var(--radius-lg)",
-                padding: "16px 14px",
-                marginBottom: "32px",
-                boxShadow: "0 8px 32px rgba(0, 0, 0, 0.4)",
-              }}
-            >
-              {isLoadingDetail && !detailedOrder ? (
-                <div style={{ textAlign: "center", padding: "48px 20px" }}>
-                  <RefreshCw className="spin" size={32} color="var(--cnm-orange)" style={{ margin: "0 auto 12px" }} />
-                  <p style={{ fontSize: "14px", color: "var(--cnm-text-muted)" }}>Loading order details...</p>
-                </div>
-              ) : detailError ? (
-                <div style={{ textAlign: "center", padding: "32px 20px" }}>
-                  <AlertTriangle size={36} color="var(--status-cancelled)" style={{ margin: "0 auto 12px" }} />
-                  <h3 style={{ fontSize: "16px", color: "var(--cnm-text-primary)", marginBottom: "6px" }}>
-                    Unable to Load Order
-                  </h3>
-                  <p style={{ fontSize: "13px", color: "var(--cnm-text-muted)", marginBottom: "16px" }}>{detailError}</p>
-                  <button
-                    type="button"
-                    onClick={() => loadOrderDetail(selectedToken)}
-                    className="btn btn-secondary"
-                    style={{ fontSize: "13px" }}
-                  >
-                    Try Again
-                  </button>
-                </div>
-              ) : detailedOrder ? (
-                <div>
-                  {/* Detailed Header */}
+              // Status badges & colors
+              const statusCfg = getStatusConfig(order.status);
+
+              return (
+                <div
+                  key={order.id}
+                  className="order-card-container"
+                  style={{
+                    backgroundColor: "var(--cnm-surface, #1e2230)",
+                    border: isActive
+                      ? "1.5px solid rgba(249, 115, 22, 0.4)"
+                      : "1px solid var(--cnm-border, rgba(255,255,255,0.08))",
+                    borderRadius: "8px",
+                    overflow: "hidden",
+                    transition: "border-color 0.15s ease",
+                  }}
+                >
+                  {/* Collapsed Row Header (Clicking expands inline) */}
                   <div
+                    onClick={() => toggleOrderExpand(order.id)}
                     style={{
+                      padding: "10px 14px",
                       display: "flex",
+                      alignItems: "center",
                       justifyContent: "space-between",
-                      alignItems: "flex-start",
-                      flexWrap: "wrap",
-                      gap: "12px",
-                      marginBottom: "20px",
-                      borderBottom: "1px solid var(--cnm-border)",
-                      paddingBottom: "16px",
+                      cursor: "pointer",
+                      gap: "10px",
+                      userSelect: "none",
+                      backgroundColor: isExpanded
+                        ? "var(--cnm-surface-elevated, #161922)"
+                        : "transparent",
                     }}
                   >
-                    <div>
-                      <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
-                        <span style={{ fontSize: "12px", color: "var(--cnm-text-muted)", textTransform: "uppercase", fontWeight: 700 }}>
-                          Order Reference
-                        </span>
-                        <span
-                          style={{
-                            fontSize: "11px",
-                            fontWeight: 800,
-                            padding: "2px 7px",
-                            borderRadius: "var(--radius-xs)",
-                            backgroundColor: "var(--cnm-surface-elevated)",
-                            color: "var(--cnm-text-secondary)",
-                            border: "1px solid var(--cnm-border)",
-                          }}
-                        >
-                          {detailedOrder.orderType}
+                    {/* Left: Order #, Type Badge, Placed Time */}
+                    <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                        {isActive && <span className="live-pulse-dot" />}
+                        <span style={{ fontSize: "0.88rem", fontWeight: 700, letterSpacing: "0.01em" }}>
+                          {order.orderNumber}
                         </span>
                       </div>
-                      <h3
+
+                      {/* Type Badge */}
+                      <span
                         style={{
-                          fontFamily: "var(--font-display)",
-                          fontSize: "24px",
-                          fontWeight: 900,
-                          color: "var(--cnm-text-primary)",
-                          letterSpacing: "0.02em",
+                          fontSize: "0.68rem",
+                          fontWeight: 600,
+                          padding: "2px 6px",
+                          borderRadius: "4px",
+                          backgroundColor:
+                            order.orderType === "DELIVERY"
+                              ? "rgba(59, 130, 246, 0.12)"
+                              : "rgba(16, 185, 129, 0.12)",
+                          color: order.orderType === "DELIVERY" ? "#60a5fa" : "#10b981",
+                          border:
+                            order.orderType === "DELIVERY"
+                              ? "1px solid rgba(59, 130, 246, 0.25)"
+                              : "1px solid rgba(16, 185, 129, 0.25)",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "3px",
+                          textTransform: "uppercase",
                         }}
                       >
-                        {detailedOrder.orderNumber}
-                      </h3>
-                      <span style={{ fontSize: "12px", color: "var(--cnm-text-muted)" }}>
-                        Placed on {formatDateTime(detailedOrder.createdAt)}
+                        {order.orderType === "DELIVERY" ? <Bike size={10} /> : <ShoppingBag size={10} />}
+                        {order.orderType}
+                      </span>
+
+                      {/* Date & Time */}
+                      <span
+                        style={{
+                          fontSize: "0.72rem",
+                          color: "var(--cnm-text-muted, #94a3b8)",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "3px",
+                        }}
+                      >
+                        <Clock size={11} />
+                        {new Date(order.createdAt).toLocaleDateString("en-GB", {
+                          day: "2-digit",
+                          month: "short",
+                        })}
+                        {" • "}
+                        {new Date(order.createdAt).toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
                       </span>
                     </div>
 
-                    <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                      {detailedOrder.status === ORDER_STATUSES.COMPLETED && (
-                        <button
-                          type="button"
-                          onClick={() => handleOrderAgain(detailedOrder)}
-                          disabled={isReordering}
-                          className="btn btn-primary"
-                          style={{
-                            padding: "8px 16px",
-                            fontSize: "13px",
-                            fontWeight: 800,
-                            borderRadius: "var(--radius-full)",
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: "6px",
-                          }}
-                        >
-                          <RefreshCw size={14} className={isReordering ? "spin" : ""} />
-                          <span>{isReordering ? "Verifying..." : "Order Again"}</span>
-                        </button>
-                      )}
+                    {/* Right: Items Count, Total PKR, Status Badge, Chevron */}
+                    <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                      <span
+                        style={{
+                          fontSize: "0.74rem",
+                          color: "var(--cnm-text-muted, #94a3b8)",
+                          whiteSpace: "nowrap",
+                        }}
+                        className="hide-on-compact"
+                      >
+                        {itemCount} {itemCount === 1 ? "item" : "items"}
+                      </span>
+
+                      <span
+                        style={{
+                          fontSize: "0.88rem",
+                          fontWeight: 700,
+                          color: "var(--cnm-orange, #f97316)",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        PKR {order.totalPkr?.toLocaleString()}
+                      </span>
+
+                      {/* Status Badge */}
+                      <span
+                        style={{
+                          fontSize: "0.68rem",
+                          fontWeight: 600,
+                          padding: "3px 8px",
+                          borderRadius: "4px",
+                          backgroundColor: statusCfg.bg,
+                          color: statusCfg.color,
+                          border: `1px solid ${statusCfg.border}`,
+                          textTransform: "uppercase",
+                          letterSpacing: "0.02em",
+                          whiteSpace: "nowrap",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "4px",
+                        }}
+                      >
+                        {statusCfg.icon}
+                        <span>{statusCfg.label}</span>
+                      </span>
+
+                      {/* Expand / Collapse Chevron */}
+                      <div
+                        style={{
+                          color: "var(--cnm-text-muted, #94a3b8)",
+                          display: "flex",
+                          alignItems: "center",
+                        }}
+                      >
+                        {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                      </div>
                     </div>
                   </div>
 
-                  {/* 4. CURRENT STATUS CARD */}
-                  {(() => {
-                    const badge = getStatusBadge(detailedOrder.status);
-                    return (
+                  {/* 7. Inline Expanded Details Section */}
+                  {isExpanded && (
+                    <div
+                      style={{
+                        padding: "14px",
+                        borderTop: "1px solid var(--cnm-border, rgba(255,255,255,0.06))",
+                        backgroundColor: "var(--cnm-surface-elevated, #161922)",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "14px",
+                      }}
+                    >
+                      {/* Active Order Live Tracking Prompt Banner */}
+                      {isActive && (
+                        <div
+                          style={{
+                            padding: "10px 14px",
+                            backgroundColor: "rgba(249, 115, 22, 0.12)",
+                            border: "1px solid rgba(249, 115, 22, 0.35)",
+                            borderRadius: "7px",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            flexWrap: "wrap",
+                            gap: "8px",
+                          }}
+                        >
+                          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                            <Flame size={18} color="#f97316" />
+                            <div>
+                              <span style={{ fontSize: "0.82rem", fontWeight: 700, color: "#ffffff", display: "block" }}>
+                                Live Order In Progress
+                              </span>
+                              <span style={{ fontSize: "0.72rem", color: "var(--cnm-text-muted, #94a3b8)" }}>
+                                Station: <strong>{statusCfg.label}</strong> • Click below to see live updates
+                              </span>
+                            </div>
+                          </div>
+
+                          <Link
+                            href={`/order/track/${order.trackingToken || order.id}?token=${encodeURIComponent(order.trackingToken)}`}
+                            style={{
+                              backgroundColor: "var(--cnm-orange, #f97316)",
+                              color: "#ffffff",
+                              padding: "6px 14px",
+                              borderRadius: "6px",
+                              fontSize: "0.78rem",
+                              fontWeight: 600,
+                              textDecoration: "none",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "5px",
+                              boxShadow: "0 2px 6px rgba(249, 115, 22, 0.3)",
+                            }}
+                          >
+                            <Bike size={13} />
+                            <span>View Live Tracking</span>
+                            <ArrowRight size={12} />
+                          </Link>
+                        </div>
+                      )}
+
+                      {/* Current Status Progress Timeline */}
+                      <OrderProgressTimeline status={order.status} orderType={order.orderType} />
+
+                      {/* Two Column Grid: Items List + Delivery & Payment Details */}
                       <div
                         style={{
-                          backgroundColor: badge.bg,
-                          border: `1.5px solid ${badge.border}`,
-                          borderRadius: "var(--radius-md)",
-                          padding: "16px 20px",
-                          marginBottom: "24px",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                          flexWrap: "wrap",
+                          display: "grid",
+                          gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
                           gap: "12px",
                         }}
                       >
-                        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                          {detailedOrder.status === ORDER_STATUSES.COMPLETED ? (
-                            <CheckCircle2 size={24} color={badge.color} />
-                          ) : detailedOrder.status === ORDER_STATUSES.PREPARING ? (
-                            <ChefHat size={24} color={badge.color} />
-                          ) : detailedOrder.status === ORDER_STATUSES.OUT_FOR_DELIVERY ? (
-                            <Bike size={24} color={badge.color} />
-                          ) : detailedOrder.status === ORDER_STATUSES.CANCELLED ? (
-                            <AlertTriangle size={24} color={badge.color} />
-                          ) : (
-                            <Clock size={24} color={badge.color} />
-                          )}
-                          <div>
-                            <span style={{ fontSize: "11px", fontWeight: 800, textTransform: "uppercase", color: badge.color, letterSpacing: "0.05em" }}>
-                              CURRENT ORDER STATUS
-                            </span>
-                            <h4
-                              style={{
-                                fontFamily: "var(--font-display)",
-                                fontSize: "18px",
-                                fontWeight: 900,
-                                color: "var(--cnm-text-primary)",
-                                margin: "2px 0 0",
-                              }}
-                            >
-                              {badge.label}
-                            </h4>
+                        {/* Column 1: Ordered Items */}
+                        <div
+                          style={{
+                            backgroundColor: "var(--cnm-surface, #1e2230)",
+                            border: "1px solid var(--cnm-border, rgba(255,255,255,0.06))",
+                            borderRadius: "6px",
+                            padding: "10px 12px",
+                          }}
+                        >
+                          <span
+                            style={{
+                              fontSize: "0.72rem",
+                              fontWeight: 600,
+                              textTransform: "uppercase",
+                              color: "var(--cnm-text-muted, #94a3b8)",
+                              display: "block",
+                              marginBottom: "8px",
+                              letterSpacing: "0.03em",
+                            }}
+                          >
+                            Items Ordered ({order.items.length})
+                          </span>
+
+                          <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                            {order.items.map((item, idx) => (
+                              <div
+                                key={idx}
+                                style={{
+                                  padding: "6px 8px",
+                                  backgroundColor: "var(--cnm-surface-elevated, #161922)",
+                                  borderRadius: "5px",
+                                  fontSize: "0.78rem",
+                                }}
+                              >
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                                  <div>
+                                    <span style={{ fontWeight: 700, color: "var(--cnm-orange, #f97316)", marginRight: "5px" }}>
+                                      {item.quantity}x
+                                    </span>
+                                    <span style={{ fontWeight: 600 }}>{item.productName}</span>
+                                    {item.variantName && (
+                                      <span style={{ fontSize: "0.72rem", color: "#60a5fa", marginLeft: "4px" }}>
+                                        ({item.variantName})
+                                      </span>
+                                    )}
+                                  </div>
+                                  <span style={{ fontWeight: 600, whiteSpace: "nowrap" }}>
+                                    PKR {item.lineTotalPkr?.toLocaleString()}
+                                  </span>
+                                </div>
+
+                                {/* Modifiers list */}
+                                {item.modifiers && item.modifiers.length > 0 && (
+                                  <div style={{ display: "flex", flexWrap: "wrap", gap: "3px", marginTop: "3px", marginLeft: "20px" }}>
+                                    {item.modifiers.map((m, mIdx) => (
+                                      <span
+                                        key={mIdx}
+                                        style={{
+                                          fontSize: "0.66rem",
+                                          color: "#f97316",
+                                          backgroundColor: "rgba(249, 115, 22, 0.08)",
+                                          padding: "1px 4px",
+                                          borderRadius: "3px",
+                                        }}
+                                      >
+                                        + {m.name}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
                           </div>
                         </div>
 
-                        {detailedOrder.cancellationReason && (
-                          <div style={{ fontSize: "12px", color: "var(--status-cancelled)", fontWeight: 600 }}>
-                            Reason: {detailedOrder.cancellationReason}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })()}
-
-                  {/* STATUS TIMELINE TRAIN TRACK */}
-                  {detailedOrder.status !== ORDER_STATUSES.CANCELLED && (
-                    <div style={{ marginBottom: "20px" }}>
-                      <OrderTrackTimeline order={detailedOrder as any} />
-                    </div>
-                  )}
-
-                  {/* 5. ORDER DETAILS */}
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-                      gap: "20px",
-                      marginBottom: "24px",
-                    }}
-                  >
-                    {/* Fulfillment Details */}
-                    <div
-                      style={{
-                        padding: "16px",
-                        backgroundColor: "var(--cnm-surface-elevated)",
-                        borderRadius: "var(--radius-md)",
-                        border: "1px solid var(--cnm-border)",
-                      }}
-                    >
-                      <h4
-                        style={{
-                          fontSize: "12px",
-                          fontWeight: 800,
-                          color: "var(--cnm-orange)",
-                          textTransform: "uppercase",
-                          letterSpacing: "0.05em",
-                          marginBottom: "12px",
-                        }}
-                      >
-                        {detailedOrder.orderType === "DELIVERY"
-                          ? "Delivery Destination"
-                          : detailedOrder.orderType === "DINE_IN"
-                          ? "Dine-In Details"
-                          : "Takeaway Pickup"}
-                      </h4>
-
-                      <div style={{ display: "flex", flexDirection: "column", gap: "8px", fontSize: "13px" }}>
-                        {detailedOrder.customerName && (
+                        {/* Column 2: Delivery & Payment Details */}
+                        <div
+                          style={{
+                            backgroundColor: "var(--cnm-surface, #1e2230)",
+                            border: "1px solid var(--cnm-border, rgba(255,255,255,0.06))",
+                            borderRadius: "6px",
+                            padding: "10px 12px",
+                            display: "flex",
+                            flexDirection: "column",
+                            justifyContent: "space-between",
+                            gap: "10px",
+                          }}
+                        >
+                          {/* Delivery info */}
                           <div>
-                            <span style={{ color: "var(--cnm-text-muted)" }}>Recipient: </span>
-                            <span style={{ color: "var(--cnm-text-primary)", fontWeight: 700 }}>
-                              {detailedOrder.customerName}
-                            </span>
-                          </div>
-                        )}
-
-                        {detailedOrder.customerPhone && (
-                          <div>
-                            <span style={{ color: "var(--cnm-text-muted)" }}>Contact: </span>
-                            <span style={{ color: "var(--cnm-orange)", fontWeight: 700 }}>
-                              {detailedOrder.customerPhone}
-                            </span>
-                          </div>
-                        )}
-
-                        {detailedOrder.orderType === "DELIVERY" && (
-                          <>
-                            {detailedOrder.deliveryAreaName && (
-                              <div>
-                                <span style={{ color: "var(--cnm-text-muted)" }}>Area: </span>
-                                <span style={{ color: "var(--cnm-text-primary)", fontWeight: 700 }}>
-                                  {detailedOrder.deliveryAreaName}
-                                </span>
-                              </div>
-                            )}
-                            {detailedOrder.deliveryAddress && (
-                              <div>
-                                <span style={{ color: "var(--cnm-text-muted)" }}>Address: </span>
-                                <span style={{ color: "var(--cnm-text-primary)" }}>
-                                  {detailedOrder.deliveryAddress}
-                                </span>
-                              </div>
-                            )}
-                            {detailedOrder.deliveryLandmark && (
-                              <div>
-                                <span style={{ color: "var(--cnm-text-muted)" }}>Landmark: </span>
-                                <span style={{ color: "var(--cnm-text-secondary)" }}>
-                                  {detailedOrder.deliveryLandmark}
-                                </span>
-                              </div>
-                            )}
-                          </>
-                        )}
-
-                        {detailedOrder.orderType === "TAKEAWAY" && (
-                          <div>
-                            <span style={{ color: "var(--cnm-text-muted)" }}>Pickup Branch: </span>
-                            <span style={{ color: "var(--cnm-text-primary)", fontWeight: 700 }}>
-                              CNM Kharian (Main GT Road)
-                            </span>
-                          </div>
-                        )}
-
-                        {detailedOrder.orderType === "DINE_IN" && (
-                          <>
-                            {detailedOrder.dineInPreferredTime && (
-                              <div>
-                                <span style={{ color: "var(--cnm-text-muted)" }}>Expected Arrival: </span>
-                                <span style={{ color: "var(--cnm-text-primary)", fontWeight: 700 }}>
-                                  {detailedOrder.dineInPreferredTime}
-                                </span>
-                              </div>
-                            )}
-                            {detailedOrder.paymentLocation && (
-                              <div>
-                                <span style={{ color: "var(--cnm-text-muted)" }}>Settlement: </span>
-                                <span style={{ color: "var(--cnm-text-secondary)", fontWeight: 700 }}>
-                                  {detailedOrder.paymentLocation === "AT_COUNTER" ? "Pay at Counter" : "Pay on Table"}
-                                </span>
-                              </div>
-                            )}
-                          </>
-                        )}
-
-                        {detailedOrder.specialInstructions && (
-                          <div style={{ paddingTop: "6px", borderTop: "1px dashed var(--cnm-border)" }}>
-                            <span style={{ color: "var(--cnm-text-muted)" }}>Special Note: </span>
-                            <span style={{ color: "var(--cnm-text-secondary)", fontStyle: "italic" }}>
-                              {detailedOrder.specialInstructions}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Payment Info */}
-                    <div
-                      style={{
-                        padding: "16px",
-                        backgroundColor: "var(--cnm-surface-elevated)",
-                        borderRadius: "var(--radius-md)",
-                        border: "1px solid var(--cnm-border)",
-                      }}
-                    >
-                      <h4
-                        style={{
-                          fontSize: "12px",
-                          fontWeight: 800,
-                          color: "var(--cnm-orange)",
-                          textTransform: "uppercase",
-                          letterSpacing: "0.05em",
-                          marginBottom: "12px",
-                        }}
-                      >
-                        Payment Method
-                      </h4>
-
-                      <div style={{ display: "flex", flexDirection: "column", gap: "8px", fontSize: "13px" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                          <span className="badge badge-orange" style={{ fontWeight: 800 }}>
-                            CASH ONLY
-                          </span>
-                          <span style={{ color: "var(--cnm-text-secondary)" }}>
-                            {detailedOrder.paymentMethod || "Cash on Delivery / Pickup"}
-                          </span>
-                        </div>
-                        {detailedOrder.paymentStatus && (
-                          <div>
-                            <span style={{ color: "var(--cnm-text-muted)" }}>Payment Status: </span>
                             <span
                               style={{
-                                fontWeight: 700,
-                                color: detailedOrder.paymentStatus === "PAID" ? "var(--status-ready)" : "var(--status-new)",
+                                fontSize: "0.72rem",
+                                fontWeight: 600,
+                                textTransform: "uppercase",
+                                color: "var(--cnm-text-muted, #94a3b8)",
+                                display: "block",
+                                marginBottom: "6px",
+                                letterSpacing: "0.03em",
                               }}
                             >
-                              {detailedOrder.paymentStatus}
+                              Fulfillment Details
                             </span>
-                          </div>
-                        )}
-                        <p style={{ fontSize: "12px", color: "var(--cnm-text-muted)", margin: "4px 0 0" }}>
-                          CNM accepts cash settlement upon physical handoff at your door or counter.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
 
-                  {/* Products Receipt Snapshot */}
-                  <div
-                    style={{
-                      border: "1px solid var(--cnm-border)",
-                      borderRadius: "var(--radius-md)",
-                      overflow: "hidden",
-                      marginBottom: "20px",
-                    }}
-                  >
-                    <div
-                      style={{
-                        padding: "12px 16px",
-                        backgroundColor: "var(--cnm-surface-elevated)",
-                        borderBottom: "1px solid var(--cnm-border)",
-                        fontSize: "12px",
-                        fontWeight: 800,
-                        textTransform: "uppercase",
-                        letterSpacing: "0.05em",
-                        color: "var(--cnm-text-muted)",
-                      }}
-                    >
-                      Ordered Items
-                    </div>
-
-                    <div style={{ padding: "16px", display: "flex", flexDirection: "column", gap: "12px" }}>
-                      {detailedOrder.items?.map((item) => (
-                        <div
-                          key={item.id}
-                          style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "flex-start",
-                            paddingBottom: "10px",
-                            borderBottom: "1px solid var(--cnm-border)",
-                          }}
-                        >
-                          <div>
-                            <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
-                              <span style={{ fontWeight: 800, color: "var(--cnm-text-primary)", fontSize: "14px" }}>
-                                {item.quantity}x {item.productName}
-                              </span>
-                              {item.customDealId && (
-                                <span
-                                  style={{
-                                    fontSize: "10px",
-                                    fontWeight: 800,
-                                    backgroundColor: "rgba(255, 130, 67, 0.15)",
-                                    color: "var(--cnm-orange)",
-                                    border: "1px solid rgba(255, 130, 67, 0.3)",
-                                    padding: "1px 6px",
-                                    borderRadius: "var(--radius-full)",
-                                    display: "inline-flex",
-                                    alignItems: "center",
-                                    gap: "3px",
-                                  }}
-                                >
-                                  <Sparkles size={9} /> CUSTOM DEAL
-                                </span>
-                              )}
-                            </div>
-
-                            {item.variantName && (
-                              <span style={{ display: "block", fontSize: "12px", color: "var(--cnm-orange)", fontWeight: 700 }}>
-                                • {item.variantName}
-                              </span>
+                            {order.orderType === "DELIVERY" ? (
+                              <div style={{ fontSize: "0.76rem", lineHeight: 1.35 }}>
+                                <div style={{ display: "flex", alignItems: "flex-start", gap: "4px", marginBottom: "3px" }}>
+                                  <MapPin size={12} color="#f97316" style={{ marginTop: "2px", flexShrink: 0 }} />
+                                  <span>
+                                    {order.deliveryAreaName ? <strong>{order.deliveryAreaName}: </strong> : null}
+                                    {order.deliveryAddress || "Address provided at checkout"}
+                                  </span>
+                                </div>
+                                {order.deliveryLandmark && (
+                                  <div style={{ color: "var(--cnm-text-muted, #94a3b8)", fontSize: "0.7rem", marginLeft: "16px" }}>
+                                    Landmark: {order.deliveryLandmark}
+                                  </div>
+                                )}
+                              </div>
+                            ) : order.orderType === "DINE_IN" ? (
+                              <div style={{ fontSize: "0.76rem" }}>
+                                <span>Dine-In Customer</span>
+                                {order.dineInPreferredTime && (
+                                  <div style={{ color: "var(--cnm-text-muted, #94a3b8)", fontSize: "0.72rem" }}>
+                                    Preferred Time: {order.dineInPreferredTime}
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <div style={{ fontSize: "0.76rem" }}>
+                                <span>Store Takeaway / Pickup at Cluck n Moo Counter</span>
+                              </div>
                             )}
 
-                            {item.modifiers && item.modifiers.length > 0 && (
-                              <div style={{ display: "flex", flexWrap: "wrap", gap: "4px", marginTop: "4px" }}>
-                                {item.modifiers.map((m, idx) => (
-                                  <span
-                                    key={idx}
-                                    style={{
-                                      fontSize: "11px",
-                                      backgroundColor: "var(--cnm-surface-elevated)",
-                                      color: "var(--cnm-text-muted)",
-                                      padding: "1px 6px",
-                                      borderRadius: "4px",
-                                    }}
-                                  >
-                                    +{m.modifierName || m.name} ({m.pricePkr} PKR)
-                                  </span>
-                                ))}
+                            {order.customerPhone && (
+                              <div style={{ marginTop: "5px", fontSize: "0.72rem", color: "var(--cnm-text-muted, #94a3b8)" }}>
+                                Contact: {order.customerName || "Customer"} ({order.customerPhone})
+                              </div>
+                            )}
+
+                            {order.specialInstructions && (
+                              <div style={{ marginTop: "5px", fontSize: "0.7rem", color: "#f97316", fontStyle: "italic" }}>
+                                Note: {order.specialInstructions}
                               </div>
                             )}
                           </div>
 
-                          <span style={{ fontFamily: "var(--font-display)", fontWeight: 900, color: "var(--cnm-orange)", fontSize: "14.5px" }}>
-                            {item.lineTotalPkr.toLocaleString()} PKR
-                          </span>
-                        </div>
-                      ))}
-                    </div>
+                          {/* Payment summary breakdown */}
+                          <div
+                            style={{
+                              borderTop: "1px solid var(--cnm-border, rgba(255,255,255,0.06))",
+                              paddingTop: "6px",
+                              fontSize: "0.74rem",
+                            }}
+                          >
+                            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "2px" }}>
+                              <span style={{ color: "var(--cnm-text-muted, #94a3b8)" }}>Subtotal</span>
+                              <span>PKR {order.subtotalPkr?.toLocaleString() || order.totalPkr?.toLocaleString()}</span>
+                            </div>
 
-                    {/* Price Summary Breakdown */}
-                    <div
-                      style={{
-                        padding: "14px 16px",
-                        backgroundColor: "var(--cnm-surface-elevated)",
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: "8px",
-                        fontSize: "13.5px",
-                      }}
-                    >
-                      <div style={{ display: "flex", justifyContent: "space-between", color: "var(--cnm-text-muted)" }}>
-                        <span>Food Subtotal</span>
-                        <span style={{ fontWeight: 700, color: "var(--cnm-text-primary)" }}>
-                          {detailedOrder.subtotalPkr.toLocaleString()} PKR
-                        </span>
+                            {order.deliveryFeePkr !== undefined && order.deliveryFeePkr > 0 && (
+                              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "2px" }}>
+                                <span style={{ color: "var(--cnm-text-muted, #94a3b8)" }}>Delivery Fee</span>
+                                <span>PKR {order.deliveryFeePkr?.toLocaleString()}</span>
+                              </div>
+                            )}
+
+                            {order.discountPkr !== undefined && order.discountPkr > 0 && (
+                              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "2px", color: "#10b981" }}>
+                                <span>Discount</span>
+                                <span>- PKR {order.discountPkr?.toLocaleString()}</span>
+                              </div>
+                            )}
+
+                            <div
+                              style={{
+                                display: "flex",
+                                justifyContent: "space-between",
+                                marginTop: "4px",
+                                paddingTop: "4px",
+                                borderTop: "1px dashed var(--cnm-border, rgba(255,255,255,0.08))",
+                                fontWeight: 700,
+                                fontSize: "0.82rem",
+                              }}
+                            >
+                              <span>Total ({order.paymentMethod || "CASH"})</span>
+                              <span style={{ color: "var(--cnm-orange, #f97316)" }}>
+                                PKR {order.totalPkr?.toLocaleString()}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
                       </div>
 
-                      {detailedOrder.discountPkr && detailedOrder.discountPkr > 0 ? (
-                        <div
-                          style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            color: "var(--status-ready)",
-                            backgroundColor: "rgba(16, 185, 129, 0.08)",
-                            padding: "6px 8px",
-                            borderRadius: "var(--radius-xs)",
-                            border: "1px dashed var(--status-ready)",
-                          }}
-                        >
-                          <span style={{ fontWeight: 750 }}>
-                            Custom Deal Discount ({detailedOrder.discountRate ? Math.round(detailedOrder.discountRate * 100) : 0}% OFF)
-                          </span>
-                          <span style={{ fontWeight: 850 }}>
-                            -{detailedOrder.discountPkr.toLocaleString()} PKR
-                          </span>
-                        </div>
-                      ) : null}
-
-                      {detailedOrder.orderType === "DELIVERY" && (
-                        <div style={{ display: "flex", justifyContent: "space-between", color: "var(--cnm-text-muted)" }}>
-                          <span>Delivery Fee ({detailedOrder.deliveryAreaName || "Kharian Area"})</span>
-                          <span style={{ fontWeight: 700, color: "var(--cnm-text-primary)" }}>
-                            {detailedOrder.deliveryFeePkr.toLocaleString()} PKR
-                          </span>
-                        </div>
-                      )}
-
+                      {/* Bottom Action Buttons Row */}
                       <div
                         style={{
                           display: "flex",
-                          justifyContent: "space-between",
-                          paddingTop: "8px",
-                          borderTop: "1px dashed var(--cnm-border)",
-                          fontSize: "16px",
-                          fontWeight: 900,
-                        }}
-                      >
-                        <span style={{ color: "var(--cnm-text-primary)" }}>Final Cash Total</span>
-                        <span style={{ fontFamily: "var(--font-display)", color: "var(--cnm-orange)", fontSize: "19px" }}>
-                          {detailedOrder.totalPkr.toLocaleString()} PKR
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Order Again CTA for Completed Order */}
-                  {detailedOrder.status === ORDER_STATUSES.COMPLETED && (
-                    <div style={{ textAlign: "right" }}>
-                      <button
-                        type="button"
-                        onClick={() => handleOrderAgain(detailedOrder)}
-                        disabled={isReordering}
-                        className="btn btn-primary"
-                        style={{
-                          padding: "12px 24px",
-                          fontSize: "14px",
-                          fontWeight: 800,
-                          borderRadius: "var(--radius-full)",
-                          display: "inline-flex",
                           alignItems: "center",
+                          justifyContent: "flex-end",
                           gap: "8px",
+                          flexWrap: "wrap",
+                          marginTop: "2px",
                         }}
                       >
-                        <RefreshCw size={16} className={isReordering ? "spin" : ""} />
-                        <span>{isReordering ? "Verifying Current Prices..." : "Order Again with Current Prices"}</span>
-                      </button>
+                        {/* Reorder Button */}
+                        <button
+                          type="button"
+                          onClick={() => handleOrderAgain(order)}
+                          style={{
+                            backgroundColor: "var(--cnm-surface, #1e2230)",
+                            color: "var(--cnm-text-primary, #ffffff)",
+                            border: "1px solid var(--cnm-border, rgba(255,255,255,0.1))",
+                            padding: "6px 12px",
+                            borderRadius: "5px",
+                            fontSize: "0.76rem",
+                            fontWeight: 500,
+                            cursor: "pointer",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "5px",
+                          }}
+                        >
+                          <RefreshCw size={12} />
+                          <span>Order Again</span>
+                        </button>
+
+                        {/* Direct Navigation to Existing Designed Live Tracking Page */}
+                        <Link
+                          href={`/order/track/${order.trackingToken || order.id}?token=${encodeURIComponent(order.trackingToken)}`}
+                          style={{
+                            backgroundColor: isActive ? "var(--cnm-orange, #f97316)" : "rgba(255,255,255,0.08)",
+                            color: "#ffffff",
+                            border: "none",
+                            padding: "6px 14px",
+                            borderRadius: "5px",
+                            fontSize: "0.76rem",
+                            fontWeight: 600,
+                            textDecoration: "none",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "5px",
+                          }}
+                        >
+                          {isActive ? <Bike size={13} /> : <ShoppingBag size={13} />}
+                          <span>{isActive ? "View Live Tracking" : "View Tracking & Receipt"}</span>
+                          <ExternalLinkIcon size={11} />
+                        </Link>
+                      </div>
                     </div>
                   )}
                 </div>
-              ) : null}
-            </div>
-          )}
-
-          {/* 7. SECONDARY MANUAL LOOKUP SECTION (FOR PRIVATE WINDOWS OR OTHER DEVICES) */}
-          <div
-            className="card"
-            style={{
-              padding: "18px 20px",
-              backgroundColor: "var(--cnm-surface)",
-              border: "1px solid var(--cnm-border)",
-              borderRadius: "var(--radius-md)",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                cursor: "pointer",
-              }}
-              onClick={() => setShowManualLookup(!showManualLookup)}
-            >
-              <div>
-                <h3 style={{ fontSize: "14px", fontWeight: 800, color: "var(--cnm-text-primary)", margin: 0 }}>
-                  Looking for an order from another device or private window?
-                </h3>
-                <p style={{ fontSize: "12px", color: "var(--cnm-text-muted)", margin: "2px 0 0" }}>
-                  Track manually with your Order Number (e.g. CNM-2609-1234) or tracking link.
-                </p>
-              </div>
-
-              <ChevronDown
-                size={18}
-                color="var(--cnm-text-muted)"
-                style={{
-                  transform: showManualLookup ? "rotate(180deg)" : "rotate(0deg)",
-                  transition: "transform 0.2s ease",
-                  flexShrink: 0,
-                }}
-              />
-            </div>
-
-            {showManualLookup && (
-              <form onSubmit={handleManualSearch} style={{ marginTop: "16px", display: "flex", flexDirection: "column", gap: "10px" }}>
-                <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-                  <input
-                    type="text"
-                    required
-                    className="form-input"
-                    placeholder="Enter CNM-2609-XXXX or trk_..."
-                    value={manualToken}
-                    onChange={(e) => {
-                      setManualToken(e.target.value);
-                      setManualLookupError(null);
-                    }}
-                    style={{ flex: 1, minWidth: "220px", fontSize: "14px" }}
-                  />
-                  <button
-                    type="submit"
-                    className="btn btn-primary"
-                    style={{ padding: "10px 20px", fontSize: "13.5px", fontWeight: 800 }}
-                  >
-                    <span>Track Order</span>
-                    <ArrowRight size={15} />
-                  </button>
-                </div>
-                {manualLookupError && (
-                  <span style={{ fontSize: "12px", color: "var(--status-cancelled)" }}>{manualLookupError}</span>
-                )}
-              </form>
-            )}
+              );
+            })}
           </div>
-
-        </div>
+        )}
       </main>
 
-      {/* Cart Drawer for Order Again workflow */}
+      {/* Cart Drawer for Reordering */}
       <CartDrawer
         isOpen={isCartOpen}
         onClose={() => setIsCartOpen(false)}
@@ -1391,14 +1234,400 @@ export default function TrackOrderPage() {
         onRemoveItem={(id) => setCartItems((prev) => prev.filter((i) => i.cartItemId !== id))}
         onUpdateQuantity={(id, q) =>
           setCartItems((prev) =>
-            prev.map((i) => (i.cartItemId === id ? { ...i, quantity: q, lineTotalPkr: i.unitPricePkr * q } : i))
+            q <= 0 ? prev.filter((i) => i.cartItemId !== id) : prev.map((i) => (i.cartItemId === id ? { ...i, quantity: q } : i))
           )
         }
-        onQuickAddUpsell={() => {}}
+        onQuickAddUpsell={(p) => {}}
         onClearCart={() => setCartItems([])}
       />
 
+      {/* Quick Sign-In Modal */}
+      {showSignInModal && (
+        <div
+          onClick={() => setShowSignInModal(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            backgroundColor: "rgba(0,0,0,0.65)",
+            backdropFilter: "blur(3px)",
+            zIndex: 99,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "16px",
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              backgroundColor: "var(--cnm-surface, #1e2230)",
+              border: "1px solid var(--cnm-border, rgba(255,255,255,0.12))",
+              borderRadius: "10px",
+              padding: "20px",
+              width: "100%",
+              maxWidth: "380px",
+              boxShadow: "0 20px 40px rgba(0,0,0,0.5)",
+            }}
+          >
+            <h3 style={{ fontSize: "1.1rem", fontWeight: 700, margin: "0 0 4px" }}>Customer Sign In</h3>
+            <p style={{ fontSize: "0.78rem", color: "var(--cnm-text-muted, #94a3b8)", margin: "0 0 16px" }}>
+              Sign in to view your orders, live statuses, and receipts.
+            </p>
+
+            <form onSubmit={handleQuickSignIn} style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+              <div>
+                <label style={{ fontSize: "0.72rem", color: "var(--cnm-text-muted, #94a3b8)", display: "block", marginBottom: "4px" }}>
+                  Email Address
+                </label>
+                <input
+                  type="email"
+                  required
+                  value={authEmail}
+                  onChange={(e) => setAuthEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  style={{
+                    width: "100%",
+                    padding: "8px 10px",
+                    borderRadius: "5px",
+                    backgroundColor: "var(--cnm-surface-elevated, #161922)",
+                    border: "1px solid var(--cnm-border, rgba(255,255,255,0.1))",
+                    color: "#ffffff",
+                    fontSize: "0.82rem",
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: "0.72rem", color: "var(--cnm-text-muted, #94a3b8)", display: "block", marginBottom: "4px" }}>
+                  Password
+                </label>
+                <input
+                  type="password"
+                  required
+                  value={authPassword}
+                  onChange={(e) => setAuthPassword(e.target.value)}
+                  placeholder="••••••••"
+                  style={{
+                    width: "100%",
+                    padding: "8px 10px",
+                    borderRadius: "5px",
+                    backgroundColor: "var(--cnm-surface-elevated, #161922)",
+                    border: "1px solid var(--cnm-border, rgba(255,255,255,0.1))",
+                    color: "#ffffff",
+                    fontSize: "0.82rem",
+                  }}
+                />
+              </div>
+
+              {authError && (
+                <div style={{ fontSize: "0.74rem", color: "#ef4444" }}>{authError}</div>
+              )}
+
+              <div style={{ display: "flex", gap: "8px", marginTop: "6px" }}>
+                <button
+                  type="submit"
+                  disabled={isSubmittingAuth}
+                  style={{
+                    flex: 1,
+                    backgroundColor: "var(--cnm-orange, #f97316)",
+                    color: "#ffffff",
+                    border: "none",
+                    padding: "8px",
+                    borderRadius: "6px",
+                    fontWeight: 600,
+                    fontSize: "0.82rem",
+                    cursor: isSubmittingAuth ? "not-allowed" : "pointer",
+                  }}
+                >
+                  {isSubmittingAuth ? "Signing in..." : "Sign In"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowSignInModal(false)}
+                  style={{
+                    backgroundColor: "rgba(255,255,255,0.06)",
+                    color: "var(--cnm-text-primary, #ffffff)",
+                    border: "none",
+                    padding: "8px 14px",
+                    borderRadius: "6px",
+                    fontSize: "0.82rem",
+                    cursor: "pointer",
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+
+              <div style={{ textAlign: "center", marginTop: "8px" }}>
+                <Link
+                  href="/account"
+                  style={{ fontSize: "0.74rem", color: "var(--cnm-orange, #f97316)", textDecoration: "none" }}
+                >
+                  Need an account? Register on the Account page →
+                </Link>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Footer */}
       <CustomerFooter />
+
+      {/* Global & Responsive Styles */}
+      <style jsx global>{`
+        .live-pulse-dot {
+          width: 7px;
+          height: 7px;
+          border-radius: 50%;
+          background-color: #f97316;
+          box-shadow: 0 0 0 0 rgba(249, 115, 22, 0.7);
+          animation: pulse-orange 1.6s infinite;
+          display: inline-block;
+        }
+
+        @keyframes pulse-orange {
+          0% {
+            transform: scale(0.95);
+            box-shadow: 0 0 0 0 rgba(249, 115, 22, 0.7);
+          }
+          70% {
+            transform: scale(1);
+            box-shadow: 0 0 0 6px rgba(249, 115, 22, 0);
+          }
+          100% {
+            transform: scale(0.95);
+            box-shadow: 0 0 0 0 rgba(249, 115, 22, 0);
+          }
+        }
+
+        .order-row-skeleton {
+          animation: pulse-skeleton 1.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse-skeleton {
+          0%, 100% { opacity: 0.6; }
+          50% { opacity: 0.25; }
+        }
+
+        .spin {
+          animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 640px) {
+          .hide-on-compact {
+            display: none !important;
+          }
+        }
+      `}</style>
     </div>
   );
+}
+
+// Visual Timeline Component for Inline Order Card
+function OrderProgressTimeline({ status, orderType }: { status: string; orderType: string }) {
+  if (status === ORDER_STATUSES.CANCELLED) {
+    return (
+      <div
+        style={{
+          padding: "8px 12px",
+          backgroundColor: "rgba(239, 68, 68, 0.1)",
+          border: "1px solid rgba(239, 68, 68, 0.3)",
+          borderRadius: "6px",
+          display: "flex",
+          alignItems: "center",
+          gap: "6px",
+          fontSize: "0.75rem",
+          color: "#ef4444",
+        }}
+      >
+        <AlertTriangle size={14} />
+        <span>This order was cancelled.</span>
+      </div>
+    );
+  }
+
+  const steps =
+    orderType === "DELIVERY"
+      ? [
+          { key: ORDER_STATUSES.NEW, label: "Placed" },
+          { key: ORDER_STATUSES.CONFIRMED, label: "Confirmed" },
+          { key: ORDER_STATUSES.PREPARING, label: "In Kitchen" },
+          { key: ORDER_STATUSES.READY, label: "Ready" },
+          { key: ORDER_STATUSES.OUT_FOR_DELIVERY, label: "Dispatched" },
+          { key: ORDER_STATUSES.COMPLETED, label: "Delivered" },
+        ]
+      : [
+          { key: ORDER_STATUSES.NEW, label: "Placed" },
+          { key: ORDER_STATUSES.CONFIRMED, label: "Confirmed" },
+          { key: ORDER_STATUSES.PREPARING, label: "In Kitchen" },
+          { key: ORDER_STATUSES.READY, label: "Ready for Pickup" },
+          { key: ORDER_STATUSES.COMPLETED, label: "Completed" },
+        ];
+
+  const statusOrder: string[] = [
+    ORDER_STATUSES.NEW,
+    ORDER_STATUSES.CONFIRMED,
+    ORDER_STATUSES.PREPARING,
+    ORDER_STATUSES.READY,
+    ORDER_STATUSES.OUT_FOR_DELIVERY,
+    ORDER_STATUSES.COMPLETED,
+  ];
+
+  const currentIndex = statusOrder.indexOf(status);
+
+  return (
+    <div style={{ padding: "6px 4px 10px" }}>
+      <div style={{ display: "flex", alignItems: "center", position: "relative" }}>
+        {steps.map((step, idx) => {
+          const stepIndex = statusOrder.indexOf(step.key);
+          const isDone = currentIndex > stepIndex;
+          const isCurrent = currentIndex === stepIndex;
+
+          const circleColor = isDone
+            ? "#10b981"
+            : isCurrent
+            ? "#f97316"
+            : "var(--cnm-border, rgba(255,255,255,0.15))";
+
+          return (
+            <React.Fragment key={step.key}>
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  zIndex: 2,
+                  flex: 1,
+                }}
+              >
+                <div
+                  style={{
+                    width: isCurrent ? "18px" : "14px",
+                    height: isCurrent ? "18px" : "14px",
+                    borderRadius: "50%",
+                    backgroundColor: isCurrent ? "#f97316" : isDone ? "#10b981" : "var(--cnm-surface-elevated, #161922)",
+                    border: `2px solid ${circleColor}`,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    transition: "all 0.2s ease",
+                  }}
+                >
+                  {isDone && <Check size={9} color="#ffffff" strokeWidth={3} />}
+                </div>
+
+                <span
+                  style={{
+                    fontSize: "0.64rem",
+                    fontWeight: isCurrent ? 700 : 500,
+                    color: isCurrent
+                      ? "#f97316"
+                      : isDone
+                      ? "var(--cnm-text-primary, #ffffff)"
+                      : "var(--cnm-text-muted, #94a3b8)",
+                    marginTop: "4px",
+                    textAlign: "center",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {step.label}
+                </span>
+              </div>
+
+              {idx < steps.length - 1 && (
+                <div
+                  style={{
+                    flex: 1,
+                    height: "2px",
+                    backgroundColor:
+                      currentIndex > stepIndex
+                        ? "#10b981"
+                        : "var(--cnm-border, rgba(255,255,255,0.1))",
+                    margin: "0 -4px 16px",
+                    zIndex: 1,
+                  }}
+                />
+              )}
+            </React.Fragment>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// Helper: Status label, badge color & icon config
+function getStatusConfig(status: string) {
+  switch (status) {
+    case ORDER_STATUSES.NEW:
+      return {
+        label: "Placed",
+        bg: "rgba(245, 158, 11, 0.12)",
+        color: "#f59e0b",
+        border: "rgba(245, 158, 11, 0.3)",
+        icon: <Clock size={11} />,
+      };
+    case ORDER_STATUSES.CONFIRMED:
+      return {
+        label: "Confirmed",
+        bg: "rgba(59, 130, 246, 0.12)",
+        color: "#60a5fa",
+        border: "rgba(59, 130, 246, 0.3)",
+        icon: <CheckCircle2 size={11} />,
+      };
+    case ORDER_STATUSES.PREPARING:
+      return {
+        label: "In Kitchen",
+        bg: "rgba(249, 115, 22, 0.15)",
+        color: "#f97316",
+        border: "rgba(249, 115, 22, 0.4)",
+        icon: <Flame size={11} />,
+      };
+    case ORDER_STATUSES.READY:
+      return {
+        label: "Ready",
+        bg: "rgba(20, 184, 166, 0.12)",
+        color: "#14b8a6",
+        border: "rgba(20, 184, 166, 0.3)",
+        icon: <CheckCircle2 size={11} />,
+      };
+    case ORDER_STATUSES.OUT_FOR_DELIVERY:
+      return {
+        label: "Dispatched",
+        bg: "rgba(59, 130, 246, 0.15)",
+        color: "#3b82f6",
+        border: "rgba(59, 130, 246, 0.4)",
+        icon: <Bike size={11} />,
+      };
+    case ORDER_STATUSES.COMPLETED:
+      return {
+        label: "Delivered",
+        bg: "rgba(16, 185, 129, 0.12)",
+        color: "#10b981",
+        border: "rgba(16, 185, 129, 0.3)",
+        icon: <CheckCircle2 size={11} />,
+      };
+    case ORDER_STATUSES.CANCELLED:
+      return {
+        label: "Cancelled",
+        bg: "rgba(239, 68, 68, 0.12)",
+        color: "#ef4444",
+        border: "rgba(239, 68, 68, 0.3)",
+        icon: <AlertTriangle size={11} />,
+      };
+    default:
+      return {
+        label: status,
+        bg: "rgba(255, 255, 255, 0.08)",
+        color: "#ffffff",
+        border: "rgba(255, 255, 255, 0.15)",
+        icon: <Clock size={11} />,
+      };
+  }
 }
