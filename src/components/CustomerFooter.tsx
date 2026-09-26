@@ -42,10 +42,10 @@ export function CustomerFooter({ hasFloatingCart }: { hasFloatingCart?: boolean 
 
           {/* Quick Links */}
           <div>
-            <h4 style={{ fontSize: "14px", fontWeight: 800, color: "var(--cnm-orange)", marginBottom: "14px", letterSpacing: "0.05em" }}>
+            <p style={{ fontSize: "14px", fontWeight: 800, color: "var(--cnm-orange)", marginBottom: "14px", letterSpacing: "0.05em", margin: "0 0 14px 0" }}>
               EXPLORE
-            </h4>
-            <ul style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: "10px", fontSize: "13px", color: "var(--cnm-text-muted)" }}>
+            </p>
+            <ul style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: "10px", fontSize: "13px", color: "var(--cnm-text-muted)", padding: 0, margin: 0 }}>
               <li>
                 <Link href="/" style={{ transition: "color 0.15s" }}>Home</Link>
               </li>
@@ -66,9 +66,9 @@ export function CustomerFooter({ hasFloatingCart }: { hasFloatingCart?: boolean 
 
           {/* Branch & Contact */}
           <div>
-            <h4 style={{ fontSize: "14px", fontWeight: 800, color: "var(--cnm-orange)", marginBottom: "14px", letterSpacing: "0.05em" }}>
+            <p style={{ fontSize: "14px", fontWeight: 800, color: "var(--cnm-orange)", marginBottom: "14px", letterSpacing: "0.05em", margin: "0 0 14px 0" }}>
               BRANCH LOCATION
-            </h4>
+            </p>
             <div style={{ display: "flex", flexDirection: "column", gap: "10px", fontSize: "13px", color: "var(--cnm-text-muted)" }}>
               <div style={{ display: "flex", alignItems: "flex-start", gap: "8px" }}>
                 <MapPin size={16} color="var(--cnm-orange)" style={{ flexShrink: 0, marginTop: "2px" }} />
@@ -89,9 +89,9 @@ export function CustomerFooter({ hasFloatingCart }: { hasFloatingCart?: boolean 
 
           {/* Delivery Villages */}
           <div>
-            <h4 style={{ fontSize: "14px", fontWeight: 800, color: "var(--cnm-orange)", marginBottom: "14px", letterSpacing: "0.05em" }}>
+            <p style={{ fontSize: "14px", fontWeight: 800, color: "var(--cnm-orange)", marginBottom: "14px", letterSpacing: "0.05em", margin: "0 0 14px 0" }}>
               DELIVERY VILLAGES & AREAS
-            </h4>
+            </p>
             <p style={{ fontSize: "12px", color: "var(--cnm-text-muted)", marginBottom: "10px" }}>
               100 PKR Flat Delivery Fee • ~40 mins:
             </p>

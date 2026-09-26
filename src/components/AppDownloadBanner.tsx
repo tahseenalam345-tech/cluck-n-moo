@@ -3,7 +3,11 @@
 import React, { useState, useEffect } from "react";
 import { X } from "lucide-react";
 
-export function AppDownloadBanner() {
+interface AppDownloadBannerProps {
+  isCartVisible?: boolean;
+}
+
+export function AppDownloadBanner({ isCartVisible = false }: AppDownloadBannerProps) {
   const [isDismissed, setIsDismissed] = useState(true);
 
   useEffect(() => {
@@ -23,9 +27,10 @@ export function AppDownloadBanner() {
   return (
     <aside
       aria-label="App Download Notice"
+      className="app-download-floating-banner"
       style={{
         position: "fixed",
-        bottom: "16px",
+        bottom: isCartVisible ? "76px" : "16px",
         left: "50%",
         transform: "translateX(-50%)",
         width: "calc(100% - 32px)",
@@ -36,7 +41,8 @@ export function AppDownloadBanner() {
         color: "var(--cnm-text-primary)",
         padding: "10px 16px",
         boxShadow: "0 8px 30px rgba(0, 0, 0, 0.16)",
-        zIndex: 90,
+        zIndex: 40,
+        transition: "bottom 0.2s ease",
       }}
     >
       <div

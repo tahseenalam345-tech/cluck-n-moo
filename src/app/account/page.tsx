@@ -267,7 +267,7 @@ export default function AccountPage() {
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
       <CustomerHeader />
 
-      <main className="account-main-wrap" style={{ flex: 1 }}>
+      <main className="account-main-wrap" style={{ flex: 1, minHeight: "calc(100vh - 70px)" }}>
         <div className="container" style={{ maxWidth: "800px" }}>
           <span className="badge badge-orange" style={{ marginBottom: "6px" }}>
             CUSTOMER PORTAL
@@ -280,7 +280,7 @@ export default function AccountPage() {
           </p>
 
           {isLoading ? (
-            <div style={{ textAlign: "center", padding: "60px 0" }}>
+            <div style={{ textAlign: "center", padding: "100px 0", minHeight: "420px" }}>
               <RefreshCw className="spin" size={32} style={{ color: "var(--cnm-orange)" }} />
               <p style={{ marginTop: "12px", color: "var(--cnm-text-muted)" }}>Loading account details...</p>
             </div>

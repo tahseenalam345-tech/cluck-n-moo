@@ -21,11 +21,25 @@ export default function FullMenuPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    try {
+      const cached = localStorage.getItem("cnm_cached_menu");
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setCategories(parsed);
+          setIsLoading(false);
+        }
+      }
+    } catch {}
+
     fetch("/api/v1/menu")
       .then((res) => res.json())
       .then((data) => {
         if (data.success && data.data.categories) {
           setCategories(data.data.categories);
+          try {
+            localStorage.setItem("cnm_cached_menu", JSON.stringify(data.data.categories));
+          } catch {}
         }
       })
       .catch((err) => console.error(err))
@@ -60,7 +74,11 @@ export default function FullMenuPage() {
 
       <main
         className="menu-main-content"
-        style={{ paddingBottom: cartCount > 0 ? "calc(80px + env(safe-area-inset-bottom, 0px))" : undefined }}
+        style={{
+          flex: 1,
+          minHeight: "calc(100vh - 70px)",
+          paddingBottom: cartCount > 0 ? "calc(80px + env(safe-area-inset-bottom, 0px))" : undefined,
+        }}
       >
         <div className="container">
           <div className="menu-hero-header">
@@ -92,7 +110,7 @@ export default function FullMenuPage() {
                   className="card"
                   style={{
                     padding: "8px",
-                    minHeight: "200px",
+                    minHeight: "290px",
                     backgroundColor: "var(--cnm-surface)",
                     borderRadius: "var(--radius-md)",
                     display: "flex",

@@ -390,7 +390,7 @@ export default function TrackOrderPage() {
         onOpenCart={() => setIsCartOpen(true)}
       />
 
-      <main className="track-main-container">
+      <main className="track-main-container" style={{ flex: 1, minHeight: "calc(100vh - 80px)" }}>
         {/* Breadcrumb / Top Info */}
         <div className="track-header-row">
           <div>
@@ -487,6 +487,8 @@ export default function TrackOrderPage() {
           <form onSubmit={handleManualSearch} className="track-lookup-form">
             <input
               type="text"
+              id="track-manual-input"
+              aria-label="Enter Order Number or Token"
               placeholder="Enter Order Number or Token..."
               value={manualQuery}
               onChange={(e) => setManualQuery(e.target.value)}
@@ -609,9 +611,9 @@ export default function TrackOrderPage() {
             }}
           >
             <AlertTriangle size={24} color="#ef4444" style={{ margin: "0 auto 8px" }} />
-            <h3 style={{ fontSize: "0.95rem", fontWeight: 600, margin: "0 0 6px" }}>
+            <h2 style={{ fontSize: "0.95rem", fontWeight: 600, margin: "0 0 6px" }}>
               Unable to load orders
-            </h3>
+            </h2>
             <p style={{ fontSize: "0.78rem", color: "var(--cnm-text-muted, #94a3b8)", margin: "0 0 14px" }}>
               {ordersError}
             </p>
@@ -648,9 +650,9 @@ export default function TrackOrderPage() {
             }}
           >
             <ShoppingBag size={36} color="var(--cnm-text-muted, #94a3b8)" style={{ margin: "0 auto 12px" }} />
-            <h3 style={{ fontSize: "1.05rem", fontWeight: 700, margin: "0 0 6px" }}>
+            <h2 style={{ fontSize: "1.05rem", fontWeight: 700, margin: "0 0 6px" }}>
               No recent orders found
-            </h3>
+            </h2>
             <p style={{ fontSize: "0.8rem", color: "var(--cnm-text-muted, #94a3b8)", maxWidth: "340px", margin: "0 auto 18px" }}>
               {searchQuery
                 ? "No orders matched your search query. Try searching by order number."
@@ -1209,7 +1211,7 @@ export default function TrackOrderPage() {
               boxShadow: "0 20px 40px rgba(0,0,0,0.5)",
             }}
           >
-            <h3 style={{ fontSize: "1.1rem", fontWeight: 700, margin: "0 0 4px" }}>Customer Sign In</h3>
+            <h2 style={{ fontSize: "1.1rem", fontWeight: 700, margin: "0 0 4px" }}>Customer Sign In</h2>
             <p style={{ fontSize: "0.78rem", color: "var(--cnm-text-muted, #94a3b8)", margin: "0 0 16px" }}>
               Sign in to view your orders, live statuses, and receipts.
             </p>

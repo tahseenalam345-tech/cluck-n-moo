@@ -20,6 +20,23 @@ export default function DealsPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    try {
+      const cached = localStorage.getItem("cnm_cached_menu");
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const dealCategories = parsed.filter((c: any) =>
+            c.id.includes("deal") || c.name.toLowerCase().includes("deal") || c.name.toLowerCase().includes("offer")
+          );
+          const allDeals = dealCategories.flatMap((c: any) => c.products || []);
+          if (allDeals.length > 0) {
+            setDeals(allDeals);
+            setIsLoading(false);
+          }
+        }
+      }
+    } catch {}
+
     fetch("/api/v1/menu")
       .then((res) => res.json())
       .then((data) => {
@@ -56,7 +73,7 @@ export default function DealsPage() {
         onOpenCart={() => setIsCartOpen(true)}
       />
 
-      <main style={{ flex: 1, padding: cartCount > 0 ? "20px 0 calc(84px + env(safe-area-inset-bottom, 0px))" : "20px 0 48px" }}>
+      <main style={{ flex: 1, minHeight: "calc(100vh - 70px)", padding: cartCount > 0 ? "20px 0 calc(84px + env(safe-area-inset-bottom, 0px))" : "20px 0 48px" }}>
         <div className="container">
           <div style={{ marginBottom: "16px" }}>
             <span className="badge badge-orange" style={{ marginBottom: "6px" }}>
@@ -109,7 +126,6 @@ export default function DealsPage() {
                   setIsByoDealOpen(true);
                 }}
                 className="btn btn-primary cnm-deal-build-btn"
-                aria-label="Open Custom Deal Builder"
               >
                 <Plus size={14} strokeWidth={2.5} />
                 <span>Build Deal</span>
@@ -118,29 +134,27 @@ export default function DealsPage() {
             </div>
           </div>
 
-          {isLoading ? (
-            <div className="product-grid">
-              {[1, 2, 3].map((n) => (
-                <div key={n} className="card" style={{ minHeight: "200px", opacity: 0.5 }} />
-              ))}
-            </div>
-          ) : deals.length === 0 ? (
-            <div style={{ textAlign: "center", padding: "64px 20px" }}>
-              <p style={{ fontSize: "15px", color: "var(--cnm-text-muted)" }}>
-                No active bundle deals at this moment. Check back soon!
-              </p>
-            </div>
-          ) : (
-            <div className="product-grid">
-              {deals.map((deal) => (
+          <div className="product-grid" style={{ minHeight: "500px" }}>
+            {isLoading ? (
+              [1, 2, 3, 4, 5, 6].map((n) => (
+                <div key={`deal-skel-${n}`} className="card" style={{ minHeight: "310px", opacity: 0.5 }} />
+              ))
+            ) : deals.length === 0 ? (
+              <div style={{ textAlign: "center", padding: "64px 20px", gridColumn: "1 / -1" }}>
+                <p style={{ fontSize: "15px", color: "var(--cnm-text-muted)" }}>
+                  No active bundle deals at this moment. Check back soon!
+                </p>
+              </div>
+            ) : (
+              deals.map((deal) => (
                 <ProductCard
                   key={deal.id}
                   product={deal}
                   onSelect={(p) => setSelectedProduct(p)}
                 />
-              ))}
-            </div>
-          )}
+              ))
+            )}
+          </div>
         </div>
       </main>
 

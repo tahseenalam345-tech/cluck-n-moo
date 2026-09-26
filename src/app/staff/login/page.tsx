@@ -89,25 +89,25 @@ export default function StaffLoginPage() {
           {/* Logo on top, text underneath */}
           <BrandLogo size="lg" layout="vertical" />
 
-          <div
+          <h1
             style={{
               display: "inline-flex",
               alignItems: "center",
               gap: "6px",
-              backgroundColor: "rgba(255, 130, 67, 0.12)",
-              color: "var(--cnm-orange)",
-              border: "1px solid rgba(255, 130, 67, 0.3)",
+              backgroundColor: "var(--status-preparing-bg, rgba(234, 88, 12, 0.12))",
+              color: "var(--status-preparing-text, #C2410C)",
+              border: "1px solid var(--status-preparing-text, rgba(234, 88, 12, 0.3))",
               padding: "5px 14px",
               borderRadius: "100px",
               fontSize: "11.5px",
               fontWeight: 800,
               letterSpacing: "0.06em",
-              marginTop: "16px",
+              margin: "16px 0 0 0",
             }}
           >
             <AlertTriangle size={14} />
             <span>STAFF OPERATIONS PORTAL</span>
-          </div>
+          </h1>
 
           <p
             style={{
@@ -158,6 +158,7 @@ export default function StaffLoginPage() {
             <div className="form-group" style={{ marginBottom: 0 }}>
               <label
                 className="form-label"
+                htmlFor="staff-email"
                 style={{
                   color: "var(--cnm-text-secondary)",
                   fontWeight: 700,
@@ -168,6 +169,7 @@ export default function StaffLoginPage() {
               </label>
               <div>
                 <input
+                  id="staff-email"
                   type="email"
                   required
                   className="form-input"
@@ -188,6 +190,7 @@ export default function StaffLoginPage() {
             <div className="form-group" style={{ marginBottom: 0 }}>
               <label
                 className="form-label"
+                htmlFor="staff-password"
                 style={{
                   color: "var(--cnm-text-secondary)",
                   fontWeight: 700,
@@ -198,6 +201,7 @@ export default function StaffLoginPage() {
               </label>
               <div>
                 <input
+                  id="staff-password"
                   type="password"
                   required
                   className="form-input"

@@ -151,9 +151,9 @@ export default function OrderTrackingPage() {
     return (
       <div className="app-container" style={{ padding: "32px 16px", textAlign: "center", backgroundColor: "var(--cnm-bg)" }}>
         <AlertTriangle size={48} color="var(--status-cancelled)" style={{ margin: "40px auto 16px" }} />
-        <h2 style={{ fontFamily: "var(--font-display)", fontSize: "24px", marginBottom: "8px", color: "var(--cnm-text-primary)" }}>
+        <h1 style={{ fontFamily: "var(--font-display)", fontSize: "24px", marginBottom: "8px", color: "var(--cnm-text-primary)" }}>
           Order Not Found
-        </h2>
+        </h1>
         <p style={{ color: "var(--cnm-text-muted)", marginBottom: "24px" }}>{error}</p>
         <Link href="/" className="btn btn-primary" style={{ display: "inline-flex" }}>
           Return to Menu

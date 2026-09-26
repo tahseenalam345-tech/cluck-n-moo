@@ -273,7 +273,7 @@ export default function StorefrontPage() {
   return (
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
       {/* 1. Dismissible Top App Banner */}
-      <AppDownloadBanner />
+      <AppDownloadBanner isCartVisible={cartCount > 0} />
 
       {/* 2. Responsive Public Topbar */}
       <CustomerHeader

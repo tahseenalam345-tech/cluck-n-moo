@@ -21,7 +21,7 @@ export function PromoCarousel({ onSelectPromotion }: PromoCarouselProps) {
 
     const timer = setInterval(() => {
       setCurrentIndex((prev) => (prev + 1) % activePromos.length);
-    }, 5000);
+    }, 12000);
 
     return () => clearInterval(timer);
   }, [activePromos.length, isPaused]);
