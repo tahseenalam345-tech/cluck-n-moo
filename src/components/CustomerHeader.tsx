@@ -6,6 +6,7 @@ import { BrandLogo } from "./BrandLogo";
 import { useTheme } from "@/context/ThemeContext";
 import { useOrderMode } from "@/context/OrderModeContext";
 import { BRAND } from "@/lib/constants";
+import { createClient } from "@/lib/supabase/client";
 import {
   ShoppingBag,
   X,
@@ -18,6 +19,7 @@ import {
   ChevronDown,
   Phone,
   Flame,
+  User,
 } from "lucide-react";
 
 interface CustomerHeaderProps {
@@ -38,6 +40,34 @@ export function CustomerHeader({
     isOpen: true,
     message: "12:01 PM – 02:00 AM PKT",
   });
+  const [userProfile, setUserProfile] = useState<{ email?: string; name?: string } | null>(null);
+
+  useEffect(() => {
+    try {
+      const supabase = createClient();
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session?.user) {
+          const email = session.user.email;
+          const name = session.user.user_metadata?.full_name || email?.split("@")[0] || "Account";
+          setUserProfile({ email, name });
+        } else {
+          setUserProfile(null);
+        }
+      });
+
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+        if (session?.user) {
+          const email = session.user.email;
+          const name = session.user.user_metadata?.full_name || email?.split("@")[0] || "Account";
+          setUserProfile({ email, name });
+        } else {
+          setUserProfile(null);
+        }
+      });
+
+      return () => subscription.unsubscribe();
+    } catch {}
+  }, []);
 
   useEffect(() => {
     fetch("/api/v1/store/status")
@@ -198,6 +228,9 @@ export function CustomerHeader({
             <Link href="/order/track" style={{ color: "var(--cnm-text-muted)", transition: "color 0.15s" }}>
               TRACK ORDER
             </Link>
+            <Link href="/account" style={{ color: "var(--cnm-text-muted)", transition: "color 0.15s" }}>
+              ACCOUNT
+            </Link>
             <Link href="/contact" style={{ color: "var(--cnm-text-muted)", transition: "color 0.15s" }}>
               CONTACT
             </Link>
@@ -263,6 +296,38 @@ export function CustomerHeader({
             >
               {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
             </button>
+
+            {/* Desktop Account / Login Button */}
+            <Link
+              href="/account"
+              aria-label="My Account / Login"
+              title="My Account / Login"
+              className="header-account-btn"
+              style={{
+                display: "none",
+                alignItems: "center",
+                gap: "6px",
+                height: "36px",
+                padding: "0 12px",
+                borderRadius: "var(--radius-sm)",
+                backgroundColor: "var(--cnm-surface)",
+                border: "1px solid var(--cnm-border)",
+                color: "var(--cnm-text-primary)",
+                fontFamily: "var(--font-display)",
+                fontWeight: 800,
+                fontSize: "12px",
+                letterSpacing: "0.03em",
+                textDecoration: "none",
+                cursor: "pointer",
+                transition: "all 0.15s ease",
+                flexShrink: 0,
+              }}
+            >
+              <User size={15} color="var(--cnm-orange)" />
+              <span className="account-text-desktop">
+                {userProfile?.name ? userProfile.name.toUpperCase() : "ACCOUNT"}
+              </span>
+            </Link>
 
             {/* Elevated Cart Button */}
             <button
@@ -710,6 +775,15 @@ export function CustomerHeader({
           .header-theme-toggle {
             display: flex !important;
           }
+          .header-account-btn {
+            display: flex !important;
+          }
+        }
+
+        :global(.header-account-btn:hover) {
+          border-color: var(--cnm-orange) !important;
+          color: var(--cnm-orange) !important;
+          background-color: var(--cnm-surface-elevated) !important;
         }
 
         @media (max-width: 899px) {
@@ -722,9 +796,12 @@ export function CustomerHeader({
           .header-theme-toggle {
             display: none !important;
           }
+          .header-account-btn {
+            display: none !important;
+          }
           .desktop-top-stripe {
             display: none !important;
-        }
+          }
         }
 
         @media (max-width: 640px) {
