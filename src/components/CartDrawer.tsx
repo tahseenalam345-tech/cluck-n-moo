@@ -7,6 +7,7 @@ import { OrderType, BRAND } from "@/lib/constants";
 import { useOrderMode } from "@/context/OrderModeContext";
 import { calculateCartWithCustomDeals } from "@/lib/customDeal";
 import { saveLocalOrder } from "@/lib/orderHistory";
+import { recordOrderedItems } from "@/lib/userHistory";
 import {
   X,
   Trash2,
@@ -51,6 +52,14 @@ export function CartDrawer({
 
   // 2-Step Flow: 'review' (Step 1) | 'details' (Step 2)
   const [step, setStep] = useState<"review" | "details">("review");
+  const [isExpanded, setIsExpanded] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      setIsExpanded(false);
+      setStep("review");
+    }
+  }, [isOpen]);
 
   // Delivery areas from database
   const [deliveryAreas, setDeliveryAreas] = useState<DeliveryArea[]>([]);
@@ -211,6 +220,21 @@ export function CartDrawer({
         discountPkr: data.data.discountPkr || customDealDiscountPkr,
       });
 
+      // Record items in personal Historia
+      recordOrderedItems(
+        cartItems.map((i) => ({
+          productId: i.productId,
+          productName: i.productName,
+          variantName: i.variantName,
+          quantity: i.quantity,
+        })),
+        {
+          orderId: data.data.orderId || data.data.id,
+          orderNumber: data.data.orderNumber,
+        },
+        cleanPhone
+      );
+
       onClearCart();
       onClose();
 
@@ -238,7 +262,7 @@ export function CartDrawer({
       onClick={onClose}
     >
       <div
-        className="card cart-drawer-panel"
+        className={`card cart-drawer-panel ${isExpanded ? "is-expanded" : ""} ${step === "details" ? "is-step-details" : ""}`}
         style={{
           width: "100%",
           maxWidth: "460px",
@@ -253,6 +277,15 @@ export function CartDrawer({
         }}
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Mobile Drag / Expand Handle */}
+        <div
+          className="cart-drag-handle-bar"
+          onClick={() => setIsExpanded((prev) => !prev)}
+          title={isExpanded ? "Collapse Tray" : "Expand Tray"}
+        >
+          <div className="cart-drag-handle-pill" />
+        </div>
+
         {/* Drawer Header */}
         <div
           style={{
@@ -837,19 +870,51 @@ export function CartDrawer({
           from { transform: translateY(100%); }
           to { transform: translateY(0); }
         }
+        .cart-drag-handle-bar {
+          display: none;
+        }
         @media (max-width: 640px) {
           .cart-backdrop {
             align-items: flex-end !important;
             justify-content: center !important;
             padding: 0 !important;
           }
+          .cart-drag-handle-bar {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 10px 0 4px;
+            cursor: pointer;
+            width: 100%;
+            touch-action: none;
+          }
+          .cart-drag-handle-pill {
+            width: 40px;
+            height: 4.5px;
+            border-radius: 999px;
+            background-color: var(--cnm-border, rgba(255, 255, 255, 0.25));
+            transition: all 0.15s ease;
+          }
+          .cart-drag-handle-bar:hover .cart-drag-handle-pill {
+            background-color: var(--cnm-orange, #f97316);
+            transform: scaleX(1.15);
+          }
           :global(.cart-drawer-panel) {
             max-width: 100% !important;
-            height: 90vh !important;
+            height: auto !important;
+            min-height: 52vh !important;
+            max-height: 60vh !important;
             border-left: none !important;
-            border-top-left-radius: var(--radius-lg) !important;
-            border-top-right-radius: var(--radius-lg) !important;
-            animation: cartSlideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            border-top: 1.5px solid var(--cnm-border) !important;
+            border-top-left-radius: 20px !important;
+            border-top-right-radius: 20px !important;
+            animation: cartSlideUp 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            transition: max-height 0.22s ease;
+            box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.4) !important;
+          }
+          :global(.cart-drawer-panel.is-expanded),
+          :global(.cart-drawer-panel.is-step-details) {
+            max-height: 86vh !important;
           }
         }
       `}</style>

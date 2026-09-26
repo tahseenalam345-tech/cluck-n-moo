@@ -52,6 +52,7 @@ export default function KitchenPage() {
   const [orderTypeFilter, setOrderTypeFilter] = useState<string>("ALL");
   const [priorityFilter, setPriorityFilter] = useState<string>("ALL");
   const [sortBy, setSortBy] = useState<"OLDEST" | "NEWEST" | "ORDER_NO">("OLDEST");
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState<boolean>(false);
 
   // Selected Order for Detail Drawer / Modal
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
@@ -626,178 +627,89 @@ export default function KitchenPage() {
       </header>
 
       {/* 2. KPI METRICS SUMMARY BAR */}
-      <div
-        style={{
-          backgroundColor: "var(--cnm-surface-elevated, #161922)",
-          borderBottom: "1px solid var(--cnm-border, rgba(255,255,255,0.06))",
-          padding: "8px 16px",
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))",
-          gap: "8px",
-        }}
-      >
+      <div className="kitchen-kpi-bar">
         {/* KPI: Orders to Cook */}
         <div
+          className={`kitchen-kpi-chip ${statusFilter === "TO_COOK" ? "is-active" : ""}`}
           onClick={() => setStatusFilter(statusFilter === "TO_COOK" ? "ALL" : "TO_COOK")}
-          style={{
-            padding: "6px 10px",
-            backgroundColor:
-              statusFilter === "TO_COOK"
-                ? "rgba(249, 115, 22, 0.15)"
-                : "var(--cnm-surface, #1e2230)",
-            border:
-              statusFilter === "TO_COOK"
-                ? "1.5px solid #f97316"
-                : "1px solid var(--cnm-border, rgba(255,255,255,0.06))",
-            borderRadius: "6px",
-            cursor: "pointer",
-            transition: "all 0.15s ease",
-          }}
         >
-          <span
-            style={{
-              fontSize: "0.65rem",
-              fontWeight: 600,
-              color: "#f97316",
-              textTransform: "uppercase",
-              display: "block",
-            }}
-          >
-            Orders to Cook
-          </span>
-          <span style={{ fontSize: "1.1rem", fontWeight: 700, lineHeight: 1.2 }}>
-            {kpis.toCookCount}
-          </span>
+          <span className="kitchen-kpi-label" style={{ color: "#f97316" }}>To Cook</span>
+          <span className="kitchen-kpi-val">{kpis.toCookCount}</span>
         </div>
 
         {/* KPI: In Kitchen (Cooking) */}
         <div
+          className={`kitchen-kpi-chip ${statusFilter === "PREPARING" ? "is-active" : ""}`}
           onClick={() => setStatusFilter(statusFilter === "PREPARING" ? "ALL" : "PREPARING")}
-          style={{
-            padding: "6px 10px",
-            backgroundColor:
-              statusFilter === "PREPARING"
-                ? "rgba(234, 179, 8, 0.15)"
-                : "var(--cnm-surface, #1e2230)",
-            border:
-              statusFilter === "PREPARING"
-                ? "1.5px solid #eab308"
-                : "1px solid var(--cnm-border, rgba(255,255,255,0.06))",
-            borderRadius: "6px",
-            cursor: "pointer",
-            transition: "all 0.15s ease",
-          }}
         >
-          <span
-            style={{
-              fontSize: "0.65rem",
-              fontWeight: 600,
-              color: "#eab308",
-              textTransform: "uppercase",
-              display: "block",
-            }}
-          >
-            Cooking (In Prep)
-          </span>
-          <span style={{ fontSize: "1.1rem", fontWeight: 700, lineHeight: 1.2 }}>
-            {kpis.preparingCount}
-          </span>
+          <span className="kitchen-kpi-label" style={{ color: "#eab308" }}>Cooking</span>
+          <span className="kitchen-kpi-val">{kpis.preparingCount}</span>
         </div>
 
         {/* KPI: Ready for Handover */}
         <div
+          className={`kitchen-kpi-chip ${statusFilter === "READY" ? "is-active" : ""}`}
           onClick={() => setStatusFilter(statusFilter === "READY" ? "ALL" : "READY")}
-          style={{
-            padding: "6px 10px",
-            backgroundColor:
-              statusFilter === "READY"
-                ? "rgba(16, 185, 129, 0.15)"
-                : "var(--cnm-surface, #1e2230)",
-            border:
-              statusFilter === "READY"
-                ? "1.5px solid #10b981"
-                : "1px solid var(--cnm-border, rgba(255,255,255,0.06))",
-            borderRadius: "6px",
-            cursor: "pointer",
-            transition: "all 0.15s ease",
-          }}
         >
-          <span
-            style={{
-              fontSize: "0.65rem",
-              fontWeight: 600,
-              color: "#10b981",
-              textTransform: "uppercase",
-              display: "block",
-            }}
-          >
-            Ready for Handover
-          </span>
-          <span style={{ fontSize: "1.1rem", fontWeight: 700, lineHeight: 1.2 }}>
-            {kpis.readyCount}
-          </span>
+          <span className="kitchen-kpi-label" style={{ color: "#10b981" }}>Ready</span>
+          <span className="kitchen-kpi-val">{kpis.readyCount}</span>
         </div>
 
         {/* KPI: SLA Rush Warning (>20m) */}
         <div
+          className={`kitchen-kpi-chip ${priorityFilter === "RUSH" ? "is-active" : ""} ${kpis.rushCount > 0 ? "has-rush" : ""}`}
           onClick={() => setPriorityFilter(priorityFilter === "RUSH" ? "ALL" : "RUSH")}
-          style={{
-            padding: "6px 10px",
-            backgroundColor:
-              kpis.rushCount > 0
-                ? "rgba(239, 68, 68, 0.15)"
-                : "var(--cnm-surface, #1e2230)",
-            border:
-              priorityFilter === "RUSH"
-                ? "1.5px solid #ef4444"
-                : kpis.rushCount > 0
-                ? "1px solid rgba(239, 68, 68, 0.3)"
-                : "1px solid var(--cnm-border, rgba(255,255,255,0.06))",
-            borderRadius: "6px",
-            cursor: "pointer",
-            transition: "all 0.15s ease",
-          }}
         >
-          <span
-            style={{
-              fontSize: "0.65rem",
-              fontWeight: 600,
-              color: kpis.rushCount > 0 ? "#ef4444" : "var(--cnm-text-muted, #94a3b8)",
-              textTransform: "uppercase",
-              display: "block",
-            }}
-          >
-            SLA Warning ({">"}20m)
+          <span className="kitchen-kpi-label" style={{ color: kpis.rushCount > 0 ? "#ef4444" : "var(--cnm-text-muted)" }}>
+            Rush {">"}20m
           </span>
-          <span
-            style={{
-              fontSize: "1.1rem",
-              fontWeight: 700,
-              lineHeight: 1.2,
-              color: kpis.rushCount > 0 ? "#ef4444" : "inherit",
-            }}
-          >
+          <span className="kitchen-kpi-val" style={{ color: kpis.rushCount > 0 ? "#ef4444" : "inherit" }}>
             {kpis.rushCount}
           </span>
         </div>
       </div>
 
-      {/* 3. SEARCH, SORT, & FILTER CONTROLS */}
-      <div
-        style={{
-          padding: "8px 16px",
-          backgroundColor: "var(--cnm-surface, #1e2230)",
-          borderBottom: "1px solid var(--cnm-border, rgba(255,255,255,0.06))",
-          display: "flex",
-          flexWrap: "wrap",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: "8px",
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: "8px", flex: "1 1 280px" }}>
+      {/* 3. MOBILE STATUS TABS (Active on mobile screens <= 768px) */}
+      <div className="kitchen-mobile-status-tabs show-on-mobile">
+        <button
+          type="button"
+          className={`kitchen-status-tab ${statusFilter === "ALL" ? "is-active" : ""}`}
+          onClick={() => setStatusFilter("ALL")}
+        >
+          <span>All</span>
+          <span className="tab-pill">{orders.length}</span>
+        </button>
+        <button
+          type="button"
+          className={`kitchen-status-tab ${statusFilter === "TO_COOK" ? "is-active" : ""}`}
+          onClick={() => setStatusFilter("TO_COOK")}
+        >
+          <span>To Cook</span>
+          <span className="tab-pill" style={{ color: "#f97316" }}>{kpis.toCookCount}</span>
+        </button>
+        <button
+          type="button"
+          className={`kitchen-status-tab ${statusFilter === "PREPARING" ? "is-active" : ""}`}
+          onClick={() => setStatusFilter("PREPARING")}
+        >
+          <span>Cooking</span>
+          <span className="tab-pill" style={{ color: "#eab308" }}>{kpis.preparingCount}</span>
+        </button>
+        <button
+          type="button"
+          className={`kitchen-status-tab ${statusFilter === "READY" ? "is-active" : ""}`}
+          onClick={() => setStatusFilter("READY")}
+        >
+          <span>Ready</span>
+          <span className="tab-pill" style={{ color: "#10b981" }}>{kpis.readyCount}</span>
+        </button>
+      </div>
+
+      {/* 4. SEARCH, SORT, & FILTER CONTROLS */}
+      <div className="kitchen-controls-bar">
+        <div style={{ display: "flex", alignItems: "center", gap: "8px", flex: 1, minWidth: 0 }}>
           {/* Search box */}
-          <div style={{ position: "relative", flex: "1 1 200px", maxWidth: "320px" }}>
+          <div style={{ position: "relative", flex: 1, maxWidth: "340px" }}>
             <Search
               size={13}
               style={{
@@ -844,44 +756,41 @@ export default function KitchenPage() {
             )}
           </div>
 
-          {/* Order Type Filter */}
-          <select
-            value={orderTypeFilter}
-            onChange={(e) => setOrderTypeFilter(e.target.value)}
-            style={{
-              padding: "6px 8px",
-              backgroundColor: "var(--cnm-bg, #0f1117)",
-              border: "1px solid var(--cnm-border, rgba(255,255,255,0.1))",
-              borderRadius: "5px",
-              color: "var(--cnm-text-primary, #ffffff)",
-              fontSize: "0.78rem",
-              fontWeight: 500,
-            }}
-          >
-            <option value="ALL">All Order Types</option>
-            <option value="DELIVERY">Delivery</option>
-            <option value="PICKUP">Pickup</option>
-            <option value="DINE_IN">Dine-in</option>
-          </select>
+          {/* Desktop Filter Selectors */}
+          <div className="kitchen-desktop-filters hide-on-mobile">
+            {/* Order Type Filter */}
+            <select
+              value={orderTypeFilter}
+              onChange={(e) => setOrderTypeFilter(e.target.value)}
+              className="kitchen-select"
+            >
+              <option value="ALL">All Types</option>
+              <option value="DELIVERY">Delivery</option>
+              <option value="PICKUP">Pickup</option>
+              <option value="DINE_IN">Dine-in</option>
+            </select>
 
-          {/* Sort By */}
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as any)}
-            style={{
-              padding: "6px 8px",
-              backgroundColor: "var(--cnm-bg, #0f1117)",
-              border: "1px solid var(--cnm-border, rgba(255,255,255,0.1))",
-              borderRadius: "5px",
-              color: "var(--cnm-text-primary, #ffffff)",
-              fontSize: "0.78rem",
-              fontWeight: 500,
-            }}
+            {/* Sort By */}
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as any)}
+              className="kitchen-select"
+            >
+              <option value="OLDEST">Oldest First (Rush)</option>
+              <option value="NEWEST">Newest First</option>
+              <option value="ORDER_NO">Order Number</option>
+            </select>
+          </div>
+
+          {/* Mobile Filters Toggle Button */}
+          <button
+            type="button"
+            className="kitchen-mobile-filter-btn show-on-mobile"
+            onClick={() => setMobileFiltersOpen(!mobileFiltersOpen)}
           >
-            <option value="OLDEST">Oldest First (Rush Priority)</option>
-            <option value="NEWEST">Newest First</option>
-            <option value="ORDER_NO">Order Number</option>
-          </select>
+            <span>Filters</span>
+            {hasActiveFilters && <span className="active-dot" />}
+          </button>
         </div>
 
         {/* Clear Filters action */}
@@ -889,33 +798,61 @@ export default function KitchenPage() {
           <button
             type="button"
             onClick={clearFilters}
-            style={{
-              background: "rgba(239, 68, 68, 0.12)",
-              border: "1px solid rgba(239, 68, 68, 0.25)",
-              color: "#ef4444",
-              padding: "4px 8px",
-              borderRadius: "5px",
-              fontSize: "0.72rem",
-              fontWeight: 600,
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: "4px",
-            }}
+            className="kitchen-reset-filters-btn"
           >
             <X size={12} />
-            <span>Reset Filters</span>
+            <span>Reset</span>
           </button>
         )}
       </div>
 
-      {/* 4. COMPACT KITCHEN BOARD */}
-      <main style={{ padding: "14px 16px", flex: 1, overflowX: "auto" }}>
+      {/* Mobile Collapsible Filters Panel */}
+      {mobileFiltersOpen && (
+        <div className="kitchen-mobile-filters-drawer show-on-mobile">
+          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", width: "100%" }}>
+            <div style={{ flex: "1 1 130px" }}>
+              <label style={{ fontSize: "0.68rem", color: "var(--cnm-text-muted)", display: "block", marginBottom: "3px" }}>
+                Order Type
+              </label>
+              <select
+                value={orderTypeFilter}
+                onChange={(e) => setOrderTypeFilter(e.target.value)}
+                className="kitchen-select"
+                style={{ width: "100%" }}
+              >
+                <option value="ALL">All Types</option>
+                <option value="DELIVERY">Delivery</option>
+                <option value="PICKUP">Pickup</option>
+                <option value="DINE_IN">Dine-in</option>
+              </select>
+            </div>
+
+            <div style={{ flex: "1 1 130px" }}>
+              <label style={{ fontSize: "0.68rem", color: "var(--cnm-text-muted)", display: "block", marginBottom: "3px" }}>
+                Sort By
+              </label>
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as any)}
+                className="kitchen-select"
+                style={{ width: "100%" }}
+              >
+                <option value="OLDEST">Oldest First (Rush)</option>
+                <option value="NEWEST">Newest First</option>
+                <option value="ORDER_NO">Order Number</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 5. KITCHEN BOARD (Desktop 3-Column Kanban + Mobile Single-Column List) */}
+      <main style={{ padding: "12px 14px", flex: 1, minHeight: 0 }}>
         {filteredOrders.length === 0 ? (
           <div
             style={{
               textAlign: "center",
-              padding: "70px 20px",
+              padding: "50px 20px",
               color: "var(--cnm-text-muted, #94a3b8)",
               backgroundColor: "var(--cnm-surface, #1e2230)",
               borderRadius: "10px",
@@ -924,11 +861,11 @@ export default function KitchenPage() {
               margin: "30px auto",
             }}
           >
-            <ChefHat size={40} style={{ margin: "0 auto 10px", opacity: 0.3, color: "#f97316" }} />
-            <h3 style={{ fontSize: "1.05rem", fontWeight: 700, color: "var(--cnm-text-primary, #fff)" }}>
+            <ChefHat size={36} style={{ margin: "0 auto 10px", opacity: 0.3, color: "#f97316" }} />
+            <h3 style={{ fontSize: "1rem", fontWeight: 700, color: "var(--cnm-text-primary, #fff)" }}>
               {hasActiveFilters ? "No Orders Matching Filters" : "All Orders Prepared!"}
             </h3>
-            <p style={{ fontSize: "0.82rem", marginTop: "4px" }}>
+            <p style={{ fontSize: "0.8rem", marginTop: "4px" }}>
               {hasActiveFilters
                 ? "Try clearing filters to view all active kitchen tickets."
                 : "Active kitchen orders from storefront and admin counter will appear here automatically."}
@@ -954,95 +891,112 @@ export default function KitchenPage() {
             )}
           </div>
         ) : (
-          <div className="kitchen-kanban-container">
-            {/* COLUMN 1: TO COOK */}
-            <div className="kanban-column">
-              <div className="kanban-column-header">
-                <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                  <span className="kanban-dot" style={{ backgroundColor: "#f97316" }} />
-                  <span className="kanban-title">ORDERS TO COOK</span>
+          <>
+            {/* Desktop Kanban 3-Column Board */}
+            <div className="kitchen-kanban-container hide-on-mobile">
+              {/* COLUMN 1: TO COOK */}
+              <div className="kanban-column">
+                <div className="kanban-column-header">
+                  <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                    <span className="kanban-dot" style={{ backgroundColor: "#f97316" }} />
+                    <span className="kanban-title">ORDERS TO COOK</span>
+                  </div>
+                  <span className="kanban-count">{kanbanColumns.toCook.length}</span>
                 </div>
-                <span className="kanban-count">{kanbanColumns.toCook.length}</span>
+
+                <div className="kanban-cards-stack">
+                  {kanbanColumns.toCook.map((order) => (
+                    <KitchenOrderCard
+                      key={order.id}
+                      order={order}
+                      onAdvance={handleAdvance}
+                      onViewDetails={() => setSelectedOrder(order)}
+                      isUpdating={actionInProgress === order.id}
+                      getElapsedString={getElapsedString}
+                    />
+                  ))}
+                  {kanbanColumns.toCook.length === 0 && (
+                    <div className="kanban-empty">No orders waiting to cook</div>
+                  )}
+                </div>
               </div>
 
-              <div className="kanban-cards-stack">
-                {kanbanColumns.toCook.map((order) => (
-                  <KitchenOrderCard
-                    key={order.id}
-                    order={order}
-                    onAdvance={handleAdvance}
-                    onViewDetails={() => setSelectedOrder(order)}
-                    isUpdating={actionInProgress === order.id}
-                    getElapsedString={getElapsedString}
-                  />
-                ))}
-                {kanbanColumns.toCook.length === 0 && (
-                  <div className="kanban-empty">No orders waiting to cook</div>
-                )}
+              {/* COLUMN 2: IN PREPARATION */}
+              <div className="kanban-column">
+                <div className="kanban-column-header">
+                  <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                    <span className="kanban-dot" style={{ backgroundColor: "#eab308" }} />
+                    <span className="kanban-title">COOKING IN KITCHEN</span>
+                  </div>
+                  <span className="kanban-count">{kanbanColumns.preparing.length}</span>
+                </div>
+
+                <div className="kanban-cards-stack">
+                  {kanbanColumns.preparing.map((order) => (
+                    <KitchenOrderCard
+                      key={order.id}
+                      order={order}
+                      onAdvance={handleAdvance}
+                      onViewDetails={() => setSelectedOrder(order)}
+                      isUpdating={actionInProgress === order.id}
+                      getElapsedString={getElapsedString}
+                    />
+                  ))}
+                  {kanbanColumns.preparing.length === 0 && (
+                    <div className="kanban-empty">No orders currently cooking</div>
+                  )}
+                </div>
+              </div>
+
+              {/* COLUMN 3: READY FOR HANDOVER */}
+              <div className="kanban-column">
+                <div className="kanban-column-header">
+                  <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                    <span className="kanban-dot" style={{ backgroundColor: "#10b981" }} />
+                    <span className="kanban-title">READY FOR HANDOVER</span>
+                  </div>
+                  <span className="kanban-count">{kanbanColumns.ready.length}</span>
+                </div>
+
+                <div className="kanban-cards-stack">
+                  {kanbanColumns.ready.map((order) => (
+                    <KitchenOrderCard
+                      key={order.id}
+                      order={order}
+                      onAdvance={handleAdvance}
+                      onViewDetails={() => setSelectedOrder(order)}
+                      isUpdating={actionInProgress === order.id}
+                      getElapsedString={getElapsedString}
+                    />
+                  ))}
+                  {kanbanColumns.ready.length === 0 && (
+                    <div className="kanban-empty">No orders awaiting pickup</div>
+                  )}
+                </div>
               </div>
             </div>
 
-            {/* COLUMN 2: IN PREPARATION */}
-            <div className="kanban-column">
-              <div className="kanban-column-header">
-                <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                  <span className="kanban-dot" style={{ backgroundColor: "#eab308" }} />
-                  <span className="kanban-title">COOKING IN KITCHEN</span>
-                </div>
-                <span className="kanban-count">{kanbanColumns.preparing.length}</span>
-              </div>
-
-              <div className="kanban-cards-stack">
-                {kanbanColumns.preparing.map((order) => (
-                  <KitchenOrderCard
-                    key={order.id}
-                    order={order}
-                    onAdvance={handleAdvance}
-                    onViewDetails={() => setSelectedOrder(order)}
-                    isUpdating={actionInProgress === order.id}
-                    getElapsedString={getElapsedString}
-                  />
-                ))}
-                {kanbanColumns.preparing.length === 0 && (
-                  <div className="kanban-empty">No orders currently cooking</div>
-                )}
-              </div>
+            {/* Mobile Single-Column Orders List */}
+            <div className="kitchen-mobile-orders-list show-on-mobile">
+              {filteredOrders.map((order) => (
+                <KitchenOrderCard
+                  key={order.id}
+                  order={order}
+                  onAdvance={handleAdvance}
+                  onViewDetails={() => setSelectedOrder(order)}
+                  isUpdating={actionInProgress === order.id}
+                  getElapsedString={getElapsedString}
+                />
+              ))}
             </div>
-
-            {/* COLUMN 3: READY FOR HANDOVER */}
-            <div className="kanban-column">
-              <div className="kanban-column-header">
-                <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                  <span className="kanban-dot" style={{ backgroundColor: "#10b981" }} />
-                  <span className="kanban-title">READY FOR HANDOVER</span>
-                </div>
-                <span className="kanban-count">{kanbanColumns.ready.length}</span>
-              </div>
-
-              <div className="kanban-cards-stack">
-                {kanbanColumns.ready.map((order) => (
-                  <KitchenOrderCard
-                    key={order.id}
-                    order={order}
-                    onAdvance={handleAdvance}
-                    onViewDetails={() => setSelectedOrder(order)}
-                    isUpdating={actionInProgress === order.id}
-                    getElapsedString={getElapsedString}
-                  />
-                ))}
-                {kanbanColumns.ready.length === 0 && (
-                  <div className="kanban-empty">No orders awaiting pickup</div>
-                )}
-              </div>
-            </div>
-          </div>
+          </>
         )}
       </main>
 
-      {/* 5. CENTERED ORDER DETAIL MODAL / DRAWER */}
+      {/* 5. ORDER DETAIL MODAL / MOBILE BOTTOM SHEET */}
       {selectedOrder && (
         <div
-          className="modal-backdrop"
+          className="modal-backdrop kitchen-modal-backdrop"
           onClick={() => setSelectedOrder(null)}
           style={{
             position: "fixed",
@@ -1057,7 +1011,7 @@ export default function KitchenPage() {
           }}
         >
           <div
-            className="modal-box"
+            className="modal-box kitchen-modal-box"
             onClick={(e) => e.stopPropagation()}
             style={{
               backgroundColor: "var(--cnm-surface, #1e2230)",
@@ -1072,6 +1026,11 @@ export default function KitchenPage() {
               flexDirection: "column",
             }}
           >
+            {/* Mobile Sheet Drag Handle */}
+            <div className="kitchen-sheet-handle-bar show-on-mobile">
+              <span className="kitchen-sheet-handle-pill" />
+            </div>
+
             {/* Modal Header */}
             <div
               style={{
@@ -1434,17 +1393,85 @@ export default function KitchenPage() {
           gap: 8px;
         }
 
-        @media (max-width: 900px) {
-          .kitchen-kanban-container {
-            flex-direction: column;
-          }
-          .kanban-column {
-            width: 100%;
-            max-width: 100%;
-          }
-          .hide-on-mobile {
-            display: none !important;
-          }
+        .show-on-mobile {
+          display: none !important;
+        }
+
+        .kitchen-kpi-bar {
+          background-color: var(--cnm-surface-elevated, #161922);
+          border-bottom: 1px solid var(--cnm-border, rgba(255,255,255,0.06));
+          padding: 8px 16px;
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+          gap: 8px;
+        }
+
+        .kitchen-kpi-chip {
+          padding: 6px 10px;
+          background-color: var(--cnm-surface, #1e2230);
+          border: 1px solid var(--cnm-border, rgba(255,255,255,0.06));
+          border-radius: 6px;
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+
+        .kitchen-kpi-chip.is-active {
+          border-color: var(--cnm-orange, #f97316);
+          background-color: rgba(249, 115, 22, 0.15);
+        }
+
+        .kitchen-kpi-label {
+          font-size: 0.65rem;
+          font-weight: 600;
+          text-transform: uppercase;
+          display: block;
+        }
+
+        .kitchen-kpi-val {
+          font-size: 1.1rem;
+          font-weight: 700;
+          line-height: 1.2;
+        }
+
+        .kitchen-controls-bar {
+          padding: 8px 16px;
+          background-color: var(--cnm-surface, #1e2230);
+          border-bottom: 1px solid var(--cnm-border, rgba(255,255,255,0.06));
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          justifyContent: space-between;
+          gap: 8px;
+        }
+
+        .kitchen-desktop-filters {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .kitchen-select {
+          padding: 6px 8px;
+          background-color: var(--cnm-bg, #0f1117);
+          border: 1px solid var(--cnm-border, rgba(255,255,255,0.1));
+          border-radius: 5px;
+          color: var(--cnm-text-primary, #ffffff);
+          font-size: 0.78rem;
+          font-weight: 500;
+        }
+
+        .kitchen-reset-filters-btn {
+          background: rgba(239, 68, 68, 0.12);
+          border: 1px solid rgba(239, 68, 68, 0.25);
+          color: #ef4444;
+          padding: 4px 8px;
+          border-radius: 5px;
+          font-size: 0.72rem;
+          font-weight: 600;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          gap: 4px;
         }
 
         .kanban-column-header {
@@ -1491,6 +1518,146 @@ export default function KitchenPage() {
           color: var(--cnm-text-muted);
           border: 1px dashed var(--cnm-border);
           border-radius: 6px;
+        }
+
+        @media (max-width: 768px) {
+          .hide-on-mobile {
+            display: none !important;
+          }
+          .show-on-mobile {
+            display: flex !important;
+          }
+          .show-on-mobile.kitchen-mobile-orders-list {
+            display: flex !important;
+            flex-direction: column;
+            gap: 10px;
+            width: 100%;
+          }
+          .show-on-mobile.kitchen-card-mobile-summary {
+            display: block !important;
+          }
+          .kitchen-kpi-bar {
+            display: flex;
+            overflow-x: auto;
+            gap: 6px;
+            padding: 6px 12px;
+            scrollbar-width: none;
+          }
+          .kitchen-kpi-bar::-webkit-scrollbar {
+            display: none;
+          }
+          .kitchen-kpi-chip {
+            flex: 0 0 auto;
+            min-width: 90px;
+            padding: 5px 8px;
+          }
+          .kitchen-kpi-label {
+            font-size: 0.6rem;
+          }
+          .kitchen-kpi-val {
+            font-size: 0.95rem;
+          }
+          .kitchen-mobile-status-tabs {
+            display: flex !important;
+            gap: 6px;
+            padding: 6px 12px;
+            background-color: var(--cnm-surface);
+            border-bottom: 1px solid var(--cnm-border);
+            overflow-x: auto;
+            scrollbar-width: none;
+          }
+          .kitchen-mobile-status-tabs::-webkit-scrollbar {
+            display: none;
+          }
+          .kitchen-status-tab {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            padding: 6px 12px;
+            border-radius: 20px;
+            border: 1px solid var(--cnm-border);
+            background-color: var(--cnm-bg);
+            color: var(--cnm-text-muted);
+            font-size: 0.74rem;
+            font-weight: 600;
+            white-space: nowrap;
+            cursor: pointer;
+            transition: all 0.15s ease;
+          }
+          .kitchen-status-tab.is-active {
+            background-color: var(--cnm-surface-elevated);
+            color: var(--cnm-text-primary);
+            border-color: var(--cnm-orange, #f97316);
+            box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+          }
+          .kitchen-status-tab .tab-pill {
+            font-size: 0.65rem;
+            font-weight: 700;
+            padding: 1px 5px;
+            border-radius: 10px;
+            background: rgba(255,255,255,0.08);
+          }
+          .kitchen-controls-bar {
+            padding: 6px 12px;
+          }
+          .kitchen-mobile-filter-btn {
+            background: var(--cnm-surface-elevated);
+            border: 1px solid var(--cnm-border);
+            color: var(--cnm-text-primary);
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 0.74rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+          }
+          .kitchen-mobile-filter-btn .active-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background-color: var(--cnm-orange, #f97316);
+          }
+          .kitchen-mobile-filters-drawer {
+            display: block !important;
+            padding: 8px 12px;
+            background-color: var(--cnm-surface-elevated);
+            border-bottom: 1px solid var(--cnm-border);
+          }
+
+          /* Bottom Sheet for Kitchen Order Details */
+          .kitchen-modal-backdrop {
+            align-items: flex-end !important;
+            padding: 0 !important;
+          }
+          .kitchen-modal-box {
+            max-width: 100% !important;
+            max-height: 85vh !important;
+            border-bottom-left-radius: 0 !important;
+            border-bottom-right-radius: 0 !important;
+            animation: kitchenSlideUp 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
+            padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)) !important;
+          }
+          .kitchen-sheet-handle-bar {
+            display: flex !important;
+            align-items: center;
+            justify-content: center;
+            padding: 8px 0 4px;
+            cursor: grab;
+          }
+          .kitchen-sheet-handle-pill {
+            width: 38px;
+            height: 4px;
+            border-radius: 2px;
+            background-color: var(--cnm-text-muted);
+            opacity: 0.35;
+          }
+        }
+
+        @keyframes kitchenSlideUp {
+          from { transform: translateY(100%); }
+          to { transform: translateY(0); }
         }
 
         .spin {
@@ -1630,8 +1797,47 @@ function KitchenOrderCard({
         )}
       </div>
 
-      {/* FULL ITEMS BREAKDOWN (Kitchen Staff Needs Complete Details on Card) */}
-      <div style={{ padding: "7px 9px", display: "flex", flexDirection: "column", gap: "6px" }}>
+      {/* Mobile Compact Items Summary (Tapping opens bottom sheet drawer) */}
+      <div
+        className="kitchen-card-mobile-summary show-on-mobile"
+        onClick={onViewDetails}
+        style={{
+          padding: "7px 9px",
+          cursor: "pointer",
+          borderBottom: "1px solid var(--cnm-border, rgba(255,255,255,0.04))",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "3px" }}>
+          <span style={{ fontSize: "0.74rem", fontWeight: 700, color: "var(--cnm-text-primary, #ffffff)" }}>
+            {order.items?.length || 0} {order.items?.length === 1 ? "Item" : "Items"} ({order.items?.reduce((acc, i) => acc + (i.quantity || 1), 0)} Total)
+          </span>
+          <span style={{ fontSize: "0.68rem", color: "var(--cnm-orange, #f97316)", fontWeight: 600 }}>
+            Expand details →
+          </span>
+        </div>
+        <div style={{ fontSize: "0.72rem", color: "var(--cnm-text-muted, #94a3b8)", lineHeight: 1.3 }}>
+          {order.items?.map((i) => `${i.quantity}x ${i.productNameSnapshot || i.productName}`).join(", ")}
+        </div>
+        {order.specialInstructions && (
+          <div
+            style={{
+              marginTop: "5px",
+              padding: "3px 6px",
+              backgroundColor: "rgba(249, 115, 22, 0.12)",
+              border: "1px dashed rgba(249, 115, 22, 0.5)",
+              borderRadius: "4px",
+              fontSize: "0.68rem",
+              color: "#f97316",
+              fontWeight: 500,
+            }}
+          >
+            ⚠️ <strong>Chef Note:</strong> {order.specialInstructions}
+          </div>
+        )}
+      </div>
+
+      {/* FULL ITEMS BREAKDOWN (Desktop Only - Kitchen Staff Needs Complete Details on Kanban Card) */}
+      <div className="kitchen-items-breakdown hide-on-mobile" style={{ padding: "7px 9px", display: "flex", flexDirection: "column", gap: "6px" }}>
         {order.items?.map((item, idx) => (
           <div
             key={idx}

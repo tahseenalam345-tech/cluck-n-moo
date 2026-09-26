@@ -131,10 +131,6 @@ export function AdminShell({
 
           <div className="admin-brand">
             <BrandLogo size="sm" />
-            <div className="admin-badge-col">
-              <span className="admin-badge-text">CONTROL CENTER</span>
-              <span className="admin-badge-env">OPERATIONS</span>
-            </div>
           </div>
         </div>
 

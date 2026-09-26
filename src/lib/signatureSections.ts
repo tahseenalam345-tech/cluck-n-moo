@@ -133,7 +133,7 @@ export const SIGNATURE_SECTIONS: SignatureSectionConfig[] = [
     slug: "historia",
     displayName: "historia",
     shortLabel: "Historia",
-    subtitle: "Brand heritage, Kharian location & story",
+    subtitle: "Your past orders, favorites & brand story",
     iconAsset: "/branding/signature/optimized/historia.webp",
     altText: "Historia signature icon - Heart brand heritage emblem",
     glyph: "HS",

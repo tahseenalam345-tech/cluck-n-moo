@@ -65,6 +65,7 @@ export default function RiderPage() {
   const [assignmentFilter, setAssignmentFilter] = useState<string>("ALL");
   const [selectedRiderFilter, setSelectedRiderFilter] = useState<string>("ALL");
   const [sortBy, setSortBy] = useState<"OLDEST" | "NEWEST" | "ORDER_NO" | "TOTAL">("OLDEST");
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState<boolean>(false);
 
   // Selected Order for Detail Drawer / Modal
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
@@ -736,203 +737,154 @@ export default function RiderPage() {
       </header>
 
       {/* 2. KPI METRICS SUMMARY BAR */}
-      <div
-        style={{
-          backgroundColor: "var(--cnm-surface-elevated, #161922)",
-          borderBottom: "1px solid var(--cnm-border, rgba(255,255,255,0.06))",
-          padding: "8px 16px",
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))",
-          gap: "8px",
-        }}
-      >
-        {/* KPI: Unassigned Deliveries */}
-        <div
-          onClick={() => setAssignmentFilter(assignmentFilter === "UNASSIGNED" ? "ALL" : "UNASSIGNED")}
-          style={{
-            padding: "6px 10px",
-            backgroundColor:
-              assignmentFilter === "UNASSIGNED"
-                ? "rgba(239, 68, 68, 0.15)"
-                : "var(--cnm-surface, #1e2230)",
-            border:
-              assignmentFilter === "UNASSIGNED"
-                ? "1.5px solid #ef4444"
-                : kpis.unassigned > 0
-                ? "1px solid rgba(239, 68, 68, 0.3)"
-                : "1px solid var(--cnm-border, rgba(255,255,255,0.06))",
-            borderRadius: "6px",
-            cursor: "pointer",
-            transition: "all 0.15s ease",
-          }}
-        >
-          <span
-            style={{
-              fontSize: "0.65rem",
-              fontWeight: 600,
-              color: kpis.unassigned > 0 ? "#ef4444" : "var(--cnm-text-muted, #94a3b8)",
-              textTransform: "uppercase",
-              display: "block",
+      {/* 2. KPI METRICS SUMMARY BAR */}
+      <div className="rider-kpi-bar">
+        {/* KPI: Unassigned Deliveries (Admin only) */}
+        {currentUser?.role === "ADMIN" && (
+          <div
+            className={`rider-kpi-chip ${assignmentFilter === "UNASSIGNED" ? "is-active" : ""} ${kpis.unassigned > 0 ? "has-alert" : ""}`}
+            onClick={() => {
+              if (assignmentFilter === "UNASSIGNED") {
+                setAssignmentFilter("ALL");
+              } else {
+                setAssignmentFilter("UNASSIGNED");
+                setStatusFilter("ALL");
+              }
             }}
           >
-            Unassigned Orders
-          </span>
-          <span
-            style={{
-              fontSize: "1.1rem",
-              fontWeight: 700,
-              lineHeight: 1.2,
-              color: kpis.unassigned > 0 ? "#ef4444" : "inherit",
-            }}
-          >
-            {kpis.unassigned}
-          </span>
-        </div>
+            <span className="rider-kpi-label" style={{ color: kpis.unassigned > 0 ? "#ef4444" : "var(--cnm-text-muted)" }}>
+              Unassigned
+            </span>
+            <span className="rider-kpi-val" style={{ color: kpis.unassigned > 0 ? "#ef4444" : "inherit" }}>
+              {kpis.unassigned}
+            </span>
+          </div>
+        )}
 
         {/* KPI: Ready for Pickup */}
         <div
-          onClick={() => setStatusFilter(statusFilter === "READY" ? "ALL" : "READY")}
-          style={{
-            padding: "6px 10px",
-            backgroundColor:
-              statusFilter === "READY"
-                ? "rgba(249, 115, 22, 0.15)"
-                : "var(--cnm-surface, #1e2230)",
-            border:
-              statusFilter === "READY"
-                ? "1.5px solid #f97316"
-                : "1px solid var(--cnm-border, rgba(255,255,255,0.06))",
-            borderRadius: "6px",
-            cursor: "pointer",
-            transition: "all 0.15s ease",
+          className={`rider-kpi-chip ${statusFilter === "READY" ? "is-active" : ""}`}
+          onClick={() => {
+            setStatusFilter(statusFilter === "READY" ? "ALL" : "READY");
+            setAssignmentFilter("ALL");
           }}
         >
-          <span
-            style={{
-              fontSize: "0.65rem",
-              fontWeight: 600,
-              color: "#f97316",
-              textTransform: "uppercase",
-              display: "block",
-            }}
-          >
-            Ready for Pickup
-          </span>
-          <span style={{ fontSize: "1.1rem", fontWeight: 700, lineHeight: 1.2 }}>
-            {kpis.ready}
-          </span>
+          <span className="rider-kpi-label" style={{ color: "#f97316" }}>Ready</span>
+          <span className="rider-kpi-val">{kpis.ready}</span>
         </div>
 
         {/* KPI: Out for Delivery */}
         <div
-          onClick={() => setStatusFilter(statusFilter === "OUT_FOR_DELIVERY" ? "ALL" : "OUT_FOR_DELIVERY")}
-          style={{
-            padding: "6px 10px",
-            backgroundColor:
-              statusFilter === "OUT_FOR_DELIVERY"
-                ? "rgba(59, 130, 246, 0.15)"
-                : "var(--cnm-surface, #1e2230)",
-            border:
-              statusFilter === "OUT_FOR_DELIVERY"
-                ? "1.5px solid #3b82f6"
-                : "1px solid var(--cnm-border, rgba(255,255,255,0.06))",
-            borderRadius: "6px",
-            cursor: "pointer",
-            transition: "all 0.15s ease",
+          className={`rider-kpi-chip ${statusFilter === "OUT_FOR_DELIVERY" ? "is-active" : ""}`}
+          onClick={() => {
+            setStatusFilter(statusFilter === "OUT_FOR_DELIVERY" ? "ALL" : "OUT_FOR_DELIVERY");
+            setAssignmentFilter("ALL");
           }}
         >
-          <span
-            style={{
-              fontSize: "0.65rem",
-              fontWeight: 600,
-              color: "#60a5fa",
-              textTransform: "uppercase",
-              display: "block",
-            }}
-          >
-            Out for Delivery
-          </span>
-          <span style={{ fontSize: "1.1rem", fontWeight: 700, lineHeight: 1.2 }}>
-            {kpis.inTransit}
-          </span>
+          <span className="rider-kpi-label" style={{ color: "#60a5fa" }}>In Transit</span>
+          <span className="rider-kpi-val">{kpis.inTransit}</span>
         </div>
 
         {/* KPI: Completed Today */}
         <div
-          onClick={() => setStatusFilter(statusFilter === "COMPLETED" ? "ALL" : "COMPLETED")}
-          style={{
-            padding: "6px 10px",
-            backgroundColor:
-              statusFilter === "COMPLETED"
-                ? "rgba(16, 185, 129, 0.15)"
-                : "var(--cnm-surface, #1e2230)",
-            border:
-              statusFilter === "COMPLETED"
-                ? "1.5px solid #10b981"
-                : "1px solid var(--cnm-border, rgba(255,255,255,0.06))",
-            borderRadius: "6px",
-            cursor: "pointer",
-            transition: "all 0.15s ease",
+          className={`rider-kpi-chip ${statusFilter === "COMPLETED" ? "is-active" : ""}`}
+          onClick={() => {
+            setStatusFilter(statusFilter === "COMPLETED" ? "ALL" : "COMPLETED");
+            setAssignmentFilter("ALL");
           }}
         >
-          <span
-            style={{
-              fontSize: "0.65rem",
-              fontWeight: 600,
-              color: "#10b981",
-              textTransform: "uppercase",
-              display: "block",
-            }}
-          >
-            Delivered Today
-          </span>
-          <span style={{ fontSize: "1.1rem", fontWeight: 700, lineHeight: 1.2 }}>
-            {kpis.completedToday}
-          </span>
+          <span className="rider-kpi-label" style={{ color: "#10b981" }}>Delivered</span>
+          <span className="rider-kpi-val">{kpis.completedToday}</span>
         </div>
 
         {/* KPI: Active Riders */}
-        <div
-          style={{
-            padding: "6px 10px",
-            backgroundColor: "var(--cnm-surface, #1e2230)",
-            border: "1px solid var(--cnm-border, rgba(255,255,255,0.06))",
-            borderRadius: "6px",
-          }}
-        >
-          <span
-            style={{
-              fontSize: "0.65rem",
-              fontWeight: 600,
-              color: "var(--cnm-text-muted, #94a3b8)",
-              textTransform: "uppercase",
-              display: "block",
-            }}
-          >
-            Fleet Riders
-          </span>
-          <span style={{ fontSize: "1.1rem", fontWeight: 700, lineHeight: 1.2 }}>
-            {activeRiders.length}
-          </span>
+        <div className="rider-kpi-chip">
+          <span className="rider-kpi-label" style={{ color: "var(--cnm-text-muted)" }}>Fleet Riders</span>
+          <span className="rider-kpi-val">{activeRiders.length}</span>
         </div>
       </div>
 
-      {/* 3. SEARCH & DISPATCH FILTERS */}
-      <div
-        style={{
-          padding: "8px 16px",
-          backgroundColor: "var(--cnm-surface, #1e2230)",
-          borderBottom: "1px solid var(--cnm-border, rgba(255,255,255,0.06))",
-          display: "flex",
-          flexWrap: "wrap",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: "8px",
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: "8px", flex: "1 1 300px" }}>
+      {/* 3. MOBILE STATUS TABS (Active on mobile screens <= 768px) */}
+      <div className="rider-mobile-status-tabs show-on-mobile">
+        <button
+          type="button"
+          className={`rider-status-tab ${statusFilter === "ALL" && assignmentFilter === "ALL" ? "is-active" : ""}`}
+          onClick={() => {
+            setStatusFilter("ALL");
+            setAssignmentFilter("ALL");
+          }}
+        >
+          <span>All</span>
+          <span className="tab-pill">{orders.length}</span>
+        </button>
+
+        {currentUser?.role === "ADMIN" && (
+          <button
+            type="button"
+            className={`rider-status-tab ${assignmentFilter === "UNASSIGNED" ? "is-active" : ""}`}
+            onClick={() => {
+              setAssignmentFilter("UNASSIGNED");
+              setStatusFilter("ALL");
+            }}
+          >
+            <span>Unassigned</span>
+            <span className="tab-pill" style={{ color: "#ef4444" }}>{kpis.unassigned}</span>
+          </button>
+        )}
+
+        <button
+          type="button"
+          className={`rider-status-tab ${statusFilter === "READY" ? "is-active" : ""}`}
+          onClick={() => {
+            setStatusFilter("READY");
+            setAssignmentFilter("ALL");
+          }}
+        >
+          <span>Ready</span>
+          <span className="tab-pill" style={{ color: "#f97316" }}>{kpis.ready}</span>
+        </button>
+
+        <button
+          type="button"
+          className={`rider-status-tab ${assignmentFilter === "ASSIGNED" ? "is-active" : ""}`}
+          onClick={() => {
+            setAssignmentFilter("ASSIGNED");
+            setStatusFilter("ALL");
+          }}
+        >
+          <span>Assigned</span>
+        </button>
+
+        <button
+          type="button"
+          className={`rider-status-tab ${statusFilter === "OUT_FOR_DELIVERY" ? "is-active" : ""}`}
+          onClick={() => {
+            setStatusFilter("OUT_FOR_DELIVERY");
+            setAssignmentFilter("ALL");
+          }}
+        >
+          <span>In Transit</span>
+          <span className="tab-pill" style={{ color: "#60a5fa" }}>{kpis.inTransit}</span>
+        </button>
+
+        <button
+          type="button"
+          className={`rider-status-tab ${statusFilter === "COMPLETED" ? "is-active" : ""}`}
+          onClick={() => {
+            setStatusFilter("COMPLETED");
+            setAssignmentFilter("ALL");
+          }}
+        >
+          <span>Delivered</span>
+          <span className="tab-pill" style={{ color: "#10b981" }}>{kpis.completedToday}</span>
+        </button>
+      </div>
+
+      {/* 4. SEARCH & DISPATCH FILTERS */}
+      <div className="rider-controls-bar">
+        <div style={{ display: "flex", alignItems: "center", gap: "8px", flex: 1, minWidth: 0 }}>
           {/* Search Input */}
-          <div style={{ position: "relative", flex: "1 1 200px", maxWidth: "320px" }}>
+          <div style={{ position: "relative", flex: 1, maxWidth: "340px" }}>
             <Search
               size={13}
               style={{
@@ -945,7 +897,7 @@ export default function RiderPage() {
             />
             <input
               type="text"
-              placeholder="Search order #, customer, area, rider..."
+              placeholder="Search order #, customer, area..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               style={{
@@ -979,70 +931,59 @@ export default function RiderPage() {
             )}
           </div>
 
-          {/* Status Filter */}
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            style={{
-              padding: "6px 8px",
-              backgroundColor: "var(--cnm-bg, #0f1117)",
-              border: "1px solid var(--cnm-border, rgba(255,255,255,0.1))",
-              borderRadius: "5px",
-              color: "var(--cnm-text-primary, #ffffff)",
-              fontSize: "0.78rem",
-              fontWeight: 500,
-            }}
-          >
-            <option value="ALL">All Statuses</option>
-            <option value="ACTIVE">All Active</option>
-            <option value="READY">Ready for Pickup</option>
-            <option value="OUT_FOR_DELIVERY">Out for Delivery</option>
-            <option value="COMPLETED">Delivered</option>
-          </select>
-
-          {/* Rider Filter (Admin only) */}
-          {currentUser?.role === "ADMIN" && activeRiders.length > 0 && (
+          {/* Desktop Filter Selectors */}
+          <div className="rider-desktop-filters hide-on-mobile">
+            {/* Status Filter */}
             <select
-              value={selectedRiderFilter}
-              onChange={(e) => setSelectedRiderFilter(e.target.value)}
-              style={{
-                padding: "6px 8px",
-                backgroundColor: "var(--cnm-bg, #0f1117)",
-                border: "1px solid var(--cnm-border, rgba(255,255,255,0.1))",
-                borderRadius: "5px",
-                color: "var(--cnm-text-primary, #ffffff)",
-                fontSize: "0.78rem",
-                fontWeight: 500,
-              }}
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="rider-select"
             >
-              <option value="ALL">All Riders</option>
-              {activeRiders.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.fullName}
-                </option>
-              ))}
+              <option value="ALL">All Statuses</option>
+              <option value="ACTIVE">All Active</option>
+              <option value="READY">Ready for Pickup</option>
+              <option value="OUT_FOR_DELIVERY">Out for Delivery</option>
+              <option value="COMPLETED">Delivered</option>
             </select>
-          )}
 
-          {/* Sort By */}
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as any)}
-            style={{
-              padding: "6px 8px",
-              backgroundColor: "var(--cnm-bg, #0f1117)",
-              border: "1px solid var(--cnm-border, rgba(255,255,255,0.1))",
-              borderRadius: "5px",
-              color: "var(--cnm-text-primary, #ffffff)",
-              fontSize: "0.78rem",
-              fontWeight: 500,
-            }}
+            {/* Rider Filter (Admin only) */}
+            {currentUser?.role === "ADMIN" && activeRiders.length > 0 && (
+              <select
+                value={selectedRiderFilter}
+                onChange={(e) => setSelectedRiderFilter(e.target.value)}
+                className="rider-select"
+              >
+                <option value="ALL">All Riders</option>
+                {activeRiders.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.fullName}
+                  </option>
+                ))}
+              </select>
+            )}
+
+            {/* Sort By */}
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as any)}
+              className="rider-select"
+            >
+              <option value="OLDEST">Oldest Placed (Priority)</option>
+              <option value="NEWEST">Newest Placed</option>
+              <option value="TOTAL">Highest Cash</option>
+              <option value="ORDER_NO">Order Number</option>
+            </select>
+          </div>
+
+          {/* Mobile Filters Toggle Button */}
+          <button
+            type="button"
+            className="rider-mobile-filter-btn show-on-mobile"
+            onClick={() => setMobileFiltersOpen(!mobileFiltersOpen)}
           >
-            <option value="OLDEST">Oldest Placed (Priority)</option>
-            <option value="NEWEST">Newest Placed</option>
-            <option value="TOTAL">Highest Cash Total</option>
-            <option value="ORDER_NO">Order Number</option>
-          </select>
+            <span>Filters</span>
+            {hasActiveFilters && <span className="active-dot" />}
+          </button>
         </div>
 
         {/* Clear Filters button */}
@@ -1050,33 +991,84 @@ export default function RiderPage() {
           <button
             type="button"
             onClick={clearFilters}
-            style={{
-              background: "rgba(239, 68, 68, 0.12)",
-              border: "1px solid rgba(239, 68, 68, 0.25)",
-              color: "#ef4444",
-              padding: "4px 8px",
-              borderRadius: "5px",
-              fontSize: "0.72rem",
-              fontWeight: 600,
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: "4px",
-            }}
+            className="rider-reset-filters-btn"
           >
             <X size={12} />
-            <span>Reset Filters</span>
+            <span>Reset</span>
           </button>
         )}
       </div>
 
-      {/* 4. COMPACT DISPATCH LIST / BOARD */}
-      <main style={{ padding: "14px 16px", flex: 1 }}>
+      {/* Mobile Collapsible Filters Panel */}
+      {mobileFiltersOpen && (
+        <div className="rider-mobile-filters-drawer show-on-mobile">
+          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", width: "100%" }}>
+            <div style={{ flex: "1 1 120px" }}>
+              <label style={{ fontSize: "0.68rem", color: "var(--cnm-text-muted)", display: "block", marginBottom: "3px" }}>
+                Status
+              </label>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="rider-select"
+                style={{ width: "100%" }}
+              >
+                <option value="ALL">All Statuses</option>
+                <option value="ACTIVE">All Active</option>
+                <option value="READY">Ready for Pickup</option>
+                <option value="OUT_FOR_DELIVERY">Out for Delivery</option>
+                <option value="COMPLETED">Delivered</option>
+              </select>
+            </div>
+
+            {currentUser?.role === "ADMIN" && activeRiders.length > 0 && (
+              <div style={{ flex: "1 1 120px" }}>
+                <label style={{ fontSize: "0.68rem", color: "var(--cnm-text-muted)", display: "block", marginBottom: "3px" }}>
+                  Rider
+                </label>
+                <select
+                  value={selectedRiderFilter}
+                  onChange={(e) => setSelectedRiderFilter(e.target.value)}
+                  className="rider-select"
+                  style={{ width: "100%" }}
+                >
+                  <option value="ALL">All Riders</option>
+                  {activeRiders.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.fullName}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            <div style={{ flex: "1 1 120px" }}>
+              <label style={{ fontSize: "0.68rem", color: "var(--cnm-text-muted)", display: "block", marginBottom: "3px" }}>
+                Sort By
+              </label>
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as any)}
+                className="rider-select"
+                style={{ width: "100%" }}
+              >
+                <option value="OLDEST">Oldest Placed (Priority)</option>
+                <option value="NEWEST">Newest Placed</option>
+                <option value="TOTAL">Highest Cash</option>
+                <option value="ORDER_NO">Order Number</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 5. COMPACT DISPATCH LIST / BOARD */}
+      <main style={{ padding: "12px 14px", flex: 1 }}>
         {filteredDeliveries.length === 0 ? (
           <div
             style={{
               textAlign: "center",
-              padding: "70px 20px",
+              padding: "50px 20px",
               color: "var(--cnm-text-muted, #94a3b8)",
               backgroundColor: "var(--cnm-surface, #1e2230)",
               borderRadius: "10px",
@@ -1085,11 +1077,11 @@ export default function RiderPage() {
               margin: "30px auto",
             }}
           >
-            <Bike size={40} style={{ margin: "0 auto 10px", opacity: 0.3, color: "#3b82f6" }} />
-            <h3 style={{ fontSize: "1.05rem", fontWeight: 700, color: "var(--cnm-text-primary, #fff)" }}>
+            <Bike size={36} style={{ margin: "0 auto 10px", opacity: 0.3, color: "#3b82f6" }} />
+            <h3 style={{ fontSize: "1rem", fontWeight: 700, color: "var(--cnm-text-primary, #fff)" }}>
               {hasActiveFilters ? "No Deliveries Matching Filter" : "No Active Delivery Orders"}
             </h3>
-            <p style={{ fontSize: "0.82rem", marginTop: "4px" }}>
+            <p style={{ fontSize: "0.8rem", marginTop: "4px" }}>
               {hasActiveFilters
                 ? "Try resetting filters to show all active dispatch tickets."
                 : "When customers place delivery orders and kitchen prepares them, they will appear here."}
@@ -1115,27 +1107,46 @@ export default function RiderPage() {
             )}
           </div>
         ) : (
-          <div className="rider-delivery-grid">
-            {filteredDeliveries.map((delivery) => (
-              <RiderDeliveryCard
-                key={delivery.id}
-                delivery={delivery}
-                currentUser={currentUser}
-                activeRiders={activeRiders}
-                onStatusUpdate={handleStatusUpdate}
-                onAssignRider={handleAssignRider}
-                onViewDetails={() => setSelectedOrder(delivery)}
-                isUpdating={actionInProgress === delivery.id}
-              />
-            ))}
-          </div>
+          <>
+            {/* Desktop Dispatch Grid */}
+            <div className="rider-delivery-grid hide-on-mobile">
+              {filteredDeliveries.map((delivery) => (
+                <RiderDeliveryCard
+                  key={delivery.id}
+                  delivery={delivery}
+                  currentUser={currentUser}
+                  activeRiders={activeRiders}
+                  onStatusUpdate={handleStatusUpdate}
+                  onAssignRider={handleAssignRider}
+                  onViewDetails={() => setSelectedOrder(delivery)}
+                  isUpdating={actionInProgress === delivery.id}
+                />
+              ))}
+            </div>
+
+            {/* Mobile Single-Column Compact Delivery Rows */}
+            <div className="rider-mobile-delivery-list show-on-mobile">
+              {filteredDeliveries.map((delivery) => (
+                <RiderDeliveryCard
+                  key={delivery.id}
+                  delivery={delivery}
+                  currentUser={currentUser}
+                  activeRiders={activeRiders}
+                  onStatusUpdate={handleStatusUpdate}
+                  onAssignRider={handleAssignRider}
+                  onViewDetails={() => setSelectedOrder(delivery)}
+                  isUpdating={actionInProgress === delivery.id}
+                />
+              ))}
+            </div>
+          </>
         )}
       </main>
 
-      {/* 5. DELIVERY DETAIL DRAWER / MODAL */}
+      {/* 5. DELIVERY DETAIL DRAWER / MOBILE BOTTOM SHEET */}
       {selectedOrder && (
         <div
-          className="modal-backdrop"
+          className="modal-backdrop rider-modal-backdrop"
           onClick={() => setSelectedOrder(null)}
           style={{
             position: "fixed",
@@ -1150,7 +1161,7 @@ export default function RiderPage() {
           }}
         >
           <div
-            className="modal-box"
+            className="modal-box rider-modal-box"
             onClick={(e) => e.stopPropagation()}
             style={{
               backgroundColor: "var(--cnm-surface, #1e2230)",
@@ -1165,6 +1176,11 @@ export default function RiderPage() {
               flexDirection: "column",
             }}
           >
+            {/* Mobile Sheet Drag Handle */}
+            <div className="rider-sheet-handle-bar show-on-mobile">
+              <span className="rider-sheet-handle-pill" />
+            </div>
+
             {/* Modal Header */}
             <div
               style={{
@@ -1576,19 +1592,236 @@ export default function RiderPage() {
           --card-bg: #ffffff;
         }
 
+        .show-on-mobile {
+          display: none !important;
+        }
+
+        .rider-kpi-bar {
+          background-color: var(--cnm-surface-elevated, #161922);
+          border-bottom: 1px solid var(--cnm-border, rgba(255,255,255,0.06));
+          padding: 8px 16px;
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+          gap: 8px;
+        }
+
+        .rider-kpi-chip {
+          padding: 6px 10px;
+          background-color: var(--cnm-surface, #1e2230);
+          border: 1px solid var(--cnm-border, rgba(255,255,255,0.06));
+          border-radius: 6px;
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+
+        .rider-kpi-chip.is-active {
+          border-color: var(--cnm-orange, #f97316);
+          background-color: rgba(249, 115, 22, 0.15);
+        }
+
+        .rider-kpi-chip.has-alert {
+          border-color: rgba(239, 68, 68, 0.4);
+          background-color: rgba(239, 68, 68, 0.12);
+        }
+
+        .rider-kpi-label {
+          font-size: 0.65rem;
+          font-weight: 600;
+          text-transform: uppercase;
+          display: block;
+        }
+
+        .rider-kpi-val {
+          font-size: 1.1rem;
+          font-weight: 700;
+          line-height: 1.2;
+        }
+
+        .rider-controls-bar {
+          padding: 8px 16px;
+          background-color: var(--cnm-surface, #1e2230);
+          border-bottom: 1px solid var(--cnm-border, rgba(255,255,255,0.06));
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          justifyContent: space-between;
+          gap: 8px;
+        }
+
+        .rider-desktop-filters {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .rider-select {
+          padding: 6px 8px;
+          background-color: var(--cnm-bg, #0f1117);
+          border: 1px solid var(--cnm-border, rgba(255,255,255,0.1));
+          border-radius: 5px;
+          color: var(--cnm-text-primary, #ffffff);
+          font-size: 0.78rem;
+          font-weight: 500;
+        }
+
+        .rider-reset-filters-btn {
+          background: rgba(239, 68, 68, 0.12);
+          border: 1px solid rgba(239, 68, 68, 0.25);
+          color: #ef4444;
+          padding: 4px 8px;
+          border-radius: 5px;
+          font-size: 0.72rem;
+          font-weight: 600;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          gap: 4px;
+        }
+
         .rider-delivery-grid {
           display: grid;
           grid-template-columns: repeat(auto-fill, minmax(310px, 360px));
           gap: 12px;
         }
 
-        @media (max-width: 640px) {
-          .rider-delivery-grid {
-            grid-template-columns: 1fr;
-          }
+        @media (max-width: 768px) {
           .hide-on-mobile {
             display: none !important;
           }
+          .show-on-mobile {
+            display: flex !important;
+          }
+          .show-on-mobile.rider-mobile-delivery-list {
+            display: flex !important;
+            flex-direction: column;
+            gap: 10px;
+            width: 100%;
+          }
+          .show-on-mobile.rider-card-mobile-summary {
+            display: block !important;
+          }
+          .rider-kpi-bar {
+            display: flex;
+            overflow-x: auto;
+            gap: 6px;
+            padding: 6px 12px;
+            scrollbar-width: none;
+          }
+          .rider-kpi-bar::-webkit-scrollbar {
+            display: none;
+          }
+          .rider-kpi-chip {
+            flex: 0 0 auto;
+            min-width: 90px;
+            padding: 5px 8px;
+          }
+          .rider-kpi-label {
+            font-size: 0.6rem;
+          }
+          .rider-kpi-val {
+            font-size: 0.95rem;
+          }
+          .rider-mobile-status-tabs {
+            display: flex !important;
+            gap: 6px;
+            padding: 6px 12px;
+            background-color: var(--cnm-surface);
+            border-bottom: 1px solid var(--cnm-border);
+            overflow-x: auto;
+            scrollbar-width: none;
+          }
+          .rider-mobile-status-tabs::-webkit-scrollbar {
+            display: none;
+          }
+          .rider-status-tab {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            padding: 6px 12px;
+            border-radius: 20px;
+            border: 1px solid var(--cnm-border);
+            background-color: var(--cnm-bg);
+            color: var(--cnm-text-muted);
+            font-size: 0.74rem;
+            font-weight: 600;
+            white-space: nowrap;
+            cursor: pointer;
+            transition: all 0.15s ease;
+          }
+          .rider-status-tab.is-active {
+            background-color: var(--cnm-surface-elevated);
+            color: var(--cnm-text-primary);
+            border-color: var(--cnm-orange, #f97316);
+            box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+          }
+          .rider-status-tab .tab-pill {
+            font-size: 0.65rem;
+            font-weight: 700;
+            padding: 1px 5px;
+            border-radius: 10px;
+            background: rgba(255,255,255,0.08);
+          }
+          .rider-controls-bar {
+            padding: 6px 12px;
+          }
+          .rider-mobile-filter-btn {
+            background: var(--cnm-surface-elevated);
+            border: 1px solid var(--cnm-border);
+            color: var(--cnm-text-primary);
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 0.74rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+          }
+          .rider-mobile-filter-btn .active-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background-color: var(--cnm-orange, #f97316);
+          }
+          .rider-mobile-filters-drawer {
+            display: block !important;
+            padding: 8px 12px;
+            background-color: var(--cnm-surface-elevated);
+            border-bottom: 1px solid var(--cnm-border);
+          }
+
+          /* Bottom Sheet for Delivery Details */
+          .rider-modal-backdrop {
+            align-items: flex-end !important;
+            padding: 0 !important;
+          }
+          .rider-modal-box {
+            max-width: 100% !important;
+            max-height: 85vh !important;
+            border-bottom-left-radius: 0 !important;
+            border-bottom-right-radius: 0 !important;
+            animation: riderSlideUp 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
+            padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)) !important;
+          }
+          .rider-sheet-handle-bar {
+            display: flex !important;
+            align-items: center;
+            justify-content: center;
+            padding: 8px 0 4px;
+            cursor: grab;
+          }
+          .rider-sheet-handle-pill {
+            width: 38px;
+            height: 4px;
+            border-radius: 2px;
+            background-color: var(--cnm-text-muted);
+            opacity: 0.35;
+          }
+        }
+
+        @keyframes riderSlideUp {
+          from { transform: translateY(100%); }
+          to { transform: translateY(0); }
         }
 
         .spin {
@@ -1704,8 +1937,46 @@ function RiderDeliveryCard({
         </span>
       </div>
 
-      {/* Main Delivery Info */}
-      <div style={{ padding: "8px 9px", flex: 1, display: "flex", flexDirection: "column", gap: "6px" }}>
+      {/* Mobile Compact Delivery Row (Single-row tap to open bottom sheet drawer) */}
+      <div
+        className="rider-card-mobile-summary show-on-mobile"
+        onClick={onViewDetails}
+        style={{
+          padding: "7px 9px",
+          cursor: "pointer",
+          borderBottom: "1px solid var(--cnm-border, rgba(255,255,255,0.04))",
+        }}
+      >
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "4px", minWidth: 0, flex: 1, marginRight: "8px" }}>
+            <MapPin size={12} color="#f97316" style={{ flexShrink: 0 }} />
+            <span style={{ fontSize: "0.78rem", fontWeight: 700, color: "var(--cnm-orange, #f97316)", whiteSpace: "nowrap" }}>
+              {areaName}
+            </span>
+            <span style={{ fontSize: "0.72rem", color: "var(--cnm-text-muted, #94a3b8)" }}>•</span>
+            <span style={{ fontSize: "0.74rem", fontWeight: 600, color: "var(--cnm-text-primary, #ffffff)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {delivery.customerNameSnapshot || delivery.customerName || "Customer"}
+            </span>
+          </div>
+          <span style={{ fontSize: "0.8rem", fontWeight: 800, color: "#f97316", whiteSpace: "nowrap" }}>
+            {delivery.totalPkr?.toLocaleString()} PKR
+          </span>
+        </div>
+
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "0.68rem" }}>
+          {isAdmin && (
+            <span style={{ color: isUnassigned ? "#ef4444" : "#60a5fa", fontWeight: 600 }}>
+              {delivery.assignedRiderName ? `Rider: ${delivery.assignedRiderName}` : "⚠️ Unassigned"}
+            </span>
+          )}
+          <span style={{ color: "var(--cnm-text-muted, #94a3b8)", marginLeft: "auto" }}>
+            Tap for address & items →
+          </span>
+        </div>
+      </div>
+
+      {/* Main Delivery Info (Desktop Only) */}
+      <div className="rider-card-desktop-body hide-on-mobile" style={{ padding: "8px 9px", flex: 1, display: "flex", flexDirection: "column", gap: "6px" }}>
         {/* Customer Name & Quick Call */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>

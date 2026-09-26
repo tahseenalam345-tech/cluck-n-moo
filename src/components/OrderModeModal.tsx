@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useOrderMode } from "@/context/OrderModeContext";
 import { OrderType, BRAND } from "@/lib/constants";
 import { DeliveryArea } from "@/types";
@@ -14,9 +14,14 @@ import {
   AlertCircle,
   Phone,
   ChevronRight,
+  ChevronDown,
+  Search,
   ArrowLeft,
   RefreshCw,
 } from "lucide-react";
+
+// Fast memory cache so reopening modal is 100% instant (0ms delay)
+let cachedDeliveryAreas: DeliveryArea[] | null = null;
 
 export function OrderModeModal() {
   const { isModalOpen, closeOrderModeModal, modeState, saveOrderMode } = useOrderMode();
@@ -26,12 +31,16 @@ export function OrderModeModal() {
   const [selectedType, setSelectedType] = useState<OrderType>(modeState.orderType || "DELIVERY");
 
   // Delivery state
-  const [deliveryAreas, setDeliveryAreas] = useState<DeliveryArea[]>([]);
+  const [deliveryAreas, setDeliveryAreas] = useState<DeliveryArea[]>(cachedDeliveryAreas || []);
   const [selectedAreaId, setSelectedAreaId] = useState<string>(modeState.areaId || "");
   const [address, setAddress] = useState<string>(modeState.deliveryAddress || "");
   const [landmark, setLandmark] = useState<string>(modeState.deliveryLandmark || "");
-  const [isLoadingAreas, setIsLoadingAreas] = useState<boolean>(false);
+  const [isLoadingAreas, setIsLoadingAreas] = useState<boolean>(!cachedDeliveryAreas);
   const [areasError, setAreasError] = useState<string | null>(null);
+
+  // Custom compact area picker popover state
+  const [isAreaPickerOpen, setIsAreaPickerOpen] = useState<boolean>(false);
+  const [areaSearch, setAreaSearch] = useState<string>("");
 
   // Dine-in state
   const [dineInTimePreset, setDineInTimePreset] = useState<string>(modeState.dineInArrivalTime || "In 30 mins");
@@ -49,20 +58,32 @@ export function OrderModeModal() {
       setLandmark(modeState.deliveryLandmark || "");
       setDineInTimePreset(modeState.dineInArrivalTime || "In 30 mins");
       setPaymentLocation(modeState.dineInPaymentLocation || "AT_COUNTER");
+      setIsAreaPickerOpen(false);
+      setAreaSearch("");
 
       // If user is already configured and opens the modal to adjust, start at CHOOSE_TYPE
       setStep("CHOOSE_TYPE");
     }
   }, [isModalOpen, modeState]);
 
-  // Fetch delivery areas
+  // Fetch delivery areas with caching
   const loadDeliveryAreas = () => {
+    if (cachedDeliveryAreas && cachedDeliveryAreas.length > 0) {
+      setDeliveryAreas(cachedDeliveryAreas);
+      setIsLoadingAreas(false);
+      if (!selectedAreaId) {
+        setSelectedAreaId(cachedDeliveryAreas[0].id);
+      }
+      return;
+    }
+
     setIsLoadingAreas(true);
     setAreasError(null);
     fetch("/api/v1/store/delivery-areas")
       .then((res) => res.json())
       .then((data) => {
         if (data.success && Array.isArray(data.data) && data.data.length > 0) {
+          cachedDeliveryAreas = data.data;
           setDeliveryAreas(data.data);
           if (!selectedAreaId) {
             setSelectedAreaId(data.data[0].id);
@@ -77,11 +98,27 @@ export function OrderModeModal() {
       .finally(() => setIsLoadingAreas(false));
   };
 
+  // Pre-load delivery areas on mount so modal never waits
+  useEffect(() => {
+    loadDeliveryAreas();
+  }, []);
+
   useEffect(() => {
     if (isModalOpen) {
       loadDeliveryAreas();
     }
   }, [isModalOpen]);
+
+  // Filtered areas for search
+  const filteredDeliveryAreas = useMemo(() => {
+    if (!areaSearch.trim()) return deliveryAreas;
+    const q = areaSearch.toLowerCase().trim();
+    return deliveryAreas.filter((a) => a.name.toLowerCase().includes(q));
+  }, [deliveryAreas, areaSearch]);
+
+  const activeSelectedArea = useMemo(() => {
+    return deliveryAreas.find((a) => a.id === selectedAreaId) || deliveryAreas[0];
+  }, [deliveryAreas, selectedAreaId]);
 
   if (!isModalOpen) return null;
 
@@ -259,31 +296,112 @@ export function OrderModeModal() {
                   <RefreshCw size={14} className="spin" />
                   <span>Loading delivery areas...</span>
                 </div>
-              ) : areasError ? (
-                <div className="field-error">
-                  <AlertCircle size={14} />
-                  <span>{areasError}</span>
-                  <button type="button" onClick={loadDeliveryAreas} className="btn-retry-areas">
-                    Retry
-                  </button>
-                </div>
               ) : (
-                <div className="select-container">
-                  <select
-                    id="delivery-area-select"
-                    required
-                    className="cnm-themed-select"
-                    value={selectedAreaId}
-                    onChange={(e) => setSelectedAreaId(e.target.value)}
+                <>
+                  {areasError && (
+                    <div className="field-error">
+                      <AlertCircle size={14} />
+                      <span>{areasError}</span>
+                      <button type="button" onClick={loadDeliveryAreas} className="btn-retry-areas">
+                        Retry
+                      </button>
+                    </div>
+                  )}
+                  <div className="custom-area-selector">
+                  <button
+                    type="button"
+                    id="delivery-area-select-btn"
+                    onClick={() => setIsAreaPickerOpen((prev) => !prev)}
+                    className={`area-trigger-box ${isAreaPickerOpen ? "open" : ""}`}
+                    aria-expanded={isAreaPickerOpen}
+                    aria-haspopup="listbox"
                   >
-                    {deliveryAreas.map((area) => (
-                      <option key={area.id} value={area.id}>
-                        {area.name} — {area.deliveryFeePkr} PKR (Est: ~{area.estimatedDeliveryMins || 45} mins)
-                      </option>
-                    ))}
-                  </select>
+                    <div className="trigger-left">
+                      <div className="trigger-icon-wrap">
+                        <MapPin size={16} />
+                      </div>
+                      <div className="trigger-text-wrap">
+                        <span className="trigger-name">
+                          {activeSelectedArea?.name || "Select delivery area / village"}
+                        </span>
+                        <span className="trigger-sub">
+                          {activeSelectedArea
+                            ? `${activeSelectedArea.deliveryFeePkr} PKR delivery • ~${activeSelectedArea.estimatedDeliveryMins || 45} mins`
+                            : "Kharian & surrounding villages"}
+                        </span>
+                      </div>
+                    </div>
+                    <ChevronDown size={17} className={`trigger-chevron ${isAreaPickerOpen ? "rotated" : ""}`} />
+                  </button>
+
+                  {/* Popover list constrained to compact height */}
+                  {isAreaPickerOpen && (
+                    <div className="area-picker-dropdown" role="listbox">
+                      {deliveryAreas.length > 5 && (
+                        <div className="area-search-box">
+                          <Search size={13} className="search-icon" />
+                          <input
+                            type="text"
+                            value={areaSearch}
+                            onChange={(e) => setAreaSearch(e.target.value)}
+                            placeholder="Search area or village..."
+                            className="area-search-input"
+                            autoFocus
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                          {areaSearch && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setAreaSearch("");
+                              }}
+                              className="btn-clear-search"
+                            >
+                              <X size={12} />
+                            </button>
+                          )}
+                        </div>
+                      )}
+
+                      <div className="area-options-scroll no-scrollbar">
+                        {filteredDeliveryAreas.map((area) => {
+                          const isSelected = selectedAreaId === area.id;
+                          return (
+                            <button
+                              key={area.id}
+                              type="button"
+                              onClick={() => {
+                                setSelectedAreaId(area.id);
+                                setIsAreaPickerOpen(false);
+                              }}
+                              className={`area-option-item ${isSelected ? "selected" : ""}`}
+                              role="option"
+                              aria-selected={isSelected}
+                            >
+                              <div className="area-item-info">
+                                <span className="area-item-name">{area.name}</span>
+                                <span className="area-item-time">Est: ~{area.estimatedDeliveryMins || 45} mins</span>
+                              </div>
+                              <div className="area-item-right">
+                                <span className="area-item-fee">{area.deliveryFeePkr} PKR</span>
+                                {isSelected && <Check size={14} className="check-mark" />}
+                              </div>
+                            </button>
+                          );
+                        })}
+
+                        {filteredDeliveryAreas.length === 0 && (
+                          <div className="area-empty-state">
+                            <span>No areas matching &quot;{areaSearch}&quot;</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
-              )}
+              </>
+            )}
             </div>
 
             <div className="form-field">
@@ -760,6 +878,214 @@ export function OrderModeModal() {
         @keyframes spin {
           from { transform: rotate(0deg); }
           to { transform: rotate(360deg); }
+        }
+
+        /* 3. CUSTOM COMPACT DELIVERY AREA SELECTOR */
+        .custom-area-selector {
+          position: relative;
+          width: 100%;
+        }
+
+        .area-trigger-box {
+          width: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 10px 12px;
+          border-radius: 10px;
+          border: 1.5px solid var(--cnm-border, rgba(255, 255, 255, 0.12));
+          background-color: var(--cnm-surface-elevated, #161922);
+          color: var(--cnm-text-primary, #ffffff);
+          cursor: pointer;
+          transition: all 0.15s ease;
+          text-align: left;
+        }
+
+        .area-trigger-box:hover,
+        .area-trigger-box.open {
+          border-color: var(--cnm-orange, #f97316);
+        }
+
+        .trigger-left {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          min-width: 0;
+          flex: 1;
+        }
+
+        .trigger-icon-wrap {
+          color: var(--cnm-orange, #f97316);
+          flex-shrink: 0;
+        }
+
+        .trigger-text-wrap {
+          display: flex;
+          flex-direction: column;
+          min-width: 0;
+        }
+
+        .trigger-name {
+          font-size: 13.5px;
+          font-weight: 800;
+          color: var(--cnm-text-primary, #ffffff);
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .trigger-sub {
+          font-size: 11px;
+          color: var(--cnm-text-muted, #94a3b8);
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .trigger-chevron {
+          color: var(--cnm-text-muted, #94a3b8);
+          transition: transform 0.2s ease;
+          flex-shrink: 0;
+        }
+
+        .trigger-chevron.rotated {
+          transform: rotate(180deg);
+          color: var(--cnm-orange, #f97316);
+        }
+
+        /* Area Picker Dropdown Popover */
+        .area-picker-dropdown {
+          margin-top: 6px;
+          border-radius: 10px;
+          border: 1px solid var(--cnm-border, rgba(255, 255, 255, 0.14));
+          background-color: var(--cnm-surface, #1e2230);
+          box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
+          overflow: hidden;
+          animation: popoverFadeIn 0.15s ease-out;
+        }
+
+        @keyframes popoverFadeIn {
+          from { opacity: 0; transform: translateY(-4px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+
+        .area-search-box {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 8px 12px;
+          border-bottom: 1px solid var(--cnm-border, rgba(255, 255, 255, 0.08));
+          background-color: var(--cnm-surface-elevated, #161922);
+        }
+
+        .area-search-box .search-icon {
+          color: var(--cnm-text-muted, #94a3b8);
+          flex-shrink: 0;
+        }
+
+        .area-search-input {
+          flex: 1;
+          background: transparent;
+          border: none;
+          outline: none;
+          font-size: 12px;
+          color: var(--cnm-text-primary, #ffffff);
+        }
+
+        .btn-clear-search {
+          background: transparent;
+          border: none;
+          color: var(--cnm-text-muted, #94a3b8);
+          cursor: pointer;
+          padding: 2px;
+        }
+
+        .area-options-scroll {
+          max-height: 200px;
+          overflow-y: auto;
+          display: flex;
+          flex-direction: column;
+        }
+
+        .area-option-item {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 9px 12px;
+          background: transparent;
+          border: none;
+          border-bottom: 1px solid var(--cnm-border, rgba(255, 255, 255, 0.04));
+          cursor: pointer;
+          transition: background-color 0.12s ease;
+          text-align: left;
+          width: 100%;
+        }
+
+        .area-option-item:hover,
+        .area-option-item.selected {
+          background-color: rgba(249, 115, 22, 0.1);
+        }
+
+        .area-item-info {
+          display: flex;
+          flex-direction: column;
+        }
+
+        .area-item-name {
+          font-size: 13px;
+          font-weight: 750;
+          color: var(--cnm-text-primary, #ffffff);
+        }
+
+        .area-item-time {
+          font-size: 10.5px;
+          color: var(--cnm-text-muted, #94a3b8);
+        }
+
+        .area-item-right {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+
+        .area-item-fee {
+          font-size: 11px;
+          font-weight: 800;
+          color: var(--cnm-orange, #f97316);
+          background-color: rgba(249, 115, 22, 0.15);
+          padding: 2px 6px;
+          border-radius: 4px;
+        }
+
+        .check-mark {
+          color: var(--cnm-orange, #f97316);
+        }
+
+        .area-empty-state {
+          padding: 16px;
+          text-align: center;
+          font-size: 12px;
+          color: var(--cnm-text-muted, #94a3b8);
+        }
+
+        /* Mobile specific bottom-sheet styling */
+        @media (max-width: 640px) {
+          .order-mode-backdrop {
+            align-items: flex-end !important;
+            padding: 0 !important;
+          }
+          .order-mode-card {
+            max-width: 100% !important;
+            border-bottom-left-radius: 0 !important;
+            border-bottom-right-radius: 0 !important;
+            max-height: 85vh !important;
+            padding: 16px 16px env(safe-area-inset-bottom, 16px) !important;
+            animation: sheetSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+          }
+          @keyframes sheetSlideUp {
+            from { transform: translateY(100%); }
+            to { transform: translateY(0); }
+          }
         }
       `}</style>
     </div>

@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { ThemeProvider } from "@/context/ThemeContext";
 import { OrderModeProvider } from "@/context/OrderModeContext";
+import { OrderModeModal } from "@/components/OrderModeModal";
 
 export const metadata: Metadata = {
   title: "Cluck N Moo (CNM) — juiciest in town | Kharian, Pakistan",
@@ -52,6 +53,7 @@ export default function RootLayout({
         <ThemeProvider>
           <OrderModeProvider>
             {children}
+            <OrderModeModal />
           </OrderModeProvider>
         </ThemeProvider>
       </body>

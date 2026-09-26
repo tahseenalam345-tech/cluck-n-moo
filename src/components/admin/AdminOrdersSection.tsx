@@ -1223,6 +1223,10 @@ export function AdminOrdersSection({
           display: flex;
           flex-direction: column;
           gap: 16px;
+          width: 100%;
+          max-width: 100%;
+          overflow-x: hidden;
+          box-sizing: border-box;
         }
 
         /* LIGHT MODE TOKENS */
@@ -2479,102 +2483,174 @@ export function AdminOrdersSection({
           }
         }
 
-        /* MOBILE VIEWPORT OPTIMIZATIONS (2x2 GRID, ICON-ONLY TOGGLE) */
+        /* MOBILE VIEWPORT OPTIMIZATIONS (2x2 SQUARE KPI BOXES, 1-IN-ROW ORDER CARDS, NO OVERFLOW) */
         @media (max-width: 768px) {
-          .compact-orders-grid {
+          /* PIC 1: Top KPI cards in square 2x2 shape (small compact boxes) */
+          .orders-kpi-bar {
             grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
             gap: 8px !important;
           }
 
+          .kpi-card {
+            flex-direction: column !important;
+            align-items: flex-start !important;
+            justify-content: space-between !important;
+            padding: 10px 11px !important;
+            border-radius: 12px !important;
+            min-height: 82px !important;
+            gap: 6px !important;
+          }
+
+          .kpi-icon-box {
+            width: 30px !important;
+            height: 30px !important;
+            border-radius: 8px !important;
+          }
+
+          .kpi-label {
+            font-size: 10px !important;
+            line-height: 1.2 !important;
+            letter-spacing: 0.02em !important;
+          }
+
+          .kpi-val {
+            font-size: 17px !important;
+            line-height: 1.1 !important;
+          }
+
+          .kpi-card:last-child .kpi-val {
+            font-size: 13.5px !important;
+            white-space: nowrap !important;
+          }
+
+          /* PIC 2: Order cards shifted to 1-in-row so all details show without cut-off */
+          .compact-orders-grid {
+            grid-template-columns: minmax(0, 1fr) !important;
+            gap: 12px !important;
+          }
+
           .compact-order-card {
-            padding: 9px 8px !important;
-            border-radius: 10px !important;
-            min-height: 230px !important;
+            padding: 12px 14px !important;
+            border-radius: 12px !important;
+            min-height: auto !important;
+            min-width: 0 !important;
+            max-width: 100% !important;
+            box-sizing: border-box !important;
           }
 
           .order-num {
-            font-size: 12px !important;
+            font-size: 14px !important;
           }
 
           .time-ago {
-            font-size: 9.5px !important;
+            font-size: 11px !important;
           }
 
           .type-badge, .pos-badge {
-            font-size: 8.5px !important;
-            padding: 1px 4px !important;
+            font-size: 9.5px !important;
+            padding: 2px 6px !important;
           }
 
           .customer-name {
-            font-size: 11.5px !important;
+            font-size: 13px !important;
+            font-weight: 800 !important;
           }
 
           .customer-phone-chip {
-            font-size: 9.5px !important;
-            padding: 1px 4px !important;
+            font-size: 11px !important;
+            padding: 2px 6px !important;
           }
 
           .card-address-row, .card-rider-strip {
-            font-size: 10px !important;
+            font-size: 11px !important;
+            height: 22px !important;
           }
 
           .card-item-summary-strip {
-            padding: 4px 6px !important;
+            padding: 5px 8px !important;
             height: 28px !important;
           }
 
           .item-count-chip {
-            font-size: 10px !important;
+            font-size: 11px !important;
           }
 
           .btn-open-drawer-hint {
-            font-size: 9.5px !important;
+            font-size: 10.5px !important;
           }
 
           .card-bottom-row {
-            flex-direction: column !important;
-            align-items: stretch !important;
-            height: auto !important;
-            gap: 5px !important;
+            flex-direction: row !important;
+            justify-content: space-between !important;
+            align-items: center !important;
+            height: 38px !important;
+            gap: 8px !important;
             padding-top: 6px !important;
           }
 
           .price-block {
-            flex-direction: row !important;
-            justify-content: space-between !important;
-            align-items: baseline !important;
+            flex-direction: column !important;
+            align-items: flex-start !important;
           }
 
           .price-label {
-            font-size: 8.5px !important;
+            font-size: 9px !important;
           }
 
           .price-val {
-            font-size: 12.5px !important;
+            font-size: 14px !important;
           }
 
           .actions-block {
-            display: flex !important;
-            width: 100% !important;
-            gap: 5px !important;
+            display: inline-flex !important;
+            width: auto !important;
+            gap: 6px !important;
           }
 
           .btn-action-primary {
-            flex: 1 !important;
-            justify-content: center !important;
-            padding: 5px 6px !important;
-            font-size: 10px !important;
-            gap: 4px !important;
+            flex: initial !important;
+            padding: 6px 12px !important;
+            font-size: 11px !important;
+            gap: 5px !important;
           }
 
           .btn-cancel-icon {
-            width: 28px !important;
-            height: 28px !important;
+            width: 32px !important;
+            height: 32px !important;
             flex-shrink: 0 !important;
           }
 
+          /* PIC 3: Fix columns view and stage cards cutting off */
           .orders-columns-board {
-            grid-template-columns: 1fr;
+            grid-template-columns: minmax(0, 1fr) !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            gap: 12px !important;
+          }
+
+          .stage-column {
+            min-width: 0 !important;
+            max-width: 100% !important;
+            width: 100% !important;
+            box-sizing: border-box !important;
+            overflow: hidden !important;
+            padding: 10px !important;
+          }
+
+          .stage-column-header {
+            min-width: 0 !important;
+            width: 100% !important;
+          }
+
+          .stage-title-wrap {
+            min-width: 0 !important;
+            flex: 1 !important;
+            overflow: hidden !important;
+          }
+
+          .stage-column-cards {
+            min-width: 0 !important;
+            width: 100% !important;
           }
         }
 

@@ -5,7 +5,6 @@ import { Category, Product, CartItem, Promotion } from "@/types";
 import { AppDownloadBanner } from "@/components/AppDownloadBanner";
 import { CustomerHeader } from "@/components/CustomerHeader";
 import { PromoCarousel } from "@/components/PromoCarousel";
-import { OrderModeModal } from "@/components/OrderModeModal";
 import { SignatureNavigationStrip } from "@/components/SignatureNavigationStrip";
 import { MenuSearchBar } from "@/components/MenuSearchBar";
 import { PopularPicksSection } from "@/components/PopularPicksSection";
@@ -13,6 +12,8 @@ import { PromotionsSection } from "@/components/PromotionsSection";
 import { PromotionModal } from "@/components/PromotionModal";
 import { ProductCard } from "@/components/ProductCard";
 import { BrandStorySection } from "@/components/BrandStorySection";
+import { HistoriaSection } from "@/components/HistoriaSection";
+import { recordProductVisit } from "@/lib/userHistory";
 import { ItemCustomizerModal } from "@/components/ItemCustomizerModal";
 import { CartDrawer } from "@/components/CartDrawer";
 import { FloatingMiniCart } from "@/components/FloatingMiniCart";
@@ -153,6 +154,11 @@ export default function StorefrontPage() {
     setCartItems([]);
   };
 
+  const handleSelectProduct = (product: Product) => {
+    recordProductVisit(product.id);
+    setSelectedProduct(product);
+  };
+
   const cartCount = cartItems.reduce((acc, item) => acc + item.quantity, 0);
   const cartSubtotal = cartItems.reduce((acc, item) => acc + item.lineTotalPkr, 0);
 
@@ -232,9 +238,6 @@ export default function StorefrontPage() {
         onOpenCart={() => setIsCartOpen(true)}
       />
 
-      {/* 3. First-Visit Order Mode & Location Modal */}
-      <OrderModeModal />
-
       <main style={{ flex: 1, paddingBottom: cartCount > 0 ? "76px" : "0px" }}>
         {/* 3. Promotional Banners Carousel */}
         <PromoCarousel
@@ -311,7 +314,7 @@ export default function StorefrontPage() {
           <PopularPicksSection
             products={allProducts}
             isLoading={isLoading}
-            onSelectProduct={(p) => setSelectedProduct(p)}
+            onSelectProduct={handleSelectProduct}
           />
         )}
 
@@ -558,7 +561,15 @@ export default function StorefrontPage() {
                 ))}
               </div>
             ) : isHistoria ? (
-              <BrandStorySection isHighlighted={true} />
+              <HistoriaSection
+                allProducts={allProducts}
+                onSelectProduct={handleSelectProduct}
+                onExploreMenu={() => {
+                  setActiveSignatureSlug("menu");
+                  setSelectedCategory("all");
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+                }}
+              />
             ) : loadError ? (
               <div style={{ textAlign: "center", padding: "48px 20px" }}>
                 <p style={{ color: "var(--cnm-orange)", fontSize: "16px", fontWeight: 600, marginBottom: "8px" }}>
@@ -645,7 +656,7 @@ export default function StorefrontPage() {
                       <ProductCard
                         key={product.id}
                         product={product}
-                        onSelect={(p) => setSelectedProduct(p)}
+                        onSelect={handleSelectProduct}
                       />
                     ))}
                   </div>

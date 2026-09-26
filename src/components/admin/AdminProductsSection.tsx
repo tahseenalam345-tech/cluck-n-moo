@@ -318,15 +318,15 @@ export function AdminProductsSection({
 
       {/* 2. Search & Filter Bar */}
       <div className="admin-filters-card">
-        {/* Search Row */}
+        {/* Search Row & View Mode Toggle */}
         <div className="admin-search-row">
           <div className="admin-search-input-wrap">
-            <Search size={16} className="search-icon" />
+            <Search size={15} className="search-icon" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search by dish name, slug, ingredients, or tags..."
+              placeholder="Search by dish name, slug, ingredients..."
               className="admin-search-input"
             />
           </div>
@@ -338,7 +338,7 @@ export function AdminProductsSection({
               onClick={() => setViewMode("grid")}
               title="Card Grid View"
             >
-              <GridIcon size={15} />
+              <GridIcon size={14} />
             </button>
             <button
               type="button"
@@ -346,15 +346,14 @@ export function AdminProductsSection({
               onClick={() => setViewMode("table")}
               title="Data Table View"
             >
-              <ListIcon size={15} />
+              <ListIcon size={14} />
             </button>
           </div>
         </div>
 
-        {/* Filter Pills Row */}
-        <div className="admin-filters-pills-row">
-          {/* Category Dropdown */}
-          <div className="filter-select-wrap">
+        {/* Dropdowns Row: Category on Left, Sort on Right */}
+        <div className="admin-dropdowns-row">
+          <div className="filter-select-wrap category-select">
             <label>Category:</label>
             <select
               value={selectedCategory}
@@ -370,48 +369,7 @@ export function AdminProductsSection({
             </select>
           </div>
 
-          {/* Availability Pills */}
-          <div className="filter-pills-group">
-            <span className="pills-label">Status:</span>
-            {[
-              { id: "all", label: "All Items" },
-              { id: "available", label: "Available Only" },
-              { id: "sold_out", label: "Sold Out Only" },
-              { id: "popular", label: `⭐ Popular (${popularCount})` },
-              { id: "archived", label: "Archived" },
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setSelectedAvailability(tab.id)}
-                className={`filter-pill-btn ${selectedAvailability === tab.id ? "active" : ""}`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Image Filter */}
-          <div className="filter-pills-group">
-            <span className="pills-label">Images:</span>
-            {[
-              { id: "all", label: "All" },
-              { id: "has_image", label: "Has Cloudinary" },
-              { id: "no_image", label: "Missing Image" },
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setSelectedImageStatus(tab.id)}
-                className={`filter-pill-btn ${selectedImageStatus === tab.id ? "active" : ""}`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Sort Selector */}
-          <div className="filter-select-wrap">
+          <div className="filter-select-wrap sort-select">
             <label>Sort:</label>
             <select
               value={sortBy}
@@ -431,6 +389,53 @@ export function AdminProductsSection({
             >
               {sortOrder === "asc" ? "↑" : "↓"}
             </button>
+          </div>
+        </div>
+
+        {/* Filter Pills: Compact, One-Line Scrollable Strips */}
+        <div className="admin-pills-container">
+          {/* Status Pills */}
+          <div className="pills-scroll-row">
+            <span className="pills-label">Status:</span>
+            <div className="pills-items-strip no-scrollbar">
+              {[
+                { id: "all", label: "All Items" },
+                { id: "available", label: "Available Only" },
+                { id: "sold_out", label: "Sold Out Only" },
+                { id: "popular", label: `⭐ Popular (${popularCount})` },
+                { id: "archived", label: "Archived" },
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setSelectedAvailability(tab.id)}
+                  className={`filter-pill-btn ${selectedAvailability === tab.id ? "active" : ""}`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Image Filter Pills */}
+          <div className="pills-scroll-row">
+            <span className="pills-label">Images:</span>
+            <div className="pills-items-strip no-scrollbar">
+              {[
+                { id: "all", label: "All" },
+                { id: "has_image", label: "Has Cloudinary" },
+                { id: "no_image", label: "Missing Image" },
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setSelectedImageStatus(tab.id)}
+                  className={`filter-pill-btn ${selectedImageStatus === tab.id ? "active" : ""}`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -880,12 +885,13 @@ export function AdminProductsSection({
           color: #ffffff;
         }
 
-        .admin-filters-pills-row {
+        /* Dropdowns Row: Left / Right Placement */
+        .admin-dropdowns-row {
           display: flex;
           align-items: center;
-          flex-wrap: wrap;
-          gap: 12px;
-          font-size: 12px;
+          justify-content: space-between;
+          gap: 10px;
+          width: 100%;
         }
 
         .filter-select-wrap {
@@ -897,6 +903,7 @@ export function AdminProductsSection({
           color: var(--admin-text-muted);
           font-weight: 700;
           font-size: 11px;
+          white-space: nowrap;
         }
         .admin-filter-select {
           background: var(--admin-bg);
@@ -904,7 +911,7 @@ export function AdminProductsSection({
           color: var(--admin-text-main);
           padding: 5px 8px;
           border-radius: 6px;
-          font-size: 12px;
+          font-size: 11.5px;
           outline: none;
         }
         .sort-dir-btn {
@@ -912,31 +919,62 @@ export function AdminProductsSection({
           border: 1px solid var(--admin-border);
           border-radius: 6px;
           padding: 4px 8px;
-          font-size: 13px;
+          font-size: 12px;
           font-weight: 800;
           color: var(--admin-text-main);
           cursor: pointer;
         }
 
-        .filter-pills-group {
+        /* Pills Container */
+        .admin-pills-container {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+
+        .pills-scroll-row {
           display: flex;
           align-items: center;
-          gap: 6px;
+          gap: 8px;
+          min-width: 0;
+          width: 100%;
         }
+
         .pills-label {
           color: var(--admin-text-muted);
           font-weight: 700;
           font-size: 11px;
+          flex-shrink: 0;
+          min-width: 48px;
         }
+
+        .pills-items-strip {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          overflow-x: auto;
+          white-space: nowrap;
+          -webkit-overflow-scrolling: touch;
+          scrollbar-width: none;
+          flex: 1;
+          min-width: 0;
+          padding: 1px 0;
+        }
+        .pills-items-strip::-webkit-scrollbar {
+          display: none;
+        }
+
         .filter-pill-btn {
-          padding: 4px 10px;
-          border-radius: 15px;
-          font-size: 11px;
+          padding: 3.5px 9px;
+          border-radius: 14px;
+          font-size: 10.5px;
           font-weight: 650;
           background: var(--admin-bg);
           border: 1px solid var(--admin-border);
           color: var(--admin-text-main);
           cursor: pointer;
+          white-space: nowrap;
+          flex-shrink: 0;
           transition: all 0.15s ease;
         }
         .filter-pill-btn.active {
@@ -1342,6 +1380,170 @@ export function AdminProductsSection({
         @keyframes toastSlideUp {
           from { opacity: 0; transform: translateY(10px); }
           to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* MOBILE VIEWPORT (PIC 4: COMPACT HEADER, REDESIGNED FILTERS, 2x2 ITEM CARDS) */
+        @media (max-width: 768px) {
+          .admin-section-topbar {
+            gap: 8px;
+          }
+          .admin-page-title {
+            font-size: 17px !important;
+            margin-bottom: 2px !important;
+          }
+          .admin-page-subtitle {
+            font-size: 11px !important;
+            line-height: 1.3 !important;
+          }
+          .admin-topbar-actions {
+            width: 100%;
+            justify-content: flex-end;
+            gap: 6px;
+          }
+          .admin-btn-primary, .admin-btn-secondary {
+            padding: 6px 10px !important;
+            font-size: 11.5px !important;
+          }
+
+          /* Compact Filters Card */
+          .admin-filters-card {
+            padding: 8px 10px !important;
+            gap: 7px !important;
+            border-radius: 8px !important;
+          }
+          .admin-search-input-wrap {
+            padding: 5px 8px !important;
+          }
+          .admin-search-input {
+            font-size: 11px !important;
+          }
+          .view-btn {
+            padding: 5px 8px !important;
+          }
+
+          .admin-dropdowns-row {
+            gap: 6px !important;
+          }
+          .filter-select-wrap {
+            flex: 1;
+            min-width: 0;
+            gap: 4px !important;
+          }
+          .filter-select-wrap label {
+            font-size: 10px !important;
+          }
+          .admin-filter-select {
+            width: 100%;
+            min-width: 0;
+            font-size: 10.5px !important;
+            padding: 4px 5px !important;
+          }
+          .sort-dir-btn {
+            padding: 3px 6px !important;
+            font-size: 11px !important;
+          }
+
+          .admin-pills-container {
+            gap: 5px !important;
+          }
+          .pills-scroll-row {
+            gap: 5px !important;
+          }
+          .pills-label {
+            font-size: 9.5px !important;
+            min-width: 40px !important;
+          }
+          .filter-pill-btn {
+            padding: 2.5px 7px !important;
+            font-size: 9.5px !important;
+          }
+
+          /* 2x2 (2-in-row) Item Cards on Mobile */
+          .admin-product-cards-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            gap: 8px !important;
+          }
+
+          .admin-item-card {
+            border-radius: 8px !important;
+            min-width: 0 !important;
+          }
+
+          .item-card-image-box {
+            height: 105px !important;
+          }
+
+          .badge-featured, .badge-archived, .badge-missing-image {
+            font-size: 8px !important;
+            padding: 1px 4px !important;
+          }
+
+          .item-card-category {
+            font-size: 8px !important;
+            padding: 1px 5px !important;
+            bottom: 4px !important;
+            right: 4px !important;
+          }
+
+          .item-card-body {
+            padding: 7px !important;
+            gap: 5px !important;
+          }
+
+          .item-card-title-row {
+            flex-direction: column !important;
+            align-items: flex-start !important;
+            gap: 2px !important;
+          }
+
+          .item-card-title {
+            font-size: 11.5px !important;
+            line-height: 1.25 !important;
+            display: -webkit-box !important;
+            -webkit-line-clamp: 2 !important;
+            -webkit-box-orient: vertical !important;
+            overflow: hidden !important;
+          }
+
+          .item-card-price-pill {
+            font-size: 11px !important;
+          }
+
+          .item-card-desc {
+            display: none !important;
+          }
+
+          .item-card-meta-row {
+            display: none !important;
+          }
+
+          .item-card-footer {
+            flex-direction: column !important;
+            align-items: stretch !important;
+            gap: 5px !important;
+            padding-top: 5px !important;
+            margin-top: auto !important;
+          }
+
+          .btn-stock-toggle {
+            width: 100% !important;
+            justify-content: center !important;
+            padding: 3px 5px !important;
+            font-size: 9.5px !important;
+            gap: 3px !important;
+          }
+
+          .item-card-actions {
+            display: flex !important;
+            justify-content: space-between !important;
+            width: 100% !important;
+          }
+
+          .action-btn {
+            width: 24px !important;
+            height: 24px !important;
+            padding: 0 !important;
+          }
         }
       `}</style>
     </div>

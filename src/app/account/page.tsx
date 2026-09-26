@@ -19,6 +19,8 @@ import {
   AlertTriangle,
   RefreshCw,
   Sparkles,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 
 export default function AccountPage() {
@@ -29,6 +31,7 @@ export default function AccountPage() {
   const [orders, setOrders] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [authTab, setAuthTab] = useState<"signin" | "signup">("signin");
+  const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
 
   // Auth Form State
   const [authEmail, setAuthEmail] = useState("");
@@ -264,15 +267,15 @@ export default function AccountPage() {
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
       <CustomerHeader />
 
-      <main style={{ flex: 1, padding: "40px 0 60px" }}>
+      <main className="account-main-wrap" style={{ flex: 1 }}>
         <div className="container" style={{ maxWidth: "800px" }}>
-          <span className="badge badge-orange" style={{ marginBottom: "8px" }}>
+          <span className="badge badge-orange" style={{ marginBottom: "6px" }}>
             CUSTOMER PORTAL
           </span>
-          <h1 style={{ fontSize: "32px", color: "var(--cnm-text-primary)", marginBottom: "8px" }}>
+          <h1 className="account-page-title" style={{ color: "var(--cnm-text-primary)", margin: "0 0 6px" }}>
             My Account
           </h1>
-          <p style={{ fontSize: "14px", color: "var(--cnm-text-muted)", marginBottom: "32px" }}>
+          <p className="account-page-desc" style={{ color: "var(--cnm-text-muted)", margin: "0 0 24px" }}>
             Manage your profile, saved delivery addresses, and track active and past orders.
           </p>
 
@@ -471,37 +474,40 @@ export default function AccountPage() {
             </div>
           ) : (
             /* ----------------- AUTHENTICATED: PROFILE & DASHBOARD ----------------- */
-            <div style={{ display: "flex", flexDirection: "column", gap: "28px" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
               {/* User Profile Card */}
               <div className="card" style={{ padding: "16px 20px" }}>
                 <div
                   style={{
                     display: "flex",
                     justifyContent: "space-between",
-                    alignItems: "flex-start",
-                    marginBottom: "20px",
+                    alignItems: "center",
+                    marginBottom: "18px",
+                    gap: "12px",
+                    flexWrap: "wrap",
                   }}
                 >
-                  <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                     <div
                       style={{
-                        width: "48px",
-                        height: "48px",
+                        width: "44px",
+                        height: "44px",
                         borderRadius: "50%",
                         backgroundColor: "rgba(255, 130, 67, 0.15)",
                         color: "var(--cnm-orange)",
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
+                        flexShrink: 0,
                       }}
                     >
-                      <span style={{ fontSize: "20px" }}>👤</span>
+                      <span style={{ fontSize: "18px" }}>👤</span>
                     </div>
                     <div>
-                      <h2 style={{ fontSize: "20px", color: "var(--cnm-text-primary)", margin: 0 }}>
+                      <h2 style={{ fontSize: "18px", color: "var(--cnm-text-primary)", margin: 0, fontWeight: 700 }}>
                         {profile?.fullName || "CNM Customer"}
                       </h2>
-                      <p style={{ fontSize: "13px", color: "var(--cnm-text-muted)", margin: "2px 0 0" }}>
+                      <p style={{ fontSize: "12.5px", color: "var(--cnm-text-muted)", margin: "2px 0 0" }}>
                         {user.email}
                       </p>
                     </div>
@@ -511,20 +517,21 @@ export default function AccountPage() {
                     onClick={handleSignOut}
                     className="btn btn-secondary"
                     style={{
-                      padding: "8px 14px",
+                      padding: "7px 12px",
                       fontSize: "12px",
                       display: "flex",
                       alignItems: "center",
                       gap: "6px",
+                      marginLeft: "auto",
                     }}
                   >
-                    <ArrowRight size={14} />
+                    <ArrowRight size={13} />
                     <span>SIGN OUT</span>
                   </button>
                 </div>
 
-                <form onSubmit={handleSaveProfile} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
+                <form onSubmit={handleSaveProfile} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+                  <div className="account-profile-grid">
                     <div className="form-group" style={{ marginBottom: 0 }}>
                       <label className="form-label">Full Name</label>
                       <input
@@ -561,7 +568,7 @@ export default function AccountPage() {
                     type="submit"
                     disabled={isProfileSaving}
                     className="btn btn-primary"
-                    style={{ alignSelf: "flex-start", padding: "10px 18px", fontSize: "13px" }}
+                    style={{ alignSelf: "flex-start", padding: "9px 16px", fontSize: "13px" }}
                   >
                     {isProfileSaving ? "SAVING..." : "UPDATE PROFILE"}
                   </button>
@@ -575,23 +582,23 @@ export default function AccountPage() {
                     display: "flex",
                     justifyContent: "space-between",
                     alignItems: "center",
-                    marginBottom: "20px",
+                    marginBottom: "16px",
                   }}
                 >
                   <div>
-                    <h3 style={{ fontSize: "18px", color: "var(--cnm-text-primary)", margin: 0 }}>
+                    <h3 style={{ fontSize: "17px", color: "var(--cnm-text-primary)", margin: 0, fontWeight: 700 }}>
                       Saved Delivery Addresses
                     </h3>
-                    <p style={{ fontSize: "13px", color: "var(--cnm-text-muted)", margin: "2px 0 0" }}>
+                    <p style={{ fontSize: "12.5px", color: "var(--cnm-text-muted)", margin: "2px 0 0" }}>
                       Pre-fills your delivery address during checkout.
                     </p>
                   </div>
                   <button
                     onClick={() => setShowAddressModal(!showAddressModal)}
                     className="btn btn-secondary"
-                    style={{ padding: "8px 12px", fontSize: "12px", display: "flex", alignItems: "center", gap: "6px" }}
+                    style={{ padding: "7px 11px", fontSize: "12px", display: "flex", alignItems: "center", gap: "5px" }}
                   >
-                    <Plus size={14} />
+                    <Plus size={13} />
                     <span>ADD ADDRESS</span>
                   </button>
                 </div>
@@ -601,10 +608,10 @@ export default function AccountPage() {
                     onSubmit={handleAddAddress}
                     style={{
                       backgroundColor: "rgba(255, 255, 255, 0.03)",
-                      padding: "16px",
+                      padding: "14px",
                       borderRadius: "var(--radius-sm)",
                       border: "1px solid var(--cnm-border)",
-                      marginBottom: "20px",
+                      marginBottom: "16px",
                       display: "flex",
                       flexDirection: "column",
                       gap: "12px",
@@ -631,12 +638,12 @@ export default function AccountPage() {
                         onChange={(e) => setNewLandmark(e.target.value)}
                       />
                     </div>
-                    <div style={{ display: "flex", gap: "10px", marginTop: "4px" }}>
+                    <div style={{ display: "flex", gap: "10px", marginTop: "2px" }}>
                       <button
                         type="submit"
                         disabled={isAddressSaving}
                         className="btn btn-primary"
-                        style={{ padding: "8px 16px", fontSize: "13px" }}
+                        style={{ padding: "8px 16px", fontSize: "12px" }}
                       >
                         {isAddressSaving ? "SAVING..." : "SAVE ADDRESS"}
                       </button>
@@ -644,7 +651,7 @@ export default function AccountPage() {
                         type="button"
                         onClick={() => setShowAddressModal(false)}
                         className="btn btn-secondary"
-                        style={{ padding: "8px 14px", fontSize: "13px" }}
+                        style={{ padding: "8px 14px", fontSize: "12px" }}
                       >
                         CANCEL
                       </button>
@@ -653,11 +660,11 @@ export default function AccountPage() {
                 )}
 
                 {addresses.length === 0 ? (
-                  <p style={{ fontSize: "13px", color: "var(--cnm-text-muted)" }}>
-                    You have no saved addresses yet. Click "Add Address" above to save one.
+                  <p style={{ fontSize: "13px", color: "var(--cnm-text-muted)", margin: 0 }}>
+                    You have no saved addresses yet. Click &quot;Add Address&quot; above to save one.
                   </p>
                 ) : (
-                  <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                     {addresses.map((addr) => (
                       <div
                         key={addr.id}
@@ -665,16 +672,16 @@ export default function AccountPage() {
                           display: "flex",
                           justifyContent: "space-between",
                           alignItems: "center",
-                          padding: "14px",
+                          padding: "12px 14px",
                           backgroundColor: "rgba(255, 255, 255, 0.02)",
                           border: "1px solid var(--cnm-border)",
                           borderRadius: "var(--radius-sm)",
                         }}
                       >
                         <div style={{ display: "flex", alignItems: "flex-start", gap: "10px" }}>
-                          <MapPin size={18} style={{ color: "var(--cnm-orange)", marginTop: "2px", flexShrink: 0 }} />
+                          <MapPin size={17} style={{ color: "var(--cnm-orange)", marginTop: "2px", flexShrink: 0 }} />
                           <div>
-                            <div style={{ fontWeight: 600, color: "var(--cnm-text-primary)", fontSize: "14px" }}>
+                            <div style={{ fontWeight: 600, color: "var(--cnm-text-primary)", fontSize: "13.5px" }}>
                               {addr.addressLine}
                               {addr.isDefault && (
                                 <span className="badge badge-orange" style={{ marginLeft: "8px", fontSize: "10px" }}>
@@ -702,7 +709,7 @@ export default function AccountPage() {
                           }}
                           title="Delete address"
                         >
-                          <Trash2 size={16} />
+                          <Trash2 size={15} />
                         </button>
                       </div>
                     ))}
@@ -710,36 +717,38 @@ export default function AccountPage() {
                 )}
               </div>
 
-              {/* Order History */}
+              {/* Order History (Collapsible compact rows) */}
               <div className="card" style={{ padding: "16px 20px" }}>
                 <div
                   style={{
                     display: "flex",
                     justifyContent: "space-between",
                     alignItems: "center",
-                    marginBottom: "20px",
+                    marginBottom: "16px",
+                    gap: "10px",
+                    flexWrap: "wrap",
                   }}
                 >
                   <div>
-                    <h3 style={{ fontSize: "18px", color: "var(--cnm-text-primary)", margin: 0 }}>
-                      Order History
+                    <h3 style={{ fontSize: "17px", color: "var(--cnm-text-primary)", margin: 0, fontWeight: 700 }}>
+                      Recent Orders
                     </h3>
-                    <p style={{ fontSize: "13px", color: "var(--cnm-text-muted)", margin: "2px 0 0" }}>
-                      Orders placed with your account or claimed from this device.
+                    <p style={{ fontSize: "12.5px", color: "var(--cnm-text-muted)", margin: "2px 0 0" }}>
+                      Tap an order row to view items and track delivery.
                     </p>
                   </div>
                   <Link
                     href="/order/track"
                     className="btn btn-secondary"
-                    style={{ padding: "8px 12px", fontSize: "12px", display: "flex", alignItems: "center", gap: "6px" }}
+                    style={{ padding: "6px 11px", fontSize: "11.5px", display: "flex", alignItems: "center", gap: "5px" }}
                   >
-                    <span>TRACK VIA TOKEN</span>
-                    <ArrowRight size={14} />
+                    <span>TRACK TOKEN</span>
+                    <ArrowRight size={12} />
                   </Link>
                 </div>
 
                 {orders.length === 0 ? (
-                  <p style={{ fontSize: "13px", color: "var(--cnm-text-muted)" }}>
+                  <p style={{ fontSize: "13px", color: "var(--cnm-text-muted)", margin: 0 }}>
                     No orders found on your account yet. Explore the{" "}
                     <Link href="/" style={{ color: "var(--cnm-orange)" }}>
                       menu
@@ -747,63 +756,116 @@ export default function AccountPage() {
                     to place your first order!
                   </p>
                 ) : (
-                  <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-                    {orders.map((ord) => (
-                      <div
-                        key={ord.id}
-                        style={{
-                          padding: "16px",
-                          backgroundColor: "rgba(255, 255, 255, 0.02)",
-                          border: "1px solid var(--cnm-border)",
-                          borderRadius: "var(--radius-sm)",
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "center",
-                          flexWrap: "wrap",
-                          gap: "12px",
-                        }}
-                      >
-                        <div>
-                          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                            <span style={{ fontWeight: 700, color: "var(--cnm-text-primary)", fontSize: "14px" }}>
-                              {ord.orderNumber}
-                            </span>
-                            <span
-                              className="badge"
-                              style={{
-                                backgroundColor:
-                                  ord.status === "Completed"
-                                    ? "var(--status-ready-bg)"
-                                    : "rgba(255, 130, 67, 0.15)",
-                                color:
-                                  ord.status === "Completed"
-                                    ? "var(--status-ready)"
-                                    : "var(--cnm-orange)",
-                                fontSize: "11px",
-                              }}
-                            >
-                              {ord.status}
-                            </span>
-                          </div>
-                          <div style={{ fontSize: "12px", color: "var(--cnm-text-muted)", marginTop: "4px" }}>
-                            {new Date(ord.createdAt).toLocaleDateString()} • {ord.orderType} • {ord.items?.length || 0} items
-                          </div>
-                          <div style={{ fontWeight: 700, color: "var(--cnm-text-primary)", marginTop: "4px" }}>
-                            Total: Rs. {ord.totalPkr}
-                          </div>
-                        </div>
-
-                        <div style={{ display: "flex", gap: "8px" }}>
-                          <Link
-                            href={`/order/track/${ord.trackingToken || ord.id}?token=${ord.trackingToken}`}
-                            className="btn btn-secondary"
-                            style={{ padding: "8px 12px", fontSize: "12px" }}
+                  <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                    {orders.map((ord) => {
+                      const isExpanded = expandedOrderId === ord.id;
+                      return (
+                        <div
+                          key={ord.id}
+                          className="account-order-card"
+                        >
+                          {/* Compact Clickable Row Header */}
+                          <div
+                            onClick={() => setExpandedOrderId(isExpanded ? null : ord.id)}
+                            className="account-order-row-header"
                           >
-                            TRACK ORDER
-                          </Link>
+                            <div style={{ display: "flex", alignItems: "center", gap: "8px", flex: 1, minWidth: 0 }}>
+                              <span style={{ fontWeight: 700, color: "var(--cnm-text-primary)", fontSize: "13.5px" }}>
+                                {ord.orderNumber}
+                              </span>
+                              <span
+                                className="badge"
+                                style={{
+                                  backgroundColor:
+                                    ord.status === "Completed"
+                                      ? "var(--status-ready-bg)"
+                                      : "rgba(255, 130, 67, 0.15)",
+                                  color:
+                                    ord.status === "Completed"
+                                      ? "var(--status-ready)"
+                                      : "var(--cnm-orange)",
+                                  fontSize: "10.5px",
+                                  padding: "2px 6px",
+                                }}
+                              >
+                                {ord.status}
+                              </span>
+                            </div>
+
+                            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                              <span style={{ fontWeight: 800, color: "var(--cnm-text-primary)", fontSize: "13.5px" }}>
+                                Rs. {ord.totalPkr}
+                              </span>
+                              <button
+                                type="button"
+                                className="account-chevron-btn"
+                                aria-label={isExpanded ? "Collapse order" : "Expand order"}
+                              >
+                                {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Subtitle with date & items count */}
+                          <div
+                            onClick={() => setExpandedOrderId(isExpanded ? null : ord.id)}
+                            style={{
+                              padding: "0 12px 10px",
+                              fontSize: "12px",
+                              color: "var(--cnm-text-muted)",
+                              display: "flex",
+                              justifyContent: "space-between",
+                              cursor: "pointer",
+                            }}
+                          >
+                            <span>{new Date(ord.createdAt).toLocaleDateString()} • {ord.orderType}</span>
+                            <span>{ord.items?.length || 0} {ord.items?.length === 1 ? "item" : "items"}</span>
+                          </div>
+
+                          {/* Collapsible Expanded Details */}
+                          {isExpanded && (
+                            <div className="account-order-expanded-panel">
+                              {/* Items Breakdown */}
+                              <div style={{ display: "flex", flexDirection: "column", gap: "6px", marginBottom: "12px" }}>
+                                {ord.items?.map((item: any, iIdx: number) => (
+                                  <div
+                                    key={iIdx}
+                                    style={{
+                                      display: "flex",
+                                      justifyContent: "space-between",
+                                      alignItems: "center",
+                                      fontSize: "12.5px",
+                                      padding: "5px 8px",
+                                      backgroundColor: "rgba(255,255,255,0.02)",
+                                      borderRadius: "4px",
+                                    }}
+                                  >
+                                    <span>
+                                      <strong style={{ color: "var(--cnm-orange)" }}>{item.quantity}x</strong>{" "}
+                                      {item.productName || item.productNameSnapshot}
+                                    </span>
+                                    <span style={{ color: "var(--cnm-text-muted)", fontSize: "12px" }}>
+                                      Rs. {item.lineTotalPkr || (item.priceSnapshot * item.quantity)}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+
+                              {/* Order Action Bar */}
+                              <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end", flexWrap: "wrap" }}>
+                                <Link
+                                  href={`/order/track/${ord.trackingToken || ord.id}?token=${ord.trackingToken}`}
+                                  className="btn btn-primary"
+                                  style={{ padding: "7px 14px", fontSize: "12px" }}
+                                >
+                                  TRACK LIVE STATUS
+                                </Link>
+                              </div>
+                            </div>
+                          )}
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -813,6 +875,85 @@ export default function AccountPage() {
       </main>
 
       <CustomerFooter />
+
+      {/* Styled JSX for Mobile-First Account Layout */}
+      <style jsx global>{`
+        .account-main-wrap {
+          padding: 40px 0 60px;
+        }
+
+        .account-page-title {
+          font-size: 30px;
+          font-weight: 800;
+        }
+
+        .account-page-desc {
+          font-size: 14px;
+        }
+
+        .account-profile-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 16px;
+        }
+
+        .account-order-card {
+          background-color: rgba(255, 255, 255, 0.02);
+          border: 1px solid var(--cnm-border);
+          border-radius: var(--radius-sm);
+          overflow: hidden;
+          transition: border-color 0.15s ease;
+        }
+
+        .account-order-card:hover {
+          border-color: rgba(249, 115, 22, 0.4);
+        }
+
+        .account-order-row-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 12px;
+          cursor: pointer;
+          user-select: none;
+        }
+
+        .account-chevron-btn {
+          background: none;
+          border: none;
+          color: var(--cnm-text-muted);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 2px;
+          cursor: pointer;
+        }
+
+        .account-order-expanded-panel {
+          padding: 10px 12px 12px;
+          border-top: 1px dashed var(--cnm-border);
+          background-color: rgba(0, 0, 0, 0.1);
+        }
+
+        @media (max-width: 640px) {
+          .account-main-wrap {
+            padding: 16px 0 40px;
+          }
+          .account-page-title {
+            font-size: 22px;
+          }
+          .account-page-desc {
+            font-size: 12.5px;
+            margin-bottom: 16px !important;
+          }
+          .account-profile-grid {
+            grid-template-columns: 1fr;
+            gap: 12px;
+          }
+          .account-order-row-header {
+            padding: 10px 10px 6px;
+        }
+      `}</style>
     </div>
   );
 }
