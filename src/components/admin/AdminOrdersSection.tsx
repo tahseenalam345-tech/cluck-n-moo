@@ -1170,13 +1170,15 @@ export function AdminOrdersSection({
       )}
 
       {/* COMPREHENSIVE STYLES (LIGHT + DARK MODE READY) */}
-      <style jsx>{`
+      <style jsx global>{`
         .admin-orders-container {
           display: flex;
           flex-direction: column;
           gap: 16px;
+        }
 
-          /* LIGHT MODE TOKENS */
+        /* LIGHT MODE TOKENS */
+        .admin-orders-container.theme-light {
           --ord-card-bg: #ffffff;
           --ord-card-border: #cbd5e1;
           --ord-card-hover: #94a3b8;
@@ -1204,35 +1206,33 @@ export function AdminOrdersSection({
           --ord-column-bg: #f1f5f9;
         }
 
-        /* DARK MODE TOKENS (Comprehensive dark mode across cards, text, inputs, tables, modals) */
-        :global([data-theme="dark"]) .admin-orders-container,
-        :global(.theme-dark) .admin-orders-container,
+        /* DARK MODE TOKENS (Distinct elevated card bg, crisp borders, high contrast) */
         .admin-orders-container.theme-dark {
-          --ord-card-bg: #141416;
-          --ord-card-border: #27272a;
-          --ord-card-hover: #3f3f46;
-          --ord-card-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
-          --ord-text-main: #f4f4f5;
-          --ord-text-sub: #d4d4d8;
+          --ord-card-bg: #18181b;
+          --ord-card-border: #3f3f46;
+          --ord-card-hover: #52525b;
+          --ord-card-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+          --ord-text-main: #ffffff;
+          --ord-text-sub: #e4e4e7;
           --ord-text-muted: #a1a1aa;
-          --ord-strip-bg: #09090b;
+          --ord-strip-bg: #111113;
           --ord-strip-border: #27272a;
           --ord-divider: #27272a;
-          --ord-kpi-bg: #141416;
+          --ord-kpi-bg: #18181b;
           --ord-kpi-border: #27272a;
-          --ord-input-bg: #09090b;
+          --ord-input-bg: #111113;
           --ord-input-border: #27272a;
-          --ord-pill-bg: #141416;
+          --ord-pill-bg: #18181b;
           --ord-pill-border: #27272a;
           --ord-pill-text: #d4d4d8;
-          --ord-table-bg: #141416;
-          --ord-table-header-bg: #09090b;
+          --ord-table-bg: #18181b;
+          --ord-table-header-bg: #111113;
           --ord-table-border: #27272a;
-          --ord-table-hover: #1f1f23;
-          --ord-modal-bg: #141416;
-          --ord-modal-header: #09090b;
-          --ord-modal-border: #27272a;
-          --ord-column-bg: #09090b;
+          --ord-table-hover: #222227;
+          --ord-modal-bg: #18181b;
+          --ord-modal-header: #111113;
+          --ord-modal-border: #3f3f46;
+          --ord-column-bg: #111113;
         }
 
         /* 1. TOP KPI METRICS BAR */
@@ -1311,7 +1311,7 @@ export function AdminOrdersSection({
           min-width: 240px;
         }
 
-        .search-box-wrapper :global(.search-icon-svg) {
+        .search-box-wrapper .search-icon-svg {
           position: absolute;
           left: 12px;
           top: 50%;
@@ -1434,8 +1434,8 @@ export function AdminOrdersSection({
 
         /* Card Container - Visibly Separated from Page Background */
         .compact-order-card {
-          background: var(--ord-card-bg);
-          border: 1.5px solid var(--ord-card-border);
+          background: var(--ord-card-bg) !important;
+          border: 1.5px solid var(--ord-card-border) !important;
           border-radius: 12px;
           padding: 14px;
           display: flex;
@@ -1448,13 +1448,13 @@ export function AdminOrdersSection({
         }
 
         .compact-order-card:hover {
-          border-color: var(--ord-card-hover);
+          border-color: var(--ord-card-hover) !important;
           transform: translateY(-2px);
-          box-shadow: 0 6px 16px -2px rgba(0, 0, 0, 0.12);
+          box-shadow: 0 8px 24px -2px rgba(0, 0, 0, 0.25);
         }
 
         .compact-order-card.is-new {
-          border-left: 4px solid #ea580c;
+          border-left: 4px solid #ea580c !important;
         }
 
         /* Standardized Card Slots */
@@ -1542,63 +1542,63 @@ export function AdminOrdersSection({
         .badge-cancelled { background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; }
 
         /* Dark mode badge colors */
-        :global([data-theme="dark"]) .badge-new,
-        :global(.theme-dark) .badge-new,
+        [data-theme="dark"] .badge-new,
+        .theme-dark .badge-new,
         .admin-orders-container.theme-dark .badge-new {
           background: rgba(245, 158, 11, 0.2);
           color: #fbbf24;
           border-color: rgba(245, 158, 11, 0.4);
         }
-        :global([data-theme="dark"]) .badge-confirmed,
-        :global(.theme-dark) .badge-confirmed,
+        [data-theme="dark"] .badge-confirmed,
+        .theme-dark .badge-confirmed,
         .admin-orders-container.theme-dark .badge-confirmed {
           background: rgba(14, 165, 233, 0.2);
           color: #38bdf8;
           border-color: rgba(14, 165, 233, 0.4);
         }
-        :global([data-theme="dark"]) .badge-cooking,
-        :global(.theme-dark) .badge-cooking,
+        [data-theme="dark"] .badge-cooking,
+        .theme-dark .badge-cooking,
         .admin-orders-container.theme-dark .badge-cooking {
           background: rgba(249, 115, 22, 0.2);
           color: #fb923c;
           border-color: rgba(249, 115, 22, 0.4);
         }
-        :global([data-theme="dark"]) .badge-ready,
-        :global(.theme-dark) .badge-ready,
+        [data-theme="dark"] .badge-ready,
+        .theme-dark .badge-ready,
         .admin-orders-container.theme-dark .badge-ready {
           background: rgba(16, 185, 129, 0.2);
           color: #34d399;
           border-color: rgba(16, 185, 129, 0.4);
         }
-        :global([data-theme="dark"]) .badge-transit,
-        :global(.theme-dark) .badge-transit,
+        [data-theme="dark"] .badge-transit,
+        .theme-dark .badge-transit,
         .admin-orders-container.theme-dark .badge-transit {
           background: rgba(168, 85, 247, 0.2);
           color: #c084fc;
           border-color: rgba(168, 85, 247, 0.4);
         }
-        :global([data-theme="dark"]) .badge-completed,
-        :global(.theme-dark) .badge-completed,
+        [data-theme="dark"] .badge-completed,
+        .theme-dark .badge-completed,
         .admin-orders-container.theme-dark .badge-completed {
           background: rgba(148, 163, 184, 0.2);
           color: #cbd5e1;
         }
-        :global([data-theme="dark"]) .badge-cancelled,
-        :global(.theme-dark) .badge-cancelled,
+        [data-theme="dark"] .badge-cancelled,
+        .theme-dark .badge-cancelled,
         .admin-orders-container.theme-dark .badge-cancelled {
           background: rgba(239, 68, 68, 0.2);
           color: #f87171;
           border-color: rgba(239, 68, 68, 0.4);
         }
-        :global([data-theme="dark"]) .type-badge.delivery,
-        :global(.theme-dark) .type-badge.delivery,
+        [data-theme="dark"] .type-badge.delivery,
+        .theme-dark .type-badge.delivery,
         .admin-orders-container.theme-dark .type-badge.delivery {
           background: rgba(59, 130, 246, 0.2);
           color: #60a5fa;
           border-color: rgba(59, 130, 246, 0.4);
         }
-        :global([data-theme="dark"]) .type-badge.pickup,
-        :global(.theme-dark) .type-badge.pickup,
+        [data-theme="dark"] .type-badge.pickup,
+        .theme-dark .type-badge.pickup,
         .admin-orders-container.theme-dark .type-badge.pickup {
           background: rgba(249, 115, 22, 0.2);
           color: #fb923c;
@@ -1849,19 +1849,19 @@ export function AdminOrdersSection({
           box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
         }
 
-        .btn-confirm { background: #d97706; }
-        .btn-kitchen { background: #ea580c; }
-        .btn-ready { background: #059669; }
-        .btn-dispatch { background: #7c3aed; }
+        .btn-confirm { background: #d97706 !important; color: #ffffff !important; }
+        .btn-kitchen { background: #ea580c !important; color: #ffffff !important; }
+        .btn-ready { background: #059669 !important; color: #ffffff !important; }
+        .btn-dispatch { background: #7c3aed !important; color: #ffffff !important; }
 
         /* Prominent Cancel Button */
         .btn-cancel-icon {
           width: 32px;
           height: 32px;
           border-radius: 7px;
-          border: 1.5px solid #fecaca;
-          background: #fef2f2;
-          color: #dc2626;
+          border: 1.5px solid #ef4444 !important;
+          background: rgba(239, 68, 68, 0.12) !important;
+          color: #ef4444 !important;
           cursor: pointer;
           display: inline-flex;
           align-items: center;
@@ -1871,18 +1871,18 @@ export function AdminOrdersSection({
         }
 
         .btn-cancel-icon:hover {
-          background: #fee2e2;
-          border-color: #f87171;
-          color: #b91c1c;
+          background: rgba(239, 68, 68, 0.25) !important;
+          border-color: #dc2626 !important;
+          color: #ffffff !important;
           transform: translateY(-1px);
         }
 
-        :global([data-theme="dark"]) .btn-cancel-icon,
-        :global(.theme-dark) .btn-cancel-icon,
+        [data-theme="dark"] .btn-cancel-icon,
+        .theme-dark .btn-cancel-icon,
         .admin-orders-container.theme-dark .btn-cancel-icon {
-          background: rgba(220, 38, 38, 0.2);
-          border-color: #ef4444;
-          color: #f87171;
+          background: rgba(239, 68, 68, 0.2) !important;
+          border-color: #ef4444 !important;
+          color: #f87171 !important;
         }
 
         /* 4. COLUMNS VIEW (STAGE-WISE BOARDS) */
@@ -2395,8 +2395,8 @@ export function AdminOrdersSection({
           cursor: pointer;
         }
 
-        :global([data-theme="dark"]) .btn-modal-cancel,
-        :global(.theme-dark) .btn-modal-cancel,
+        [data-theme="dark"] .btn-modal-cancel,
+        .theme-dark .btn-modal-cancel,
         .admin-orders-container.theme-dark .btn-modal-cancel {
           background: rgba(220, 38, 38, 0.2);
           border-color: #ef4444;
