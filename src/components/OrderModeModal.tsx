@@ -13,466 +13,753 @@ import {
   Check,
   AlertCircle,
   Phone,
+  ChevronRight,
+  ArrowLeft,
+  RefreshCw,
 } from "lucide-react";
 
 export function OrderModeModal() {
   const { isModalOpen, closeOrderModeModal, modeState, saveOrderMode } = useOrderMode();
 
+  // Active step: "CHOOSE_TYPE" or "DETAILS"
+  const [step, setStep] = useState<"CHOOSE_TYPE" | "DETAILS">("CHOOSE_TYPE");
   const [selectedType, setSelectedType] = useState<OrderType>(modeState.orderType || "DELIVERY");
+
+  // Delivery state
   const [deliveryAreas, setDeliveryAreas] = useState<DeliveryArea[]>([]);
   const [selectedAreaId, setSelectedAreaId] = useState<string>(modeState.areaId || "");
   const [address, setAddress] = useState<string>(modeState.deliveryAddress || "");
   const [landmark, setLandmark] = useState<string>(modeState.deliveryLandmark || "");
-  const [phone, setPhone] = useState<string>(modeState.customerPhone || "");
+  const [isLoadingAreas, setIsLoadingAreas] = useState<boolean>(false);
+  const [areasError, setAreasError] = useState<string | null>(null);
 
-  // Dine-in fields
+  // Dine-in state
   const [dineInTimePreset, setDineInTimePreset] = useState<string>(modeState.dineInArrivalTime || "In 30 mins");
   const [customTime, setCustomTime] = useState<string>("");
   const [paymentLocation, setPaymentLocation] = useState<"AT_COUNTER" | "ON_TABLE">(
     modeState.dineInPaymentLocation || "AT_COUNTER"
   );
 
-  // Location detection state
-  const [locationStatus, setLocationStatus] = useState<string | null>(null);
-  const [hasDeniedGeo, setHasDeniedGeo] = useState<boolean>(false);
-
+  // Sync state when modal opens
   useEffect(() => {
+    if (isModalOpen) {
+      setSelectedType(modeState.orderType || "DELIVERY");
+      setSelectedAreaId(modeState.areaId || "");
+      setAddress(modeState.deliveryAddress || "");
+      setLandmark(modeState.deliveryLandmark || "");
+      setDineInTimePreset(modeState.dineInArrivalTime || "In 30 mins");
+      setPaymentLocation(modeState.dineInPaymentLocation || "AT_COUNTER");
+
+      // If user is already configured and opens the modal to adjust, start at CHOOSE_TYPE
+      setStep("CHOOSE_TYPE");
+    }
+  }, [isModalOpen, modeState]);
+
+  // Fetch delivery areas
+  const loadDeliveryAreas = () => {
+    setIsLoadingAreas(true);
+    setAreasError(null);
     fetch("/api/v1/store/delivery-areas")
       .then((res) => res.json())
       .then((data) => {
-        if (data.success && data.data.length > 0) {
+        if (data.success && Array.isArray(data.data) && data.data.length > 0) {
           setDeliveryAreas(data.data);
           if (!selectedAreaId) {
             setSelectedAreaId(data.data[0].id);
           }
+        } else {
+          setAreasError("No delivery areas found.");
         }
       })
-      .catch(() => {});
-  }, [selectedAreaId]);
+      .catch(() => {
+        setAreasError("Unable to load delivery areas. Please retry.");
+      })
+      .finally(() => setIsLoadingAreas(false));
+  };
+
+  useEffect(() => {
+    if (isModalOpen) {
+      loadDeliveryAreas();
+    }
+  }, [isModalOpen]);
 
   if (!isModalOpen) return null;
 
-  // Handle HTML5 geolocation request on explicit user click
-  const handleRequestLocation = () => {
-    if (!navigator.geolocation) {
-      setLocationStatus("Geolocation is not supported by your browser. Please select your village below.");
+  // Handle immediate selection of an order type
+  const handleSelectType = (type: OrderType) => {
+    setSelectedType(type);
+
+    if (type === "PICKUP") {
+      // Immediately save pickup and close without large follow-up cards
+      saveOrderMode({
+        orderType: "PICKUP",
+        deliveryFeePkr: 0,
+      });
       return;
     }
 
-    setLocationStatus("Detecting Kharian location...");
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setLocationStatus(`Location detected (Lat: ${pos.coords.latitude.toFixed(4)}, Lng: ${pos.coords.longitude.toFixed(4)})`);
-        // Default to GT Road Kharian if close, or preserve user choice
-        if (!selectedAreaId && deliveryAreas.length > 0) {
-          setSelectedAreaId(deliveryAreas[0].id);
-        }
-      },
-      (err) => {
-        setHasDeniedGeo(true);
-        if (err.code === err.PERMISSION_DENIED) {
-          setLocationStatus("Location access denied. Please select your Kharian village below.");
-        } else {
-          setLocationStatus("Could not fetch location. Please select your village below.");
-        }
-      },
-      { timeout: 8000 }
-    );
+    // For DELIVERY and DINE_IN, smoothly transition to the context-specific follow-up details
+    setStep("DETAILS");
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  // Handle Confirm Delivery
+  const handleConfirmDelivery = (e: React.FormEvent) => {
     e.preventDefault();
-
-    const chosenArea = deliveryAreas.find((a) => a.id === selectedAreaId);
-    const finalArrivalTime = dineInTimePreset === "Custom" && customTime.trim() ? customTime : dineInTimePreset;
+    const chosenArea = deliveryAreas.find((a) => a.id === selectedAreaId) || deliveryAreas[0];
 
     saveOrderMode({
-      orderType: selectedType,
-      areaId: selectedType === "DELIVERY" ? selectedAreaId : undefined,
-      areaName: selectedType === "DELIVERY" ? chosenArea?.name : undefined,
-      deliveryFeePkr: selectedType === "DELIVERY" ? (chosenArea?.deliveryFeePkr ?? 100) : 0,
-      deliveryAddress: selectedType === "DELIVERY" ? address : undefined,
-      deliveryLandmark: selectedType === "DELIVERY" ? landmark : undefined,
-      customerPhone: phone || undefined,
-      dineInArrivalTime: selectedType === "DINE_IN" ? finalArrivalTime : undefined,
-      dineInPaymentLocation: selectedType === "DINE_IN" ? paymentLocation : undefined,
+      orderType: "DELIVERY",
+      areaId: chosenArea?.id || selectedAreaId,
+      areaName: chosenArea?.name || "Kharian Area",
+      deliveryFeePkr: chosenArea?.deliveryFeePkr ?? 100,
+      deliveryAddress: address.trim() || undefined,
+      deliveryLandmark: landmark.trim() || undefined,
+    });
+  };
+
+  // Handle Confirm Dine-In
+  const handleConfirmDineIn = (e: React.FormEvent) => {
+    e.preventDefault();
+    const finalArrivalTime = dineInTimePreset === "Custom" && customTime.trim() ? customTime.trim() : dineInTimePreset;
+
+    saveOrderMode({
+      orderType: "DINE_IN",
+      deliveryFeePkr: 0,
+      dineInArrivalTime: finalArrivalTime,
+      dineInPaymentLocation: paymentLocation,
     });
   };
 
   return (
     <div
-      className="mode-backdrop"
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 100,
-        backgroundColor: "rgba(0, 0, 0, 0.75)",
-        backdropFilter: "blur(4px)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: "16px",
-      }}
+      className="order-mode-backdrop"
       onClick={(e) => {
         if (e.target === e.currentTarget && modeState.isConfigured) {
           closeOrderModeModal();
         }
       }}
     >
-      <div
-        className="card mode-modal"
-        style={{
-          width: "100%",
-          maxWidth: "520px",
-          maxHeight: "90vh",
-          overflowY: "auto",
-          backgroundColor: "var(--cnm-surface)",
-          border: "1px solid var(--cnm-border)",
-          borderRadius: "var(--radius-lg)",
-          boxShadow: "var(--shadow-elevated)",
-          position: "relative",
-          padding: "24px",
-        }}
-      >
-        {/* Close Button (only if already configured) */}
-        {modeState.isConfigured && (
-          <button
-            onClick={closeOrderModeModal}
-            aria-label="Close"
-            style={{
-              position: "absolute",
-              top: "18px",
-              right: "18px",
-              color: "var(--cnm-text-muted)",
-              cursor: "pointer",
-            }}
-          >
-            <X size={20} />
-          </button>
-        )}
+      <div className="order-mode-card" role="dialog" aria-modal="true" aria-labelledby="order-mode-heading">
+        {/* Top Header */}
+        <div className="mode-card-header">
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            {step === "DETAILS" && (
+              <button
+                type="button"
+                onClick={() => setStep("CHOOSE_TYPE")}
+                className="btn-back-step"
+                aria-label="Back to order types"
+              >
+                <ArrowLeft size={16} />
+              </button>
+            )}
+            <h2 id="order-mode-heading" className="mode-card-title">
+              {step === "CHOOSE_TYPE"
+                ? "Select Dining Mode"
+                : selectedType === "DELIVERY"
+                ? "Delivery Location"
+                : "Dine-In Details"}
+            </h2>
+          </div>
 
-        {/* Modal Header */}
-        <div style={{ marginBottom: "20px" }}>
-          <span className="badge badge-orange" style={{ marginBottom: "8px" }}>
-            START YOUR ORDER
-          </span>
-          <h2 style={{ fontSize: "22px", color: "var(--cnm-text-primary)", letterSpacing: "-0.02em" }}>
-            How would you like your order?
-          </h2>
-          <p style={{ fontSize: "13px", color: "var(--cnm-text-muted)", marginTop: "4px" }}>
-            Select your preferred dining mode to see accurate delivery times and fees.
-          </p>
-        </div>
-
-        {/* 3-Way Mode Switcher Tabs */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr 1fr",
-            gap: "8px",
-            marginBottom: "22px",
-            backgroundColor: "var(--cnm-surface-elevated)",
-            padding: "4px",
-            borderRadius: "var(--radius-md)",
-            border: "1px solid var(--cnm-border)",
-          }}
-        >
-          <button
-            type="button"
-            onClick={() => setSelectedType("DELIVERY")}
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              gap: "4px",
-              padding: "12px 6px",
-              borderRadius: "var(--radius-sm)",
-              backgroundColor: selectedType === "DELIVERY" ? "var(--cnm-orange)" : "transparent",
-              color: selectedType === "DELIVERY" ? "#ffffff" : "var(--cnm-text-muted)",
-              transition: "all 0.15s ease",
-            }}
-          >
-            <Bike size={18} />
-            <span style={{ fontSize: "12px", fontWeight: 800, fontFamily: "var(--font-display)" }}>
-              DELIVERY
-            </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setSelectedType("PICKUP")}
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              gap: "4px",
-              padding: "12px 6px",
-              borderRadius: "var(--radius-sm)",
-              backgroundColor: selectedType === "PICKUP" ? "var(--cnm-orange)" : "transparent",
-              color: selectedType === "PICKUP" ? "#ffffff" : "var(--cnm-text-muted)",
-              transition: "all 0.15s ease",
-            }}
-          >
-            <Clock size={18} />
-            <span style={{ fontSize: "12px", fontWeight: 800, fontFamily: "var(--font-display)" }}>
-              TAKEAWAY
-            </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setSelectedType("DINE_IN")}
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              gap: "4px",
-              padding: "12px 6px",
-              borderRadius: "var(--radius-sm)",
-              backgroundColor: selectedType === "DINE_IN" ? "var(--cnm-orange)" : "transparent",
-              color: selectedType === "DINE_IN" ? "#ffffff" : "var(--cnm-text-muted)",
-              transition: "all 0.15s ease",
-            }}
-          >
-            <Utensils size={18} />
-            <span style={{ fontSize: "12px", fontWeight: 800, fontFamily: "var(--font-display)" }}>
-              DINE-IN
-            </span>
-          </button>
-        </div>
-
-        {/* Dynamic Form Content Based on Selected Type */}
-        <form onSubmit={handleSave}>
-          {selectedType === "DELIVERY" && (
-            <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
-              {/* Geolocation Button */}
-              {!hasDeniedGeo && (
-                <button
-                  type="button"
-                  onClick={handleRequestLocation}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: "8px",
-                    backgroundColor: "var(--cnm-surface-elevated)",
-                    border: "1px dashed var(--cnm-orange)",
-                    color: "var(--cnm-orange)",
-                    padding: "10px 14px",
-                    borderRadius: "var(--radius-sm)",
-                    fontSize: "13px",
-                    fontWeight: 700,
-                    cursor: "pointer",
-                  }}
-                >
-                  <MapPin size={16} />
-                  <span>Use my current location</span>
-                </button>
-              )}
-
-              {locationStatus && (
-                <div style={{ fontSize: "12px", color: "var(--cnm-text-muted)", display: "flex", alignItems: "center", gap: "6px" }}>
-                  <AlertCircle size={14} color="var(--cnm-orange)" />
-                  <span>{locationStatus}</span>
-                </div>
-              )}
-
-              {/* Delivery Area Selection */}
-              <div className="form-group" style={{ marginBottom: "0" }}>
-                <label className="form-label">Kharian Delivery Area / Village *</label>
-                <select
-                  required
-                  className="form-select"
-                  value={selectedAreaId}
-                  onChange={(e) => setSelectedAreaId(e.target.value)}
-                >
-                  {deliveryAreas.map((area) => (
-                    <option key={area.id} value={area.id}>
-                      {area.name} — {area.deliveryFeePkr} PKR (Est: ~{area.estimatedDeliveryMins} mins)
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Manual Street & Landmark */}
-              <div className="form-group" style={{ marginBottom: "0" }}>
-                <label className="form-label">House / Street Address (Optional)</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  placeholder="e.g. House 14, Street 2, Main Mohallah"
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
-                />
-              </div>
-
-              <div className="form-group" style={{ marginBottom: "0" }}>
-                <label className="form-label">Nearby Landmark (Optional)</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  placeholder="e.g. Near Jamia Masjid or School"
-                  value={landmark}
-                  onChange={(e) => setLandmark(e.target.value)}
-                />
-              </div>
-
-              <div style={{ fontSize: "11px", color: "var(--cnm-text-subtle)", marginTop: "2px" }}>
-                Standard delivery fee is 100 PKR across all covered Kharian villages. Cash on delivery.
-              </div>
-            </div>
-          )}
-
-          {selectedType === "PICKUP" && (
-            <div
-              style={{
-                backgroundColor: "var(--cnm-surface-elevated)",
-                border: "1px solid var(--cnm-border)",
-                borderRadius: "var(--radius-md)",
-                padding: "16px",
-                display: "flex",
-                flexDirection: "column",
-                gap: "12px",
-              }}
+          {modeState.isConfigured && (
+            <button
+              type="button"
+              onClick={closeOrderModeModal}
+              className="btn-close-modal"
+              aria-label="Close modal"
             >
-              <div style={{ display: "flex", alignItems: "flex-start", gap: "10px" }}>
-                <MapPin size={20} color="var(--cnm-orange)" style={{ flexShrink: 0, marginTop: "2px" }} />
-                <div>
-                  <h4 style={{ fontSize: "14px", color: "var(--cnm-text-primary)", marginBottom: "4px" }}>
-                    Cluck N Moo (CNM) Main Branch
-                  </h4>
-                  <p style={{ fontSize: "13px", color: "var(--cnm-text-muted)", lineHeight: 1.4 }}>
-                    {BRAND.branch.address}
-                  </p>
-                </div>
-              </div>
-
-              <div style={{ display: "flex", alignItems: "center", gap: "10px", fontSize: "13px", color: "var(--cnm-text-primary)" }}>
-                <Clock size={16} color="var(--cnm-orange)" />
-                <span>Estimated ready time: <strong>~20 minutes</strong> (No delivery fee)</span>
-              </div>
-
-              <div style={{ display: "flex", alignItems: "center", gap: "10px", fontSize: "13px", color: "var(--cnm-text-primary)" }}>
-                <Phone size={16} color="var(--cnm-orange)" />
-                <span>Hotline: <strong>{BRAND.branch.phone}</strong></span>
-              </div>
-            </div>
+              <X size={18} />
+            </button>
           )}
+        </div>
 
-          {selectedType === "DINE_IN" && (
-            <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
-              <div>
-                <label className="form-label">Preferred Arrival Time</label>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginTop: "6px" }}>
-                  {["In 20 mins", "In 30 mins", "In 45 mins", "Custom"].map((timeChip) => {
-                    const isSel = dineInTimePreset === timeChip;
-                    return (
-                      <button
-                        key={timeChip}
-                        type="button"
-                        onClick={() => setDineInTimePreset(timeChip)}
-                        style={{
-                          padding: "8px 14px",
-                          borderRadius: "var(--radius-sm)",
-                          fontSize: "12px",
-                          fontWeight: 700,
-                          backgroundColor: isSel ? "var(--cnm-orange)" : "var(--cnm-surface-elevated)",
-                          color: isSel ? "#ffffff" : "var(--cnm-text-primary)",
-                          border: `1px solid ${isSel ? "var(--cnm-orange)" : "var(--cnm-border)"}`,
-                          cursor: "pointer",
-                        }}
-                      >
-                        {timeChip}
-                      </button>
-                    );
-                  })}
-                </div>
+        {/* STEP 1: INITIAL COMPACT ORDER TYPE SELECTION */}
+        {step === "CHOOSE_TYPE" && (
+          <div className="mode-options-grid">
+            <p className="mode-subtitle">
+              Choose how you would like to receive your food.
+            </p>
+
+            {/* Option 1: Delivery */}
+            <button
+              type="button"
+              onClick={() => handleSelectType("DELIVERY")}
+              className={`mode-option-btn ${selectedType === "DELIVERY" ? "active" : ""}`}
+            >
+              <div className="mode-icon-box delivery">
+                <Bike size={20} />
               </div>
-
-              {dineInTimePreset === "Custom" && (
-                <div className="form-group" style={{ marginBottom: "0" }}>
-                  <input
-                    type="text"
-                    required
-                    className="form-input"
-                    placeholder="e.g. 9:30 PM Tonight"
-                    value={customTime}
-                    onChange={(e) => setCustomTime(e.target.value)}
-                  />
+              <div className="mode-option-info">
+                <div className="mode-option-title-row">
+                  <span className="mode-option-name">Delivery</span>
+                  <span className="mode-fee-badge">100 PKR</span>
                 </div>
-              )}
+                <span className="mode-option-sub">
+                  Delivered hot to Kharian & surrounding villages
+                </span>
+              </div>
+              <ChevronRight size={16} className="mode-chevron" />
+            </button>
 
-              <div className="form-group" style={{ marginBottom: "0" }}>
-                <label className="form-label">Payment Preference (Cash Only)</label>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
-                  <button
-                    type="button"
-                    onClick={() => setPaymentLocation("AT_COUNTER")}
-                    style={{
-                      padding: "10px",
-                      borderRadius: "var(--radius-sm)",
-                      fontSize: "12px",
-                      fontWeight: 800,
-                      backgroundColor:
-                        paymentLocation === "AT_COUNTER" ? "var(--cnm-orange-subtle)" : "var(--cnm-surface-elevated)",
-                      border: `1px solid ${paymentLocation === "AT_COUNTER" ? "var(--cnm-orange)" : "var(--cnm-border)"}`,
-                      color: paymentLocation === "AT_COUNTER" ? "var(--cnm-orange)" : "var(--cnm-text-primary)",
-                      cursor: "pointer",
-                    }}
-                  >
-                    Pay at Counter
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPaymentLocation("ON_TABLE")}
-                    style={{
-                      padding: "10px",
-                      borderRadius: "var(--radius-sm)",
-                      fontSize: "12px",
-                      fontWeight: 800,
-                      backgroundColor:
-                        paymentLocation === "ON_TABLE" ? "var(--cnm-orange-subtle)" : "var(--cnm-surface-elevated)",
-                      border: `1px solid ${paymentLocation === "ON_TABLE" ? "var(--cnm-orange)" : "var(--cnm-border)"}`,
-                      color: paymentLocation === "ON_TABLE" ? "var(--cnm-orange)" : "var(--cnm-text-primary)",
-                      cursor: "pointer",
-                    }}
-                  >
-                    Pay on Table
-                  </button>
+            {/* Option 2: Takeaway / Pickup */}
+            <button
+              type="button"
+              onClick={() => handleSelectType("PICKUP")}
+              className={`mode-option-btn ${selectedType === "PICKUP" ? "active" : ""}`}
+            >
+              <div className="mode-icon-box pickup">
+                <Clock size={20} />
+              </div>
+              <div className="mode-option-info">
+                <div className="mode-option-title-row">
+                  <span className="mode-option-name">Takeaway / Pickup</span>
+                  <span className="mode-fee-badge free">FREE</span>
                 </div>
+                <span className="mode-option-sub">
+                  Ready in ~20 mins • Main Branch, GT Road Kharian
+                </span>
               </div>
+              <ChevronRight size={16} className="mode-chevron" />
+            </button>
 
-              <div style={{ fontSize: "11px", color: "var(--cnm-text-subtle)" }}>
-                Orders are freshly prepared for your arrival. Cash payment upon counter pickup or at table.
+            {/* Option 3: Dine-In */}
+            <button
+              type="button"
+              onClick={() => handleSelectType("DINE_IN")}
+              className={`mode-option-btn ${selectedType === "DINE_IN" ? "active" : ""}`}
+            >
+              <div className="mode-icon-box dinein">
+                <Utensils size={20} />
               </div>
-            </div>
-          )}
-
-          {/* Action CTA */}
-          <div style={{ marginTop: "24px" }}>
-            <button type="submit" className="btn btn-primary btn-block" style={{ padding: "14px", fontSize: "15px" }}>
-              CONFIRM & START ORDERING
+              <div className="mode-option-info">
+                <div className="mode-option-title-row">
+                  <span className="mode-option-name">Dine-In</span>
+                  <span className="mode-fee-badge free">FREE</span>
+                </div>
+                <span className="mode-option-sub">
+                  Fresh table experience • Fast counter or table payment
+                </span>
+              </div>
+              <ChevronRight size={16} className="mode-chevron" />
             </button>
           </div>
-        </form>
+        )}
+
+        {/* STEP 2: CONTEXT-SPECIFIC DETAILS (DELIVERY) */}
+        {step === "DETAILS" && selectedType === "DELIVERY" && (
+          <form onSubmit={handleConfirmDelivery} className="mode-details-form">
+            <div className="form-field">
+              <label className="field-label" htmlFor="delivery-area-select">
+                Delivery Area / Village *
+              </label>
+
+              {isLoadingAreas ? (
+                <div className="field-loading">
+                  <RefreshCw size={14} className="spin" />
+                  <span>Loading delivery areas...</span>
+                </div>
+              ) : areasError ? (
+                <div className="field-error">
+                  <AlertCircle size={14} />
+                  <span>{areasError}</span>
+                  <button type="button" onClick={loadDeliveryAreas} className="btn-retry-areas">
+                    Retry
+                  </button>
+                </div>
+              ) : (
+                <div className="select-container">
+                  <select
+                    id="delivery-area-select"
+                    required
+                    className="cnm-themed-select"
+                    value={selectedAreaId}
+                    onChange={(e) => setSelectedAreaId(e.target.value)}
+                  >
+                    {deliveryAreas.map((area) => (
+                      <option key={area.id} value={area.id}>
+                        {area.name} — {area.deliveryFeePkr} PKR (Est: ~{area.estimatedDeliveryMins || 45} mins)
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
+
+            <div className="form-field">
+              <label className="field-label" htmlFor="delivery-address-input">
+                House / Street Address (Optional)
+              </label>
+              <input
+                id="delivery-address-input"
+                type="text"
+                className="cnm-themed-input"
+                placeholder="e.g. House 14, Street 2, Main Mohallah"
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                maxLength={120}
+              />
+            </div>
+
+            <div className="form-field">
+              <label className="field-label" htmlFor="delivery-landmark-input">
+                Nearby Landmark (Optional)
+              </label>
+              <input
+                id="delivery-landmark-input"
+                type="text"
+                className="cnm-themed-input"
+                placeholder="e.g. Near Jamia Masjid, Water Tank"
+                value={landmark}
+                onChange={(e) => setLandmark(e.target.value)}
+                maxLength={80}
+              />
+            </div>
+
+            <div className="mode-cta-row">
+              <button
+                type="button"
+                onClick={() => setStep("CHOOSE_TYPE")}
+                className="btn-mode-secondary"
+              >
+                Change Type
+              </button>
+              <button
+                type="submit"
+                disabled={isLoadingAreas}
+                className="btn-mode-primary"
+              >
+                Confirm Delivery
+              </button>
+            </div>
+          </form>
+        )}
+
+        {/* STEP 2: CONTEXT-SPECIFIC DETAILS (DINE-IN) */}
+        {step === "DETAILS" && selectedType === "DINE_IN" && (
+          <form onSubmit={handleConfirmDineIn} className="mode-details-form">
+            <div className="form-field">
+              <label className="field-label">Preferred Arrival Time</label>
+              <div className="time-chips-grid">
+                {["In 20 mins", "In 30 mins", "In 45 mins", "Custom"].map((timeChip) => {
+                  const isSel = dineInTimePreset === timeChip;
+                  return (
+                    <button
+                      key={timeChip}
+                      type="button"
+                      onClick={() => setDineInTimePreset(timeChip)}
+                      className={`time-chip-btn ${isSel ? "active" : ""}`}
+                    >
+                      {timeChip}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {dineInTimePreset === "Custom" && (
+              <div className="form-field">
+                <input
+                  type="text"
+                  required
+                  className="cnm-themed-input"
+                  placeholder="e.g. 8:30 PM Tonight"
+                  value={customTime}
+                  onChange={(e) => setCustomTime(e.target.value)}
+                  maxLength={40}
+                />
+              </div>
+            )}
+
+            <div className="form-field">
+              <label className="field-label">Payment Preference (Cash Only)</label>
+              <div className="payment-options-grid">
+                <button
+                  type="button"
+                  onClick={() => setPaymentLocation("AT_COUNTER")}
+                  className={`payment-pref-btn ${paymentLocation === "AT_COUNTER" ? "active" : ""}`}
+                >
+                  Pay at Counter
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPaymentLocation("ON_TABLE")}
+                  className={`payment-pref-btn ${paymentLocation === "ON_TABLE" ? "active" : ""}`}
+                >
+                  Pay on Table
+                </button>
+              </div>
+            </div>
+
+            <div className="mode-cta-row">
+              <button
+                type="button"
+                onClick={() => setStep("CHOOSE_TYPE")}
+                className="btn-mode-secondary"
+              >
+                Change Type
+              </button>
+              <button
+                type="submit"
+                className="btn-mode-primary"
+              >
+                Confirm Dine-In
+              </button>
+            </div>
+          </form>
+        )}
       </div>
 
+      {/* Scoped CSS with Rich CNM Tokens for Light & Dark Mode */}
       <style jsx>{`
-        @keyframes modeSlideUp {
-          from { transform: translateY(100%); }
-          to { transform: translateY(0); }
+        .order-mode-backdrop {
+          position: fixed;
+          inset: 0;
+          z-index: 1000;
+          background-color: rgba(0, 0, 0, 0.72);
+          backdrop-filter: blur(6px);
+          -webkit-backdrop-filter: blur(6px);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 16px;
+          animation: fadeInBackdrop 0.18s ease-out;
         }
-        @media (max-width: 640px) {
-          .mode-backdrop {
-            align-items: flex-end !important;
-            padding: 0 !important;
+
+        .order-mode-card {
+          width: 100%;
+          max-width: 410px;
+          max-height: 84vh;
+          overflow-y: auto;
+          background-color: var(--cnm-surface, #1e2230);
+          border: 1px solid var(--cnm-border, rgba(255, 255, 255, 0.12));
+          border-radius: 16px;
+          box-shadow: 0 20px 45px -10px rgba(0, 0, 0, 0.6);
+          padding: 18px 20px;
+          display: flex;
+          flex-direction: column;
+          animation: cardPopIn 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes fadeInBackdrop {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+
+        @keyframes cardPopIn {
+          from {
+            opacity: 0;
+            transform: scale(0.96) translateY(6px);
           }
-          :global(.mode-modal) {
-            max-height: 90vh !important;
-            border-bottom-left-radius: 0 !important;
-            border-bottom-right-radius: 0 !important;
-            animation: modeSlideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+          to {
+            opacity: 1;
+            transform: scale(1) translateY(0);
           }
+        }
+
+        .mode-card-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding-bottom: 12px;
+          border-bottom: 1px solid var(--cnm-border, rgba(255, 255, 255, 0.08));
+          margin-bottom: 14px;
+        }
+
+        .mode-card-title {
+          font-size: 17px;
+          font-weight: 800;
+          color: var(--cnm-text-primary, #ffffff);
+          margin: 0;
+          letter-spacing: -0.01em;
+        }
+
+        .btn-back-step,
+        .btn-close-modal {
+          background: transparent;
+          border: none;
+          color: var(--cnm-text-muted, #94a3b8);
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 4px;
+          border-radius: 6px;
+          transition: all 0.15s ease;
+        }
+
+        .btn-back-step:hover,
+        .btn-close-modal:hover {
+          color: var(--cnm-text-primary, #ffffff);
+          background-color: var(--cnm-surface-elevated, rgba(255, 255, 255, 0.06));
+        }
+
+        .mode-options-grid {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+        }
+
+        .mode-subtitle {
+          font-size: 12.5px;
+          color: var(--cnm-text-muted, #94a3b8);
+          margin: 0 0 4px;
+          line-height: 1.35;
+        }
+
+        .mode-option-btn {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          padding: 12px 14px;
+          border-radius: 12px;
+          border: 1.5px solid var(--cnm-border, rgba(255, 255, 255, 0.08));
+          background-color: var(--cnm-surface-elevated, #161922);
+          color: var(--cnm-text-primary, #ffffff);
+          text-align: left;
+          cursor: pointer;
+          transition: all 0.18s ease;
+          width: 100%;
+        }
+
+        .mode-option-btn:hover {
+          border-color: var(--cnm-orange, #f97316);
+          transform: translateY(-1px);
+        }
+
+        .mode-option-btn.active {
+          border-color: var(--cnm-orange, #f97316);
+          background-color: rgba(249, 115, 22, 0.08);
+        }
+
+        .mode-icon-box {
+          width: 38px;
+          height: 38px;
+          border-radius: 10px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+        }
+
+        .mode-icon-box.delivery {
+          background-color: rgba(249, 115, 22, 0.15);
+          color: #f97316;
+        }
+
+        .mode-icon-box.pickup {
+          background-color: rgba(59, 130, 246, 0.15);
+          color: #3b82f6;
+        }
+
+        .mode-icon-box.dinein {
+          background-color: rgba(16, 185, 129, 0.15);
+          color: #10b981;
+        }
+
+        .mode-option-info {
+          flex: 1;
+          min-width: 0;
+        }
+
+        .mode-option-title-row {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          margin-bottom: 2px;
+        }
+
+        .mode-option-name {
+          font-size: 13.5px;
+          font-weight: 800;
+          color: var(--cnm-text-primary, #ffffff);
+        }
+
+        .mode-fee-badge {
+          font-size: 10px;
+          font-weight: 800;
+          padding: 1px 6px;
+          border-radius: 4px;
+          background-color: rgba(249, 115, 22, 0.15);
+          color: #f97316;
+        }
+
+        .mode-fee-badge.free {
+          background-color: rgba(16, 185, 129, 0.15);
+          color: #10b981;
+        }
+
+        .mode-option-sub {
+          display: block;
+          font-size: 11px;
+          color: var(--cnm-text-muted, #94a3b8);
+          line-height: 1.3;
+        }
+
+        .mode-chevron {
+          color: var(--cnm-text-muted, #94a3b8);
+          flex-shrink: 0;
+        }
+
+        /* Follow-up Details Form */
+        .mode-details-form {
+          display: flex;
+          flex-direction: column;
+          gap: 14px;
+        }
+
+        .form-field {
+          display: flex;
+          flex-direction: column;
+          gap: 5px;
+        }
+
+        .field-label {
+          font-size: 11.5px;
+          font-weight: 700;
+          color: var(--cnm-text-muted, #94a3b8);
+          text-transform: uppercase;
+          letter-spacing: 0.03em;
+        }
+
+        .select-container {
+          position: relative;
+          width: 100%;
+        }
+
+        .cnm-themed-select,
+        .cnm-themed-input {
+          width: 100%;
+          padding: 10px 12px;
+          border-radius: 8px;
+          font-size: 13px;
+          background-color: var(--cnm-surface-elevated, #161922);
+          border: 1px solid var(--cnm-border, rgba(255, 255, 255, 0.12));
+          color: var(--cnm-text-primary, #ffffff);
+          outline: none;
+          transition: border-color 0.15s ease;
+          box-sizing: border-box;
+        }
+
+        .cnm-themed-select:focus,
+        .cnm-themed-input:focus {
+          border-color: var(--cnm-orange, #f97316);
+        }
+
+        .field-loading {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 10px;
+          font-size: 12px;
+          color: var(--cnm-text-muted, #94a3b8);
+        }
+
+        .field-error {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          font-size: 12px;
+          color: #ef4444;
+          padding: 6px 0;
+        }
+
+        .btn-retry-areas {
+          background: transparent;
+          border: none;
+          color: var(--cnm-orange, #f97316);
+          font-weight: 700;
+          text-decoration: underline;
+          cursor: pointer;
+          font-size: 12px;
+        }
+
+        .time-chips-grid {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 6px;
+        }
+
+        .time-chip-btn {
+          padding: 8px;
+          border-radius: 8px;
+          font-size: 12px;
+          font-weight: 700;
+          border: 1px solid var(--cnm-border, rgba(255, 255, 255, 0.12));
+          background-color: var(--cnm-surface-elevated, #161922);
+          color: var(--cnm-text-primary, #ffffff);
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+
+        .time-chip-btn.active {
+          border-color: var(--cnm-orange, #f97316);
+          background-color: var(--cnm-orange, #f97316);
+          color: #ffffff;
+        }
+
+        .payment-options-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 8px;
+        }
+
+        .payment-pref-btn {
+          padding: 9px;
+          border-radius: 8px;
+          font-size: 12px;
+          font-weight: 700;
+          border: 1px solid var(--cnm-border, rgba(255, 255, 255, 0.12));
+          background-color: var(--cnm-surface-elevated, #161922);
+          color: var(--cnm-text-primary, #ffffff);
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+
+        .payment-pref-btn.active {
+          border-color: var(--cnm-orange, #f97316);
+          background-color: rgba(249, 115, 22, 0.15);
+          color: var(--cnm-orange, #f97316);
+        }
+
+        .mode-cta-row {
+          display: flex;
+          gap: 8px;
+          margin-top: 6px;
+        }
+
+        .btn-mode-secondary {
+          flex: 1;
+          padding: 10px;
+          border-radius: 8px;
+          font-size: 12px;
+          font-weight: 700;
+          border: 1px solid var(--cnm-border, rgba(255, 255, 255, 0.12));
+          background-color: var(--cnm-surface-elevated, #161922);
+          color: var(--cnm-text-muted, #94a3b8);
+          cursor: pointer;
+        }
+
+        .btn-mode-primary {
+          flex: 2;
+          padding: 10px;
+          border-radius: 8px;
+          font-size: 13px;
+          font-weight: 800;
+          border: none;
+          background-color: var(--cnm-orange, #f97316);
+          color: #ffffff;
+          cursor: pointer;
+          box-shadow: 0 4px 12px rgba(249, 115, 22, 0.35);
+        }
+
+        .spin {
+          animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
         }
       `}</style>
     </div>

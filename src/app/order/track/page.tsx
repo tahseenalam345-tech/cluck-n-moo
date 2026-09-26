@@ -378,12 +378,12 @@ export default function TrackOrderPage() {
         onOpenCart={() => setIsCartOpen(true)}
       />
 
-      <main style={{ flex: 1, padding: "24px 16px 48px", maxWidth: "980px", margin: "0 auto", width: "100%" }}>
+      <main className="track-main-container">
         {/* Breadcrumb / Top Info */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px", flexWrap: "wrap", gap: "10px" }}>
+        <div className="track-header-row">
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-              <h1 style={{ fontSize: "1.45rem", fontWeight: 700, margin: 0, letterSpacing: "-0.01em" }}>
+              <h1 style={{ fontSize: "1.35rem", fontWeight: 800, margin: 0, letterSpacing: "-0.01em" }}>
                 Track Order
               </h1>
               {activeCount > 0 && (
@@ -393,7 +393,7 @@ export default function TrackOrderPage() {
                     color: "#f97316",
                     border: "1px solid rgba(249, 115, 22, 0.35)",
                     fontSize: "0.72rem",
-                    fontWeight: 600,
+                    fontWeight: 700,
                     padding: "2px 8px",
                     borderRadius: "12px",
                     display: "inline-flex",
@@ -402,39 +402,16 @@ export default function TrackOrderPage() {
                   }}
                 >
                   <span className="live-pulse-dot" />
-                  {activeCount} {activeCount === 1 ? "Active Order" : "Active Orders"}
+                  {activeCount} {activeCount === 1 ? "Active" : "Active"}
                 </span>
               )}
             </div>
-            <p style={{ margin: "4px 0 0", fontSize: "0.82rem", color: "var(--cnm-text-muted, #94a3b8)" }}>
-              View and track real-time kitchen progress, live rider status, and past receipts.
+            <p style={{ margin: "2px 0 0", fontSize: "0.8rem", color: "var(--cnm-text-muted, #94a3b8)" }}>
+              Real-time kitchen progress & past receipts.
             </p>
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <button
-              type="button"
-              onClick={() => loadCustomerOrders(true)}
-              disabled={isRefreshing}
-              style={{
-                backgroundColor: "var(--cnm-surface, #1e2230)",
-                border: "1px solid var(--cnm-border, rgba(255,255,255,0.08))",
-                color: "var(--cnm-text-primary, #ffffff)",
-                padding: "6px 12px",
-                borderRadius: "6px",
-                fontSize: "0.76rem",
-                fontWeight: 500,
-                cursor: "pointer",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "5px",
-              }}
-              title="Refresh recent orders"
-            >
-              <RefreshCw size={12} className={isRefreshing ? "spin" : ""} />
-              <span>{isRefreshing ? "Syncing..." : "Sync"}</span>
-            </button>
-
+          <div style={{ display: "flex", alignItems: "center", gap: "8px", flexShrink: 0 }}>
             {!currentUser && (
               <button
                 type="button"
@@ -443,78 +420,70 @@ export default function TrackOrderPage() {
                   backgroundColor: "var(--cnm-orange, #f97316)",
                   color: "#ffffff",
                   border: "none",
-                  padding: "6px 14px",
+                  padding: "6px 12px",
                   borderRadius: "6px",
-                  fontSize: "0.76rem",
-                  fontWeight: 600,
+                  fontSize: "0.75rem",
+                  fontWeight: 700,
                   cursor: "pointer",
                   display: "inline-flex",
                   alignItems: "center",
                   gap: "5px",
                 }}
               >
-                <User size={12} />
-                <span>Customer Sign In</span>
+                <User size={13} />
+                <span>Sign In</span>
               </button>
             )}
+
+            <button
+              type="button"
+              onClick={() => loadCustomerOrders(true)}
+              disabled={isRefreshing}
+              aria-label="Refresh and sync recent orders"
+              title="Refresh and sync recent orders"
+              style={{
+                backgroundColor: "var(--cnm-surface, #1e2230)",
+                border: "1px solid var(--cnm-border, rgba(255,255,255,0.12))",
+                color: "var(--cnm-text-primary, #ffffff)",
+                width: "32px",
+                height: "32px",
+                borderRadius: "6px",
+                cursor: isRefreshing ? "wait" : "pointer",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+              }}
+            >
+              <RefreshCw size={13} className={isRefreshing ? "spin" : ""} />
+            </button>
           </div>
         </div>
 
         {/* 2. Quick Direct Order Lookup Form */}
-        <div
-          style={{
-            backgroundColor: "var(--cnm-surface, #1e2230)",
-            border: "1px solid var(--cnm-border, rgba(255,255,255,0.08))",
-            borderRadius: "8px",
-            padding: "12px 14px",
-            marginBottom: "20px",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px", flexWrap: "wrap", gap: "4px" }}>
-            <span style={{ fontSize: "0.76rem", fontWeight: 600, color: "var(--cnm-text-primary, #ffffff)", display: "flex", alignItems: "center", gap: "5px" }}>
+        <div className="track-lookup-card">
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "6px", flexWrap: "wrap", gap: "4px" }}>
+            <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--cnm-text-primary, #ffffff)", display: "flex", alignItems: "center", gap: "5px" }}>
               <Search size={13} color="var(--cnm-orange, #f97316)" />
               <span>Track By Order # or Token:</span>
             </span>
             <span style={{ fontSize: "0.7rem", color: "var(--cnm-text-muted, #94a3b8)" }}>
-              e.g. CNM-2609-6587 or 8-character token
+              e.g. CNM-2609-4806
             </span>
           </div>
 
-          <form onSubmit={handleManualSearch} style={{ display: "flex", gap: "8px" }}>
+          <form onSubmit={handleManualSearch} className="track-lookup-form">
             <input
               type="text"
-              placeholder="Enter Order Number or Tracking Token..."
+              placeholder="Enter Order Number or Token..."
               value={manualQuery}
               onChange={(e) => setManualQuery(e.target.value)}
-              style={{
-                flex: 1,
-                backgroundColor: "var(--cnm-surface-elevated, #161922)",
-                border: "1px solid var(--cnm-border, rgba(255,255,255,0.12))",
-                borderRadius: "6px",
-                padding: "8px 12px",
-                fontSize: "0.82rem",
-                color: "var(--cnm-text-primary, #ffffff)",
-                outline: "none",
-              }}
+              className="track-lookup-input"
             />
             <button
               type="submit"
               disabled={isManualSearching || !manualQuery.trim()}
-              style={{
-                backgroundColor: "var(--cnm-orange, #f97316)",
-                color: "#ffffff",
-                border: "none",
-                borderRadius: "6px",
-                padding: "8px 16px",
-                fontSize: "0.8rem",
-                fontWeight: 600,
-                cursor: !manualQuery.trim() || isManualSearching ? "not-allowed" : "pointer",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "5px",
-                opacity: !manualQuery.trim() || isManualSearching ? 0.6 : 1,
-                whiteSpace: "nowrap",
-              }}
+              className="btn-track-lookup-submit"
             >
               {isManualSearching ? (
                 <>
@@ -531,53 +500,12 @@ export default function TrackOrderPage() {
           </form>
 
           {manualError && (
-            <div style={{ marginTop: "8px", fontSize: "0.76rem", color: "#ef4444", display: "flex", alignItems: "center", gap: "4px" }}>
+            <div style={{ marginTop: "6px", fontSize: "0.74rem", color: "#ef4444", display: "flex", alignItems: "center", gap: "4px" }}>
               <AlertCircle size={12} />
               <span>{manualError}</span>
             </div>
           )}
         </div>
-
-        {/* 3. Non-Authenticated Banner (Prompts Sign In to see full account orders) */}
-        {!isAuthLoading && !currentUser && (
-          <div
-            style={{
-              backgroundColor: "rgba(59, 130, 246, 0.08)",
-              border: "1px solid rgba(59, 130, 246, 0.25)",
-              borderRadius: "8px",
-              padding: "10px 14px",
-              marginBottom: "16px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              flexWrap: "wrap",
-              gap: "8px",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-              <ShieldCheck size={16} color="#60a5fa" />
-              <span style={{ fontSize: "0.78rem", color: "var(--cnm-text-primary, #ffffff)" }}>
-                Sign in to view your complete order history and save delivery addresses.
-              </span>
-            </div>
-            <button
-              type="button"
-              onClick={() => setShowSignInModal(true)}
-              style={{
-                backgroundColor: "#3b82f6",
-                color: "#ffffff",
-                border: "none",
-                padding: "5px 12px",
-                borderRadius: "5px",
-                fontSize: "0.74rem",
-                fontWeight: 600,
-                cursor: "pointer",
-              }}
-            >
-              Sign In to Account
-            </button>
-          </div>
-        )}
 
         {/* 4. Controls Bar: Filter tabs & Search */}
         {orders.length > 0 && (
@@ -1417,6 +1345,94 @@ export default function TrackOrderPage() {
         @keyframes spin {
           from { transform: rotate(0deg); }
           to { transform: rotate(360deg); }
+        }
+
+        .track-main-container {
+          flex: 1;
+          padding: 12px 14px 36px;
+          max-width: 980px;
+          margin: 0 auto;
+          width: 100%;
+        }
+
+        .track-header-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 12px;
+          flex-wrap: wrap;
+          gap: 8px;
+        }
+
+        .track-lookup-card {
+          background-color: var(--cnm-surface, #1e2230);
+          border: 1px solid var(--cnm-border, rgba(255, 255, 255, 0.08));
+          border-radius: 8px;
+          padding: 10px 12px;
+          margin-bottom: 12px;
+        }
+
+        .track-lookup-form {
+          display: flex;
+          gap: 6px;
+          width: 100%;
+        }
+
+        .track-lookup-input {
+          flex: 1;
+          min-width: 0;
+          background-color: var(--cnm-surface-elevated, #161922);
+          border: 1px solid var(--cnm-border, rgba(255, 255, 255, 0.12));
+          border-radius: 6px;
+          padding: 8px 10px;
+          font-size: 0.8rem;
+          color: var(--cnm-text-primary, #ffffff);
+          outline: none;
+        }
+
+        .btn-track-lookup-submit {
+          background-color: var(--cnm-orange, #f97316);
+          color: #ffffff;
+          border: none;
+          border-radius: 6px;
+          padding: 8px 14px;
+          font-size: 0.8rem;
+          font-weight: 700;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 4px;
+          cursor: pointer;
+          white-space: nowrap;
+          flex-shrink: 0;
+        }
+
+        @media (max-width: 440px) {
+          .track-lookup-form {
+            flex-direction: column !important;
+            gap: 6px !important;
+          }
+          .track-lookup-input {
+            width: 100% !important;
+            box-sizing: border-box !important;
+          }
+          .btn-track-lookup-submit {
+            width: 100% !important;
+            padding: 9px !important;
+          }
+        }
+
+        @media (min-width: 641px) {
+          .track-main-container {
+            padding: 20px 16px 48px;
+          }
+          .track-header-row {
+            margin-bottom: 16px;
+          }
+          .track-lookup-card {
+            padding: 14px;
+            margin-bottom: 18px;
+          }
         }
 
         @media (max-width: 640px) {

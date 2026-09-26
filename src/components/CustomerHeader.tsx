@@ -32,7 +32,7 @@ export function CustomerHeader({
   onOpenCart,
 }: CustomerHeaderProps) {
   const { theme, toggleTheme } = useTheme();
-  const { modeState, openOrderModeModal } = useOrderMode();
+  const { modeState, openOrderModeModal, setOrderTypeOnly } = useOrderMode();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [storeStatus, setStoreStatus] = useState<{ isOpen: boolean; message: string }>({
     isOpen: true,
@@ -415,47 +415,78 @@ export function CustomerHeader({
             </span>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "6px" }}>
               <button
-                onClick={() => { openOrderModeModal(); setIsMobileMenuOpen(false); }}
+                type="button"
+                onClick={() => {
+                  if (modeState.areaId) {
+                    setOrderTypeOnly("DELIVERY");
+                  } else {
+                    openOrderModeModal();
+                    setIsMobileMenuOpen(false);
+                  }
+                }}
                 style={{
                   padding: "10px 4px", borderRadius: "var(--radius-sm)", border: "1px solid", fontSize: "11px", fontWeight: 800,
                   display: "flex", flexDirection: "column", alignItems: "center", gap: "6px",
                   borderColor: modeState.orderType === "DELIVERY" ? "var(--cnm-orange)" : "var(--cnm-border)",
                   backgroundColor: modeState.orderType === "DELIVERY" ? "var(--cnm-orange)" : "var(--cnm-surface-elevated)",
-                  color: modeState.orderType === "DELIVERY" ? "#fff" : "var(--cnm-text-primary)"
+                  color: modeState.orderType === "DELIVERY" ? "#fff" : "var(--cnm-text-primary)",
+                  cursor: "pointer",
                 }}
               >
                 <Bike size={18} /> DELIVERY
               </button>
               <button
-                onClick={() => { openOrderModeModal(); setIsMobileMenuOpen(false); }}
+                type="button"
+                onClick={() => setOrderTypeOnly("PICKUP")}
                 style={{
                   padding: "10px 4px", borderRadius: "var(--radius-sm)", border: "1px solid", fontSize: "11px", fontWeight: 800,
                   display: "flex", flexDirection: "column", alignItems: "center", gap: "6px",
                   borderColor: modeState.orderType === "PICKUP" ? "var(--cnm-orange)" : "var(--cnm-border)",
                   backgroundColor: modeState.orderType === "PICKUP" ? "var(--cnm-orange)" : "var(--cnm-surface-elevated)",
-                  color: modeState.orderType === "PICKUP" ? "#fff" : "var(--cnm-text-primary)"
+                  color: modeState.orderType === "PICKUP" ? "#fff" : "var(--cnm-text-primary)",
+                  cursor: "pointer",
                 }}
               >
                 <Clock size={18} /> PICKUP
               </button>
               <button
-                onClick={() => { openOrderModeModal(); setIsMobileMenuOpen(false); }}
+                type="button"
+                onClick={() => setOrderTypeOnly("DINE_IN")}
                 style={{
                   padding: "10px 4px", borderRadius: "var(--radius-sm)", border: "1px solid", fontSize: "11px", fontWeight: 800,
                   display: "flex", flexDirection: "column", alignItems: "center", gap: "6px",
                   borderColor: modeState.orderType === "DINE_IN" ? "var(--cnm-orange)" : "var(--cnm-border)",
                   backgroundColor: modeState.orderType === "DINE_IN" ? "var(--cnm-orange)" : "var(--cnm-surface-elevated)",
-                  color: modeState.orderType === "DINE_IN" ? "#fff" : "var(--cnm-text-primary)"
+                  color: modeState.orderType === "DINE_IN" ? "#fff" : "var(--cnm-text-primary)",
+                  cursor: "pointer",
                 }}
               >
                 <Utensils size={18} /> DINE-IN
               </button>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "4px" }}>
-              <span style={{ fontSize: "12px", color: "var(--cnm-text-secondary)" }}>Selected:</span>
-              <span style={{ fontSize: "13px", fontWeight: 800, color: "var(--cnm-orange)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                {getOrderModeLabel()}
-              </span>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "6px", marginTop: "4px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "6px", minWidth: 0, overflow: "hidden" }}>
+                <span style={{ fontSize: "11.5px", color: "var(--cnm-text-secondary)" }}>Selected:</span>
+                <span style={{ fontSize: "12px", fontWeight: 800, color: "var(--cnm-orange)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  {getOrderModeLabel()}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => { openOrderModeModal(); setIsMobileMenuOpen(false); }}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  color: "var(--cnm-orange)",
+                  fontSize: "11px",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  textDecoration: "underline",
+                  flexShrink: 0,
+                }}
+              >
+                Change details
+              </button>
             </div>
           </div>
         </div>

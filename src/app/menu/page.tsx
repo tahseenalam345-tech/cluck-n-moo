@@ -57,21 +57,21 @@ export default function FullMenuPage() {
         onOpenCart={() => setIsCartOpen(true)}
       />
 
-      <main style={{ flex: 1, padding: "32px 0 48px" }}>
+      <main className="menu-main-content">
         <div className="container">
-          <div style={{ marginBottom: "28px" }}>
-            <span className="badge badge-orange" style={{ marginBottom: "8px" }}>
+          <div className="menu-hero-header">
+            <span className="badge badge-orange" style={{ marginBottom: "6px" }}>
               KHARIAN&apos;S BEST BITES
             </span>
-            <h1 style={{ fontSize: "32px", color: "var(--cnm-text-primary)", marginBottom: "8px" }}>
+            <h1 className="menu-page-title">
               Complete Food Menu
             </h1>
-            <p style={{ fontSize: "14px", color: "var(--cnm-text-muted)" }}>
+            <p className="menu-page-subtitle">
               Explore our freshly smashed beef burgers, golden fried chicken, loaded fries, and refreshing beverages.
             </p>
 
             {/* Search Input with Auto-typing Placeholder */}
-            <div style={{ maxWidth: "680px", marginTop: "16px" }}>
+            <div className="menu-search-wrapper">
               <MenuSearchBar
                 searchQuery={searchQuery}
                 onSearchChange={setSearchQuery}
@@ -186,6 +186,52 @@ export default function FullMenuPage() {
       />
 
       <CustomerFooter />
+
+      <style jsx>{`
+        .menu-main-content {
+          flex: 1;
+          padding: 16px 0 36px;
+        }
+        .menu-hero-header {
+          margin-bottom: 16px;
+        }
+        .menu-page-title {
+          font-size: clamp(22px, 5.5vw, 30px);
+          color: var(--cnm-text-primary);
+          margin-bottom: 4px;
+          line-height: 1.2;
+          font-weight: 800;
+          letter-spacing: -0.01em;
+        }
+        .menu-page-subtitle {
+          font-size: 13px;
+          color: var(--cnm-text-muted);
+          line-height: 1.4;
+          margin: 0;
+        }
+        .menu-search-wrapper {
+          max-width: 680px;
+          margin-top: 12px;
+        }
+        @media (min-width: 641px) {
+          .menu-main-content {
+            padding: 28px 0 48px;
+          }
+          .menu-hero-header {
+            margin-bottom: 24px;
+          }
+          .menu-page-title {
+            font-size: 32px;
+            margin-bottom: 8px;
+          }
+          .menu-page-subtitle {
+            font-size: 14px;
+          }
+          .menu-search-wrapper {
+            margin-top: 16px;
+          }
+        }
+      `}</style>
     </div>
   );
 }

@@ -158,10 +158,26 @@ export default function StorefrontPage() {
   // Flatten all products across all categories for Popular Picks
   const allProducts: Product[] = categories.flatMap((c) => c.products || []);
 
-  // Handle signature section selection (stays in place, no jump/scroll)
+  // Handle signature section selection with smooth scroll if customer is scrolled down
   const handleSelectSignature = (slug: string) => {
     setActiveSignatureSlug(slug);
     setSelectedCategory("all");
+
+    if (typeof window !== "undefined") {
+      const menuEl = document.getElementById("dynamic-menu-catalog");
+      if (menuEl) {
+        const rect = menuEl.getBoundingClientRect();
+        // If menu content is scrolled past viewport or user is scrolled down
+        if (rect.top < 20 || window.scrollY > 380) {
+          const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+          const targetY = window.scrollY + rect.top - headerHeight - 65;
+          window.scrollTo({
+            top: Math.max(0, targetY),
+            behavior: prefersReduced ? "auto" : "smooth",
+          });
+        }
+      }
+    }
   };
 
   // 1. Signature-level filtering
@@ -289,8 +305,8 @@ export default function StorefrontPage() {
           />
         </div>
 
-        {/* 6. Popular Picks Section (Configurable 4–6 verified dishes) */}
-        {!searchQuery && (
+        {/* 6. Popular Picks Section (Shown only on Main Menu) */}
+        {!searchQuery && activeSignatureSlug === "menu" && (
           <PopularPicksSection
             products={allProducts}
             isLoading={isLoading}
@@ -298,8 +314,8 @@ export default function StorefrontPage() {
           />
         )}
 
-        {/* 6.5. Deals You'll Love (Homepage Promotions Grid) */}
-        {!searchQuery && (
+        {/* 6.5. Deals You'll Love (Homepage Promotions Grid - Shown only on Main Menu) */}
+        {!searchQuery && activeSignatureSlug === "menu" && (
           <PromotionsSection
             onSelectPromotion={(promo) => setSelectedPromotion(promo)}
           />
@@ -345,22 +361,28 @@ export default function StorefrontPage() {
                   type="button"
                   onClick={() => handleSelectSignature("menu")}
                   style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
                     fontSize: "12px",
-                    fontWeight: 700,
-                    color: "var(--cnm-orange)",
-                    padding: "4px 10px",
+                    fontWeight: 800,
+                    color: "#ffffff",
+                    backgroundColor: "var(--cnm-orange)",
+                    border: "none",
+                    padding: "6px 14px",
                     borderRadius: "var(--radius-full)",
-                    backgroundColor: "rgba(255, 130, 67, 0.08)",
                     cursor: "pointer",
+                    boxShadow: "0 2px 8px rgba(255, 130, 67, 0.3)",
+                    transition: "all 0.15s ease",
                   }}
                 >
-                  ← View All Menú
+                  ← Back to Main Menu
                 </button>
               )}
             </div>
 
-            {/* Category Pills (Visible when not searching, ALL ITEMS by default) */}
-            {!searchQuery && (
+            {/* Category Pills (Visible ONLY on Main Menu when not searching) */}
+            {!searchQuery && activeSignatureSlug === "menu" && (
               <div
                 className="liquid-glass-bar"
                 style={{

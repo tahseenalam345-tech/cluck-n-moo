@@ -142,6 +142,7 @@ export function SignatureNavigationStrip({
               return (
                 <div
                   key={sec.id}
+                  className="signature-item-box"
                   style={{
                     display: "flex",
                     flexDirection: "column",
@@ -320,17 +321,26 @@ export function SignatureNavigationStrip({
           .signature-scroll-arrow {
             display: none !important;
           }
+          :global(.signature-navigation-wrapper) {
+            padding: 2px 0 3px !important;
+          }
+          .signature-item-box {
+            gap: 2px !important;
+          }
           .signature-strip-track {
             justify-content: flex-start !important;
-            gap: 14px !important;
-            padding: 2px 20px 4px 10px !important;
+            gap: 12px !important;
+            padding: 1px 12px 2px !important;
           }
           .signature-circle-btn {
-            width: 54px !important;
-            height: 54px !important;
+            width: 44px !important;
+            height: 44px !important;
+            border-width: 2px !important;
           }
           .signature-label {
-            font-size: 11px !important;
+            font-size: 10.5px !important;
+            line-height: 1.15 !important;
+            padding: 1px 4px !important;
           }
         }
 

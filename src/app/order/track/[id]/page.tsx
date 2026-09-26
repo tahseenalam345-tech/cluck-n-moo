@@ -11,7 +11,6 @@ import {
   CheckCircle2,
   Bike,
   ChefHat,
-  ArrowLeft,
   AlertTriangle,
   RefreshCw,
   Flame,
@@ -246,13 +245,13 @@ export default function OrderTrackingPage() {
         paddingBottom: "32px",
       }}
     >
-      {/* 1. Sleek Compact Header with Theme Toggle in Corner */}
+      {/* 1. Sleek Compact Header: Live Beacon/Controls on Left, CNM Logo on Right */}
       <header
         style={{
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          padding: "10px 16px",
+          padding: "8px 14px",
           borderBottom: "1px solid var(--cnm-border)",
           backgroundColor: "var(--cnm-surface)",
           position: "sticky",
@@ -261,28 +260,7 @@ export default function OrderTrackingPage() {
           boxShadow: "var(--shadow-xs)",
         }}
       >
-        <Link
-          href="/"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "5px",
-            color: "var(--cnm-text-primary)",
-            fontSize: "13px",
-            fontWeight: 800,
-            textDecoration: "none",
-          }}
-        >
-          <ArrowLeft size={16} />
-          <span>Menu</span>
-        </Link>
-
-        {/* Brand Logo in Center */}
-        <Link href="/" aria-label="Home" style={{ display: "flex", alignItems: "center" }}>
-          <BrandLogo size="sm" showTagline={false} />
-        </Link>
-
-        {/* Right Corner Controls: Live Beacon, Theme Toggle, Refresh */}
+        {/* Left Corner Controls: Live Beacon, Theme Toggle, Refresh */}
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
           {/* Live indicator badge */}
           {!isCompleted && !isCancelled && (
@@ -321,8 +299,8 @@ export default function OrderTrackingPage() {
             aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
             title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
             style={{
-              width: "34px",
-              height: "34px",
+              width: "32px",
+              height: "32px",
               borderRadius: "50%",
               backgroundColor: "var(--cnm-surface-elevated)",
               border: "1px solid var(--cnm-border)",
@@ -335,9 +313,9 @@ export default function OrderTrackingPage() {
             }}
           >
             {theme === "dark" ? (
-              <Sun size={15} style={{ color: "#FBBF24" }} />
+              <Sun size={14} style={{ color: "#FBBF24" }} />
             ) : (
-              <Moon size={15} style={{ color: "var(--cnm-text-secondary)" }} />
+              <Moon size={14} style={{ color: "var(--cnm-text-secondary)" }} />
             )}
           </button>
 
@@ -347,8 +325,8 @@ export default function OrderTrackingPage() {
             aria-label="Refresh Status"
             title="Refresh Status"
             style={{
-              width: "34px",
-              height: "34px",
+              width: "32px",
+              height: "32px",
               borderRadius: "50%",
               backgroundColor: "var(--cnm-surface-elevated)",
               border: "1px solid var(--cnm-border)",
@@ -359,13 +337,18 @@ export default function OrderTrackingPage() {
               cursor: "pointer",
             }}
           >
-            <RefreshCw size={14} className={isRefreshing ? "spin" : ""} />
+            <RefreshCw size={13} className={isRefreshing ? "spin" : ""} />
           </button>
         </div>
+
+        {/* Brand Logo on Right Side */}
+        <Link href="/" aria-label="Home" style={{ display: "flex", alignItems: "center" }}>
+          <BrandLogo size="sm" showTagline={false} />
+        </Link>
       </header>
 
       {/* Main Content Area - Mobile-First Compact Container */}
-      <main style={{ maxWidth: "600px", margin: "0 auto", padding: "12px 14px" }}>
+      <main style={{ maxWidth: "600px", margin: "0 auto", padding: "10px 12px 32px" }}>
         {/* Opt-in Prompt (Non-intrusive) */}
         <NotificationOptInPrompt />
 
