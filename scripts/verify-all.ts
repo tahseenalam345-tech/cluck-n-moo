@@ -30,7 +30,8 @@ async function runFullVerification() {
   const menuData = await menuRes.json();
   console.assert(menuData.success === true, "Menu API should succeed");
   console.assert(menuData.data.categories.length > 0, "Categories exist");
-  const smashBurger = menuData.data.featuredProducts.find((p: any) => p.slug === "classic-cheeseburger" || p.slug === "classic-smash-burger");
+  const allProducts = menuData.data.categories.flatMap((c: any) => c.products || []);
+  const smashBurger = allProducts.find((p: any) => p.name === "Classic Cheeseburger" || p.slug === "classic-cheeseburger");
   console.assert(smashBurger !== undefined, "Classic Smash Burger / Cheeseburger exists");
   console.assert(smashBurger.variants.length >= 2, "Smash burger has variants (Single & Double)");
   console.log(`   ✓ Menu verified: ${menuData.data.categories.length} categories, ${menuData.data.featuredProducts.length} featured items.`);

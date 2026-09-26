@@ -6,13 +6,15 @@ import { BrandLogo } from "./BrandLogo";
 import { BRAND, INITIAL_DELIVERY_AREAS } from "@/lib/constants";
 import { MapPin, Phone, Clock, Bike, ShieldCheck, Flame } from "lucide-react";
 
-export function CustomerFooter() {
+export function CustomerFooter({ hasFloatingCart }: { hasFloatingCart?: boolean } = {}) {
   return (
     <footer
       style={{
         backgroundColor: "var(--cnm-surface)",
         borderTop: "1px solid var(--cnm-border)",
-        padding: "48px 0 24px",
+        padding: hasFloatingCart
+          ? "48px 0 calc(84px + env(safe-area-inset-bottom, 0px))"
+          : "48px 0 calc(24px + env(safe-area-inset-bottom, 0px))",
         marginTop: "64px",
         color: "var(--cnm-text-secondary)",
       }}

@@ -15,6 +15,7 @@ import { ProductCard } from "@/components/ProductCard";
 import { BrandStorySection } from "@/components/BrandStorySection";
 import { ItemCustomizerModal } from "@/components/ItemCustomizerModal";
 import { CartDrawer } from "@/components/CartDrawer";
+import { FloatingMiniCart } from "@/components/FloatingMiniCart";
 import { CustomerFooter } from "@/components/CustomerFooter";
 import { useOrderMode } from "@/context/OrderModeContext";
 import { filterProductsBySignature, SIGNATURE_SECTIONS } from "@/lib/signatureSections";
@@ -234,7 +235,7 @@ export default function StorefrontPage() {
       {/* 3. First-Visit Order Mode & Location Modal */}
       <OrderModeModal />
 
-      <main style={{ flex: 1 }}>
+      <main style={{ flex: 1, paddingBottom: cartCount > 0 ? "76px" : "0px" }}>
         {/* 3. Promotional Banners Carousel */}
         <PromoCarousel
           onSelectPromotion={(promo) => {
@@ -661,7 +662,7 @@ export default function StorefrontPage() {
       </main>
 
       {/* 9. Public Footer */}
-      <CustomerFooter />
+      <CustomerFooter hasFloatingCart={cartCount > 0} />
 
       {/* Item Customizer Modal */}
       {selectedProduct && (
@@ -681,6 +682,13 @@ export default function StorefrontPage() {
         />
       )}
 
+
+      {/* Floating Mini-Cart for Mobile & Quick Checkout */}
+      <FloatingMiniCart
+        cartCount={cartCount}
+        totalPkr={cartSubtotal}
+        onOpenCart={() => setIsCartOpen(true)}
+      />
 
       {/* Slide-Out Cart Drawer */}
       <CartDrawer

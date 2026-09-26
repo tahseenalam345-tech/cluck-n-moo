@@ -8,7 +8,8 @@ import { ProductCard } from "@/components/ProductCard";
 import { ItemCustomizerModal } from "@/components/ItemCustomizerModal";
 import { CartDrawer } from "@/components/CartDrawer";
 import { BuildYourOwnDealModal } from "@/components/BuildYourOwnDealModal";
-import { Flame, Sparkles, Plus } from "lucide-react";
+import { FloatingMiniCart } from "@/components/FloatingMiniCart";
+import { Flame, Sparkles, Plus, ArrowRight } from "lucide-react";
 
 export default function DealsPage() {
   const [deals, setDeals] = useState<Product[]>([]);
@@ -55,109 +56,64 @@ export default function DealsPage() {
         onOpenCart={() => setIsCartOpen(true)}
       />
 
-      <main style={{ flex: 1, padding: "32px 0 48px" }}>
+      <main style={{ flex: 1, padding: cartCount > 0 ? "20px 0 calc(84px + env(safe-area-inset-bottom, 0px))" : "20px 0 48px" }}>
         <div className="container">
-          <div style={{ marginBottom: "24px" }}>
-            <span className="badge badge-orange" style={{ marginBottom: "8px" }}>
+          <div style={{ marginBottom: "16px" }}>
+            <span className="badge badge-orange" style={{ marginBottom: "6px" }}>
               <Flame size={12} /> BIGGEST SAVINGS IN TOWN
             </span>
-            <h1 style={{ fontSize: "32px", color: "var(--cnm-text-primary)", marginBottom: "8px" }}>
+            <h1 style={{ fontSize: "clamp(22px, 5vw, 28px)", color: "var(--cnm-text-primary)", marginBottom: "4px" }}>
               Exclusive Value Deals & Combos
             </h1>
-            <p style={{ fontSize: "14px", color: "var(--cnm-text-muted)" }}>
+            <p style={{ fontSize: "13px", color: "var(--cnm-text-muted)", margin: 0 }}>
               Hand-crafted combo feasts designed for solo hunger or full family gatherings.
             </p>
           </div>
 
-          {/* Prominent "Build Your Own Deal" Interactive Hero Card */}
+          {/* Compact Slim "Build Your Own Deal" Horizontal Rectangle Card */}
           <div
-            className="card"
-            style={{
-              padding: "24px",
-              marginBottom: "32px",
-              borderRadius: "var(--radius-lg)",
-              backgroundColor: "var(--cnm-surface)",
-              backgroundImage: "linear-gradient(135deg, var(--cnm-orange-subtle) 0%, var(--cnm-surface-elevated) 100%)",
-              border: "1.5px solid var(--cnm-orange)",
-              boxShadow: "var(--shadow-card-hover)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              flexWrap: "wrap",
-              gap: "20px",
+            className="card cnm-slim-deal-card"
+            onClick={() => setIsByoDealOpen(true)}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                setIsByoDealOpen(true);
+              }
             }}
           >
-            <div style={{ maxWidth: "620px" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
-                <span className="badge badge-orange" style={{ fontWeight: 800 }}>
-                  <Sparkles size={12} /> INTERACTIVE DEAL BUILDER
+            <div className="cnm-deal-card-content">
+              <div className="cnm-deal-card-tags">
+                <span className="badge badge-orange cnm-deal-badge">
+                  <Sparkles size={10} /> BUILD CUSTOM DEAL
                 </span>
-                <span
-                  style={{
-                    fontSize: "12px",
-                    fontWeight: 700,
-                    color: "var(--status-ready)",
-                    backgroundColor: "rgba(16, 185, 129, 0.12)",
-                    padding: "2px 8px",
-                    borderRadius: "var(--radius-full)",
-                  }}
-                >
+                <span className="cnm-deal-savings-pill">
                   SAVE 5% TO 10%
                 </span>
               </div>
-              <h2
-                style={{
-                  fontFamily: "var(--font-display)",
-                  fontSize: "22px",
-                  fontWeight: 750,
-                  color: "var(--cnm-text-primary)",
-                  marginBottom: "6px",
-                  lineHeight: 1.25,
-                }}
-              >
+              <h2 className="cnm-deal-card-title">
                 Build Your Own Deal
               </h2>
-              <p style={{ fontSize: "13.5px", color: "var(--cnm-text-muted)", marginBottom: "12px", lineHeight: 1.45 }}>
-                Mix & match any combination of burgers, pizzas, wings, loaded fries, and drinks from our verified CNM menu.
-                Unlock an automatic <strong style={{ color: "var(--cnm-orange)" }}>5% discount</strong> at 2,500 PKR or <strong style={{ color: "var(--status-ready)" }}>10% discount</strong> at 3,500 PKR!
+              <p className="cnm-deal-card-desc">
+                Mix & match dishes. Get <strong style={{ color: "var(--cnm-orange)" }}>5% OFF</strong> at 2,500 PKR or <strong style={{ color: "var(--status-ready)" }}>10% OFF</strong> at 3,500 PKR.
               </p>
-              <div
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "12px",
-                  fontSize: "12px",
-                  color: "var(--cnm-text-secondary)",
-                }}
-              >
-                <span>🍔 Choose Any Items</span>
-                <span>•</span>
-                <span>🔥 Auto Discount</span>
-                <span>•</span>
-                <span>⚡ Instant Cart Add</span>
-              </div>
             </div>
 
-            <div>
+            <div className="cnm-deal-card-action">
               <button
                 type="button"
                 id="btn-open-byo-deal"
-                onClick={() => setIsByoDealOpen(true)}
-                className="btn btn-primary"
-                style={{
-                  padding: "14px 26px",
-                  fontSize: "14.5px",
-                  fontWeight: 800,
-                  borderRadius: "var(--radius-full)",
-                  boxShadow: "0 4px 16px rgba(255, 130, 67, 0.4)",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  cursor: "pointer",
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsByoDealOpen(true);
                 }}
+                className="btn btn-primary cnm-deal-build-btn"
+                aria-label="Open Custom Deal Builder"
               >
-                <Plus size={18} />
-                <span>BUILD CUSTOM DEAL</span>
+                <Plus size={14} strokeWidth={2.5} />
+                <span>Build Deal</span>
+                <ArrowRight size={13} strokeWidth={2.5} />
               </button>
             </div>
           </div>
@@ -196,6 +152,12 @@ export default function DealsPage() {
         />
       )}
 
+      <FloatingMiniCart
+        cartCount={cartCount}
+        totalPkr={cartSubtotal}
+        onOpenCart={() => setIsCartOpen(true)}
+      />
+
       <CartDrawer
         isOpen={isCartOpen}
         onClose={() => setIsCartOpen(false)}
@@ -216,7 +178,125 @@ export default function DealsPage() {
         onAddDealToCart={handleAddCustomDealToCart}
       />
 
-      <CustomerFooter />
+      <CustomerFooter hasFloatingCart={cartCount > 0} />
+
+      <style jsx>{`
+        .cnm-slim-deal-card {
+          padding: 12px 16px;
+          margin-bottom: 18px;
+          border-radius: var(--radius-md);
+          background-color: var(--cnm-surface);
+          background-image: linear-gradient(135deg, var(--cnm-orange-subtle) 0%, var(--cnm-surface-elevated) 100%);
+          border: 1.5px solid var(--cnm-orange);
+          box-shadow: 0 4px 16px rgba(255, 130, 67, 0.15), var(--shadow-card);
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          cursor: pointer;
+          transition: transform 0.18s ease, box-shadow 0.18s ease;
+        }
+
+        .cnm-slim-deal-card:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 6px 20px rgba(255, 130, 67, 0.25), var(--shadow-card-hover);
+        }
+
+        .cnm-deal-card-content {
+          flex: 1;
+          min-width: 0;
+        }
+
+        .cnm-deal-card-tags {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          margin-bottom: 3px;
+          flex-wrap: wrap;
+        }
+
+        .cnm-deal-badge {
+          font-weight: 800;
+          font-size: 10px;
+          padding: 2px 7px;
+          letter-spacing: 0.03em;
+        }
+
+        .cnm-deal-savings-pill {
+          font-size: 10px;
+          font-weight: 800;
+          color: var(--status-ready);
+          background-color: rgba(16, 185, 129, 0.12);
+          border: 1px solid rgba(16, 185, 129, 0.25);
+          padding: 2px 7px;
+          border-radius: var(--radius-full);
+          letter-spacing: 0.03em;
+        }
+
+        .cnm-deal-card-title {
+          font-family: var(--font-display);
+          font-size: 16px;
+          font-weight: 800;
+          color: var(--cnm-text-primary);
+          margin: 0 0 2px;
+          line-height: 1.2;
+        }
+
+        .cnm-deal-card-desc {
+          font-size: 11.5px;
+          color: var(--cnm-text-muted);
+          margin: 0;
+          line-height: 1.35;
+        }
+
+        .cnm-deal-card-action {
+          flex-shrink: 0;
+        }
+
+        .cnm-deal-build-btn {
+          padding: 8px 15px;
+          font-size: 12px;
+          font-weight: 800;
+          border-radius: var(--radius-full);
+          box-shadow: 0 3px 12px rgba(255, 130, 67, 0.35);
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          cursor: pointer;
+          white-space: nowrap;
+          min-height: 38px;
+        }
+
+        @media (max-width: 480px) {
+          .cnm-slim-deal-card {
+            padding: 10px 12px;
+            gap: 10px;
+          }
+          .cnm-deal-card-title {
+            font-size: 14.5px;
+          }
+          .cnm-deal-card-desc {
+            font-size: 11px;
+          }
+          .cnm-deal-build-btn {
+            padding: 7px 11px;
+            font-size: 11.5px;
+            min-height: 36px;
+          }
+        }
+
+        @media (max-width: 350px) {
+          .cnm-slim-deal-card {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 8px;
+          }
+          .cnm-deal-build-btn {
+            width: 100%;
+            justify-content: center;
+          }
+        }
+      `}</style>
     </div>
   );
 }

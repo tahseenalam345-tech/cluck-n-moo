@@ -8,6 +8,7 @@ import { ProductCard } from "@/components/ProductCard";
 import { ItemCustomizerModal } from "@/components/ItemCustomizerModal";
 import { CartDrawer } from "@/components/CartDrawer";
 import { MenuSearchBar } from "@/components/MenuSearchBar";
+import { FloatingMiniCart } from "@/components/FloatingMiniCart";
 import { Flame, Sparkles } from "lucide-react";
 import { getCategoryEmoji } from "@/lib/categoryEmojis";
 
@@ -57,7 +58,10 @@ export default function FullMenuPage() {
         onOpenCart={() => setIsCartOpen(true)}
       />
 
-      <main className="menu-main-content">
+      <main
+        className="menu-main-content"
+        style={{ paddingBottom: cartCount > 0 ? "calc(80px + env(safe-area-inset-bottom, 0px))" : undefined }}
+      >
         <div className="container">
           <div className="menu-hero-header">
             <span className="badge badge-orange" style={{ marginBottom: "6px" }}>
@@ -171,6 +175,12 @@ export default function FullMenuPage() {
         />
       )}
 
+      <FloatingMiniCart
+        cartCount={cartCount}
+        totalPkr={cartSubtotal}
+        onOpenCart={() => setIsCartOpen(true)}
+      />
+
       <CartDrawer
         isOpen={isCartOpen}
         onClose={() => setIsCartOpen(false)}
@@ -185,7 +195,7 @@ export default function FullMenuPage() {
         onClearCart={() => setCartItems([])}
       />
 
-      <CustomerFooter />
+      <CustomerFooter hasFloatingCart={cartCount > 0} />
 
       <style jsx>{`
         .menu-main-content {
