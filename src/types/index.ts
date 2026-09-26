@@ -229,7 +229,10 @@ export interface Order {
   totalPkr: number;
 
   assignedRiderId?: string | null;
+  assignedRiderName?: string | null;
+  assignedRiderPhone?: string | null;
   confirmedByStaffId?: string | null;
+  confirmedByStaffName?: string | null;
   cancellationReason?: string | null;
   createdAt: string;
   updatedAt: string;

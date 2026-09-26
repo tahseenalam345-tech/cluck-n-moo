@@ -9,6 +9,7 @@ import {
   productModifiers,
   deliveryAreas,
   restaurantSettings,
+  profiles,
 } from "../schema";
 import { eq, and, inArray, desc, or, sql } from "drizzle-orm";
 import { CreateOrderInput } from "@/lib/validation";
@@ -644,6 +645,7 @@ export async function getOpsOrders(
   if (staff.role === "KITCHEN_STAFF") {
     conditions.push(
       inArray(orders.status, [
+        ORDER_STATUSES.NEW as any,
         ORDER_STATUSES.CONFIRMED as any,
         ORDER_STATUSES.PREPARING as any,
         ORDER_STATUSES.READY as any,
@@ -655,13 +657,14 @@ export async function getOpsOrders(
       inArray(orders.status, [
         ORDER_STATUSES.READY as any,
         ORDER_STATUSES.OUT_FOR_DELIVERY as any,
+        ORDER_STATUSES.COMPLETED as any,
       ])
     );
     // Riders see orders assigned to them, or unassigned ready delivery orders
     conditions.push(
       or(
         eq(orders.assignedRiderId, staff.userId),
-        sql`${orders.assignedRiderId} IS NULL`
+        sql`${orders.assignedRiderId} IS NULL AND ${orders.status} = ${ORDER_STATUSES.READY}`
       )
     );
   } else if (staff.role === "ADMIN") {
@@ -736,10 +739,35 @@ export async function getOpsOrders(
     }
   }
 
+  // Resolve staff & rider names for all returned operational orders
+  const staffProfileIds = Array.from(
+    new Set(
+      opsOrders
+        .flatMap((o) => [o.assignedRiderId, o.confirmedByStaffId])
+        .filter(Boolean)
+    )
+  ) as string[];
+
+  let staffProfilesMap = new Map<string, { id: string; fullName: string; phone: string | null }>();
+  if (staffProfileIds.length > 0) {
+    const staffProfiles = await db
+      .select({
+        id: profiles.id,
+        fullName: profiles.fullName,
+        phone: profiles.phone,
+      })
+      .from(profiles)
+      .where(inArray(profiles.id, staffProfileIds));
+    staffProfilesMap = new Map(staffProfiles.map((p) => [p.id, p]));
+  }
+
   return opsOrders.map((o) => {
     // Rider privacy guard: only assigned rider or admin can see full phone and address
     const canSeeSensitiveCustomerInfo =
       staff.role === "ADMIN" || (staff.role === "RIDER" && o.assignedRiderId === staff.userId);
+
+    const riderProfile = o.assignedRiderId ? staffProfilesMap.get(o.assignedRiderId) : null;
+    const staffProfile = o.confirmedByStaffId ? staffProfilesMap.get(o.confirmedByStaffId) : null;
 
     return {
       id: o.id,
@@ -761,6 +789,10 @@ export async function getOpsOrders(
       deliveryFeePkr: o.deliveryFeePkr,
       totalPkr: o.totalPkr,
       assignedRiderId: o.assignedRiderId,
+      assignedRiderName: riderProfile?.fullName || (o.assignedRiderId ? "Assigned Rider" : null),
+      assignedRiderPhone: riderProfile?.phone || null,
+      confirmedByStaffId: o.confirmedByStaffId,
+      confirmedByStaffName: staffProfile?.fullName || (o.confirmedByStaffId ? "Staff" : null),
       cancellationReason: o.cancellationReason,
       createdAt: o.createdAt.toISOString(),
       updatedAt: o.updatedAt.toISOString(),

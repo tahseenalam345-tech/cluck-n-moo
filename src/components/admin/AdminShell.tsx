@@ -27,6 +27,8 @@ import {
   UsersIcon,
   LogOutIcon,
   ExternalLinkIcon,
+  KitchenIcon,
+  RiderIcon,
 } from "./AdminIcons";
 import { BrandLogo } from "@/components/BrandLogo";
 
@@ -206,6 +208,38 @@ export function AdminShell({
                 </button>
               );
             })}
+
+            <div style={{ marginTop: "1.25rem", paddingTop: "0.75rem", borderTop: "1px solid var(--admin-border-subtle, rgba(255,255,255,0.06))" }}>
+              <span className="admin-nav-group-title" style={{ display: "block", marginBottom: "0.5rem" }}>OPERATIONS & WORKSTATIONS</span>
+              <Link
+                href="/kitchen"
+                className="admin-nav-item"
+                title="Open Live Kitchen Display Board"
+              >
+                <KitchenIcon size={17} className="admin-nav-icon" color="#f97316" />
+                <span className="admin-nav-label">Kitchen Display</span>
+                <span
+                  className="admin-nav-badge"
+                  style={{ backgroundColor: "rgba(249, 115, 22, 0.15)", color: "#f97316", fontWeight: 700, fontSize: "0.68rem" }}
+                >
+                  LIVE
+                </span>
+              </Link>
+              <Link
+                href="/rider"
+                className="admin-nav-item"
+                title="Open Rider Delivery Dispatch Board"
+              >
+                <RiderIcon size={17} className="admin-nav-icon" color="#3b82f6" />
+                <span className="admin-nav-label">Rider Dispatch</span>
+                <span
+                  className="admin-nav-badge"
+                  style={{ backgroundColor: "rgba(59, 130, 246, 0.15)", color: "#3b82f6", fontWeight: 700, fontSize: "0.68rem" }}
+                >
+                  DISPATCH
+                </span>
+              </Link>
+            </div>
           </div>
 
           <div className="admin-sidebar-footer">
@@ -258,6 +292,38 @@ export function AdminShell({
                     </button>
                   );
                 })}
+
+                <div style={{ marginTop: "1rem", paddingTop: "0.75rem", borderTop: "1px solid var(--admin-border-subtle, rgba(255,255,255,0.06))" }}>
+                  <span className="admin-nav-group-title" style={{ display: "block", marginBottom: "0.5rem" }}>OPERATIONS</span>
+                  <Link
+                    href="/kitchen"
+                    className="admin-nav-item"
+                    onClick={() => setIsMobileDrawerOpen(false)}
+                  >
+                    <KitchenIcon size={18} className="admin-nav-icon" color="#f97316" />
+                    <span className="admin-nav-label">Kitchen Display</span>
+                    <span
+                      className="admin-nav-badge"
+                      style={{ backgroundColor: "rgba(249, 115, 22, 0.15)", color: "#f97316", fontWeight: 700, fontSize: "0.68rem" }}
+                    >
+                      LIVE
+                    </span>
+                  </Link>
+                  <Link
+                    href="/rider"
+                    className="admin-nav-item"
+                    onClick={() => setIsMobileDrawerOpen(false)}
+                  >
+                    <RiderIcon size={18} className="admin-nav-icon" color="#3b82f6" />
+                    <span className="admin-nav-label">Rider Dispatch</span>
+                    <span
+                      className="admin-nav-badge"
+                      style={{ backgroundColor: "rgba(59, 130, 246, 0.15)", color: "#3b82f6", fontWeight: 700, fontSize: "0.68rem" }}
+                    >
+                      DISPATCH
+                    </span>
+                  </Link>
+                </div>
               </div>
 
               <div className="admin-drawer-footer">

@@ -25,6 +25,11 @@ export function validateStatusTransition(
   orderType: OrderType,
   role: UserRole
 ): TransitionCheck {
+  // Allow same-status updates for ADMIN (e.g. assigning rider, updating notes)
+  if (currentStatus === targetStatus && role === "ADMIN") {
+    return { allowed: true };
+  }
+
   // Check if target is a valid progression from current
   const allowedNext = ALLOWED_TRANSITIONS[currentStatus];
   if (!allowedNext || !allowedNext.includes(targetStatus)) {
@@ -65,6 +70,7 @@ export function validateStatusTransition(
   // - Move Preparing -> Ready
   if (role === "KITCHEN_STAFF") {
     if (
+      (currentStatus === ORDER_STATUSES.NEW && targetStatus === ORDER_STATUSES.CONFIRMED) ||
       (currentStatus === ORDER_STATUSES.CONFIRMED && targetStatus === ORDER_STATUSES.PREPARING) ||
       (currentStatus === ORDER_STATUSES.PREPARING && targetStatus === ORDER_STATUSES.READY)
     ) {

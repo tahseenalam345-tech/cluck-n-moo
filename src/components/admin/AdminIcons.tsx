@@ -242,3 +242,22 @@ export function PackageIcon({ size = 14, className, style, color = "currentColor
   );
 }
 
+export function KitchenIcon({ size = 14, className, style, color = "currentColor" }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} style={style}>
+      <path d="M6 13.87A4 4 0 0 1 7.41 6a5.11 5.11 0 0 1 1.05-1.54 5 5 0 0 1 7.08 0A5.11 5.11 0 0 1 16.59 6 4 4 0 0 1 18 13.87V21H6Z" />
+      <line x1="6" y1="17" x2="18" y2="17" />
+    </svg>
+  );
+}
+
+export function RiderIcon({ size = 14, className, style, color = "currentColor" }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} style={style}>
+      <circle cx="18.5" cy="17.5" r="3.5" />
+      <circle cx="5.5" cy="17.5" r="3.5" />
+      <circle cx="15" cy="5" r="1" />
+      <path d="M12 17.5V14l-3-3 4-3 2 3h2" />
+    </svg>
+  );
+}
