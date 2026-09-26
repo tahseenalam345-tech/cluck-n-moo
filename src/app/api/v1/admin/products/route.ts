@@ -126,6 +126,11 @@ export async function GET(req: NextRequest) {
       mapped = mapped.filter((p) => !p.isAvailable && !p.isArchived);
     } else if (availability === "archived") {
       mapped = mapped.filter((p) => p.isArchived);
+    } else if (availability === "all_with_archived") {
+      // Intentionally return all items including archived
+    } else {
+      // Default: show only active valid products (both available and sold out, excluding archived)
+      mapped = mapped.filter((p) => !p.isArchived);
     }
 
     if (imageStatus === "has_image") {

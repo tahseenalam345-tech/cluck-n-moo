@@ -23,7 +23,7 @@ export async function getActiveMenu(): Promise<{
   >`
     SELECT id, name, slug, display_order as "displayOrder", is_active as "isActive"
     FROM public.categories
-    WHERE is_active = true
+    WHERE is_active = true AND is_archived = false
     ORDER BY display_order ASC;
   `;
 
@@ -51,7 +51,7 @@ export async function getActiveMenu(): Promise<{
            is_featured as "isFeatured", is_available as "isAvailable",
            display_order as "displayOrder"
     FROM public.products
-    WHERE is_available = true
+    WHERE is_available = true AND is_archived = false
     ORDER BY display_order ASC;
   `;
 

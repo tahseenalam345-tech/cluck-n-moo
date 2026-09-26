@@ -147,6 +147,31 @@ export function AdminProductsSection({
     }
   };
 
+  // Restore Archived Product
+  const handleRestoreProduct = async (product: any) => {
+    setActionLoadingId(product.id);
+    try {
+      const res = await fetch(`/api/v1/admin/products/${product.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isArchived: false, isAvailable: true }),
+      });
+      if (res.ok) {
+        fetchProducts();
+      }
+    } catch (err) {
+      console.error("Restore error:", err);
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  // Active categories for filter
+  const activeCategories = useMemo(
+    () => categories.filter((c) => !c.isArchived),
+    [categories]
+  );
+
   // Duplicate Product
   const handleDuplicateProduct = (product: any) => {
     const duplicated: Product = {
@@ -165,7 +190,7 @@ export function AdminProductsSection({
         <div>
           <h1 className="admin-page-title">Menu Items &amp; Inventory</h1>
           <p className="admin-page-subtitle">
-            Manage all 90 dishes, sizes, add-ons, pricing, and sold-out states.
+            Manage your verified dishes, portion sizes, add-ons, pricing, and availability states.
           </p>
         </div>
 
@@ -236,8 +261,8 @@ export function AdminProductsSection({
               onChange={(e) => setSelectedCategory(e.target.value)}
               className="admin-filter-select"
             >
-              <option value="all">All Categories ({categories.length})</option>
-              {categories.map((c) => (
+              <option value="all">All Categories ({activeCategories.length})</option>
+              {activeCategories.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}
                 </option>
@@ -343,7 +368,15 @@ export function AdminProductsSection({
                         ★ POPULAR
                       </span>
                     )}
-                    {p.isArchived && <span className="badge-archived">ARCHIVED</span>}
+                    {p.isArchived ? (
+                      <span className="badge-archived">ARCHIVED</span>
+                    ) : (
+                      !p.cloudinaryPublicId && !p.imageUrl && (
+                        <span className="badge-missing-image" title="Image missing - food image needed">
+                          IMAGE MISSING
+                        </span>
+                      )
+                    )}
                   </div>
 
                   <span className="item-card-category">{p.categoryName || "Dish"}</span>
@@ -433,7 +466,16 @@ export function AdminProductsSection({
                         <CopyIcon size={13} />
                       </button>
 
-                      {!p.isArchived && (
+                      {p.isArchived ? (
+                        <button
+                          type="button"
+                          onClick={() => handleRestoreProduct(p)}
+                          className="action-btn restore"
+                          title="Restore / Unarchive Item"
+                        >
+                          <RefreshCw size={13} />
+                        </button>
+                      ) : (
                         <button
                           type="button"
                           onClick={() => handleArchiveProduct(p)}
@@ -473,8 +515,12 @@ export function AdminProductsSection({
                     <div className="table-thumb">
                       {p.cloudinaryPublicId ? (
                         <img src={buildCloudinaryUrl(p.cloudinaryPublicId, 100)} alt={p.name} />
+                      ) : p.imageUrl ? (
+                        <img src={p.imageUrl} alt={p.name} />
                       ) : (
-                        <ImageIcon size={18} color="var(--admin-text-muted)" />
+                        <div className="table-no-img-badge" title="Image missing - food image needed">
+                          <ImageIcon size={14} color="#d97706" />
+                        </div>
                       )}
                     </div>
                   </td>
@@ -519,7 +565,16 @@ export function AdminProductsSection({
                       >
                         <CopyIcon size={13} />
                       </button>
-                      {!p.isArchived && (
+                      {p.isArchived ? (
+                        <button
+                          type="button"
+                          onClick={() => handleRestoreProduct(p)}
+                          className="table-action-btn restore"
+                          title="Restore / Unarchive Dish"
+                        >
+                          <RefreshCw size={13} />
+                        </button>
+                      ) : (
                         <button
                           type="button"
                           onClick={() => handleArchiveProduct(p)}
@@ -817,6 +872,15 @@ export function AdminProductsSection({
           padding: 2px 6px;
           border-radius: 4px;
         }
+        .badge-missing-image {
+          background: rgba(217, 119, 6, 0.95);
+          color: #ffffff;
+          font-size: 8.5px;
+          font-weight: 850;
+          padding: 2px 6px;
+          border-radius: 4px;
+          letter-spacing: 0.04em;
+        }
 
         .item-card-category {
           position: absolute;
@@ -1064,6 +1128,31 @@ export function AdminProductsSection({
           color: var(--admin-text-main);
           cursor: pointer;
         }
+        .action-btn.restore {
+          color: #10b981;
+          border-color: rgba(16, 185, 129, 0.4);
+        }
+        .action-btn.restore:hover {
+          background: rgba(16, 185, 129, 0.15);
+        }
+
+        .table-action-btn.restore {
+          color: #10b981;
+          border-color: rgba(16, 185, 129, 0.4);
+        }
+        .table-action-btn.restore:hover {
+          background: rgba(16, 185, 129, 0.15);
+        }
+
+        .table-no-img-badge {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 100%;
+          height: 100%;
+          background: rgba(217, 119, 6, 0.1);
+        }
+
         .table-action-btn.danger:hover {
           border-color: #ef4444;
           color: #ef4444;
