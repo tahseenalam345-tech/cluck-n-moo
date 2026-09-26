@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Order } from "@/types";
-import { ORDER_STATUSES, BRAND } from "@/lib/constants";
+import { ORDER_STATUSES } from "@/lib/constants";
 import { createClient } from "@/lib/supabase/client";
 import { useTheme } from "@/context/ThemeContext";
 import {
@@ -55,11 +55,14 @@ export default function RiderPage() {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [actionInProgress, setActionInProgress] = useState<string | null>(null);
 
+  // Status updates lock map to prevent background polling from reversing optimistic state
+  const recentStatusUpdatesRef = useRef<Map<string, { status: string; assignedRiderId?: string; timestamp: number }>>(new Map());
+
   // Search & Filter state
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [debouncedSearch, setDebouncedSearch] = useState<string>("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
-  const [assignmentFilter, setAssignmentFilter] = useState<string>("ALL"); // ALL | UNASSIGNED | ASSIGNED
+  const [assignmentFilter, setAssignmentFilter] = useState<string>("ALL");
   const [selectedRiderFilter, setSelectedRiderFilter] = useState<string>("ALL");
   const [sortBy, setSortBy] = useState<"OLDEST" | "NEWEST" | "ORDER_NO" | "TOTAL">("OLDEST");
 
@@ -136,11 +139,37 @@ export default function RiderPage() {
       const res = await fetch("/api/v1/ops/orders?orderType=DELIVERY");
       const data = await res.json();
       if (data.success && Array.isArray(data.data)) {
-        setOrders(data.data);
+        const now = Date.now();
+        // Lock merge: NEVER let server response reverse an in-flight status or rider assignment!
+        const mergedOrders = data.data.map((ord: Order) => {
+          const lock = recentStatusUpdatesRef.current.get(ord.id);
+          if (lock) {
+            if (now - lock.timestamp < 15000) {
+              const statusMatched = ord.status === lock.status;
+              const riderMatched =
+                lock.assignedRiderId === undefined || ord.assignedRiderId === lock.assignedRiderId;
+              if (statusMatched && riderMatched) {
+                recentStatusUpdatesRef.current.delete(ord.id);
+                return ord;
+              } else {
+                return {
+                  ...ord,
+                  status: lock.status as any,
+                  assignedRiderId:
+                    lock.assignedRiderId !== undefined ? lock.assignedRiderId : ord.assignedRiderId,
+                };
+              }
+            } else {
+              recentStatusUpdatesRef.current.delete(ord.id);
+            }
+          }
+          return ord;
+        });
 
-        // Update selected order if open
+        setOrders(mergedOrders);
+
         if (selectedOrder) {
-          const updated = data.data.find((o: Order) => o.id === selectedOrder.id);
+          const updated = mergedOrders.find((o: Order) => o.id === selectedOrder.id);
           if (updated) setSelectedOrder(updated);
         }
       }
@@ -158,19 +187,25 @@ export default function RiderPage() {
       if (currentUser?.role === "ADMIN") {
         loadActiveRiders();
       }
-      const interval = setInterval(() => loadDeliveryOrders(true), 8000);
+      const interval = setInterval(() => loadDeliveryOrders(true), 6000);
       return () => clearInterval(interval);
     }
   }, [authStatus, currentUser?.role]);
 
-  // Handle status update (Optimistic Update)
+  // Handle status update (Optimistic Update & Lock)
   const handleStatusUpdate = async (orderId: string, targetStatus: string) => {
-    if (actionInProgress) return;
+    if (actionInProgress === orderId) return;
     setActionInProgress(orderId);
 
     const prevOrders = [...orders];
 
-    // Optimistic update
+    // 1. Lock immediately so background polling NEVER reverts this status
+    recentStatusUpdatesRef.current.set(orderId, {
+      status: targetStatus,
+      timestamp: Date.now(),
+    });
+
+    // 2. Immediate optimistic update in UI (< 10ms)
     setOrders((prev) =>
       prev.map((o) => (o.id === orderId ? { ...o, status: targetStatus as any } : o))
     );
@@ -178,6 +213,7 @@ export default function RiderPage() {
       setSelectedOrder((prev) => (prev ? { ...prev, status: targetStatus as any } : null));
     }
 
+    // 3. Background server persistence
     try {
       const res = await fetch(`/api/v1/orders/${orderId}/status`, {
         method: "POST",
@@ -190,7 +226,7 @@ export default function RiderPage() {
       }
     } catch (err: any) {
       console.error("Rider status update error:", err);
-      // Rollback
+      recentStatusUpdatesRef.current.delete(orderId);
       setOrders(prevOrders);
       if (selectedOrder && selectedOrder.id === orderId) {
         const orig = prevOrders.find((o) => o.id === orderId);
@@ -202,17 +238,25 @@ export default function RiderPage() {
     }
   };
 
-  // Handle Rider Assignment (Admin action)
+  // Handle Rider Assignment (Admin action with Lock)
   const handleAssignRider = async (orderId: string, riderId: string) => {
-    if (actionInProgress) return;
+    if (actionInProgress === orderId) return;
     setActionInProgress(orderId);
 
     const prevOrders = [...orders];
     const rider = activeRiders.find((r) => r.id === riderId);
     const riderName = rider ? rider.fullName : riderId ? "Assigned Rider" : null;
     const riderPhone = rider?.phone || null;
+    const targetOrder = orders.find((o) => o.id === orderId);
 
-    // Optimistic update
+    // 1. Lock immediately so background polling NEVER reverts this rider assignment
+    recentStatusUpdatesRef.current.set(orderId, {
+      status: targetOrder?.status || ORDER_STATUSES.READY,
+      assignedRiderId: riderId || undefined,
+      timestamp: Date.now(),
+    });
+
+    // 2. Optimistic update in UI
     setOrders((prev) =>
       prev.map((o) =>
         o.id === orderId
@@ -238,8 +282,8 @@ export default function RiderPage() {
       );
     }
 
+    // 3. Background server persistence
     try {
-      const targetOrder = orders.find((o) => o.id === orderId);
       const res = await fetch(`/api/v1/orders/${orderId}/status`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -254,6 +298,7 @@ export default function RiderPage() {
       }
     } catch (err: any) {
       console.error("Assign rider error:", err);
+      recentStatusUpdatesRef.current.delete(orderId);
       setOrders(prevOrders);
       if (selectedOrder && selectedOrder.id === orderId) {
         const orig = prevOrders.find((o) => o.id === orderId);
@@ -301,14 +346,12 @@ export default function RiderPage() {
   const filteredDeliveries = useMemo(() => {
     return orders
       .filter((o) => {
-        // Mode filter: If viewing "MY_RUNS", only show deliveries assigned to current rider (or unassigned ready)
         if (viewMode === "MY_RUNS" && currentUser) {
           const isMyRun = o.assignedRiderId === currentUser.id;
           const isUnassignedReady = !o.assignedRiderId && o.status === ORDER_STATUSES.READY;
           if (!isMyRun && !isUnassignedReady) return false;
         }
 
-        // Status filter
         if (statusFilter !== "ALL") {
           if (statusFilter === "READY" && o.status !== ORDER_STATUSES.READY) return false;
           if (statusFilter === "OUT_FOR_DELIVERY" && o.status !== ORDER_STATUSES.OUT_FOR_DELIVERY) return false;
@@ -316,14 +359,11 @@ export default function RiderPage() {
           if (statusFilter === "ACTIVE" && [ORDER_STATUSES.COMPLETED, ORDER_STATUSES.CANCELLED].includes(o.status as any)) return false;
         }
 
-        // Assignment filter
         if (assignmentFilter === "UNASSIGNED" && o.assignedRiderId) return false;
         if (assignmentFilter === "ASSIGNED" && !o.assignedRiderId) return false;
 
-        // Specific Rider filter
         if (selectedRiderFilter !== "ALL" && o.assignedRiderId !== selectedRiderFilter) return false;
 
-        // Search query filter (Order #, customer name, phone, address area, rider name)
         if (debouncedSearch) {
           const matchOrderNo = o.orderNumber?.toLowerCase().includes(debouncedSearch);
           const matchCustName = (o.customerNameSnapshot || o.customerName || "")
@@ -386,19 +426,19 @@ export default function RiderPage() {
           alignItems: "center",
           justifyContent: "center",
           color: "var(--cnm-text-primary, #ffffff)",
-          fontFamily: "var(--font-sans, system-ui)",
+          fontFamily: "-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Inter, sans-serif",
         }}
       >
         <div style={{ textAlign: "center" }}>
           <RefreshCw
             className="spin"
-            size={36}
+            size={32}
             style={{ color: "var(--cnm-orange, #f97316)", margin: "0 auto 16px" }}
           />
-          <h2 style={{ fontSize: "1.1rem", fontWeight: 700, marginBottom: "4px" }}>
+          <h2 style={{ fontSize: "1rem", fontWeight: 600, marginBottom: "4px" }}>
             Connecting to Rider Delivery Dispatch...
           </h2>
-          <p style={{ color: "var(--cnm-text-muted, #94a3b8)", fontSize: "0.85rem" }}>
+          <p style={{ color: "var(--cnm-text-muted, #94a3b8)", fontSize: "0.82rem" }}>
             Verifying rider credentials & active dispatch routes
           </p>
         </div>
@@ -417,48 +457,48 @@ export default function RiderPage() {
           justifyContent: "center",
           color: "var(--cnm-text-primary, #ffffff)",
           padding: "24px",
-          fontFamily: "var(--font-sans, system-ui)",
+          fontFamily: "-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Inter, sans-serif",
         }}
       >
         <div
           style={{
-            maxWidth: "460px",
+            maxWidth: "440px",
             textAlign: "center",
             backgroundColor: "var(--cnm-surface, #1e2230)",
-            padding: "36px",
-            borderRadius: "12px",
+            padding: "32px",
+            borderRadius: "10px",
             border: "1px solid var(--cnm-border, rgba(255,255,255,0.08))",
             boxShadow: "0 20px 40px rgba(0,0,0,0.3)",
           }}
         >
           <AlertTriangle
-            size={48}
-            style={{ color: "var(--cnm-orange, #f97316)", margin: "0 auto 16px" }}
+            size={42}
+            style={{ color: "var(--cnm-orange, #f97316)", margin: "0 auto 14px" }}
           />
-          <h2 style={{ fontSize: "20px", fontWeight: 800, marginBottom: "8px" }}>
+          <h2 style={{ fontSize: "1.15rem", fontWeight: 700, marginBottom: "8px" }}>
             403 — Dispatch Access Restricted
           </h2>
           <p
             style={{
               color: "var(--cnm-text-muted, #94a3b8)",
-              fontSize: "14px",
-              marginBottom: "24px",
+              fontSize: "0.85rem",
+              marginBottom: "20px",
               lineHeight: 1.5,
             }}
           >
             The Rider Delivery Portal requires verified <strong>RIDER</strong> or{" "}
-            <strong>ADMIN</strong> credentials. Customer accounts cannot access dispatch.
+            <strong>ADMIN</strong> credentials.
           </p>
-          <div style={{ display: "flex", gap: "12px", justifyContent: "center" }}>
+          <div style={{ display: "flex", gap: "10px", justifyContent: "center" }}>
             <Link
               href="/staff/login"
               style={{
                 backgroundColor: "#f97316",
                 color: "#ffffff",
-                padding: "10px 20px",
-                borderRadius: "8px",
-                fontWeight: 700,
-                fontSize: "13px",
+                padding: "8px 18px",
+                borderRadius: "6px",
+                fontWeight: 600,
+                fontSize: "0.82rem",
                 textDecoration: "none",
               }}
             >
@@ -469,14 +509,14 @@ export default function RiderPage() {
               style={{
                 backgroundColor: "rgba(255,255,255,0.08)",
                 color: "#ffffff",
-                padding: "10px 20px",
-                borderRadius: "8px",
-                fontWeight: 700,
-                fontSize: "13px",
+                padding: "8px 18px",
+                borderRadius: "6px",
+                fontWeight: 600,
+                fontSize: "0.82rem",
                 textDecoration: "none",
               }}
             >
-              CUSTOMER SITE
+              STOREFRONT
             </Link>
           </div>
         </div>
@@ -491,7 +531,7 @@ export default function RiderPage() {
         backgroundColor: "var(--cnm-bg, #0f1117)",
         minHeight: "100vh",
         color: "var(--cnm-text-primary, #ffffff)",
-        fontFamily: "var(--font-sans, system-ui, -apple-system, sans-serif)",
+        fontFamily: "-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Inter, sans-serif",
         display: "flex",
         flexDirection: "column",
       }}
@@ -501,36 +541,36 @@ export default function RiderPage() {
         style={{
           backgroundColor: "var(--cnm-surface, #1e2230)",
           borderBottom: "1px solid var(--cnm-border, rgba(255,255,255,0.08))",
-          padding: "10px 18px",
+          padding: "9px 16px",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
           flexWrap: "wrap",
-          gap: "12px",
+          gap: "10px",
           position: "sticky",
           top: 0,
           zIndex: 40,
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
           {currentUser?.role === "ADMIN" ? (
             <Link
               href="/admin"
               style={{
                 display: "flex",
                 alignItems: "center",
-                gap: "6px",
-                fontSize: "0.8rem",
+                gap: "5px",
+                fontSize: "0.78rem",
                 color: "var(--cnm-text-muted, #94a3b8)",
                 textDecoration: "none",
-                padding: "5px 10px",
-                borderRadius: "6px",
+                padding: "4px 8px",
+                borderRadius: "5px",
                 backgroundColor: "rgba(255,255,255,0.05)",
-                fontWeight: 600,
+                fontWeight: 500,
               }}
               title="Return to Admin Control Center"
             >
-              <ArrowLeft size={16} />
+              <ArrowLeft size={14} />
               <span>Admin Center</span>
             </Link>
           ) : (
@@ -542,30 +582,30 @@ export default function RiderPage() {
                 alignItems: "center",
               }}
             >
-              <ArrowLeft size={20} />
+              <ArrowLeft size={18} />
             </Link>
           )}
 
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "7px" }}>
             <div
               style={{
                 backgroundColor: "rgba(59, 130, 246, 0.15)",
                 color: "#3b82f6",
-                padding: "6px",
-                borderRadius: "8px",
+                padding: "5px",
+                borderRadius: "6px",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
               }}
             >
-              <Bike size={22} />
+              <Bike size={19} />
             </div>
             <div>
-              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                 <h1
                   style={{
-                    fontSize: "1.1rem",
-                    fontWeight: 900,
+                    fontSize: "0.98rem",
+                    fontWeight: 700,
                     letterSpacing: "0.02em",
                     margin: 0,
                     lineHeight: 1.2,
@@ -576,43 +616,43 @@ export default function RiderPage() {
                 {currentUser?.role === "ADMIN" && (
                   <span
                     style={{
-                      fontSize: "0.68rem",
-                      backgroundColor: "rgba(59, 130, 246, 0.2)",
+                      fontSize: "0.65rem",
+                      backgroundColor: "rgba(59, 130, 246, 0.18)",
                       color: "#60a5fa",
-                      padding: "2px 6px",
+                      padding: "2px 5px",
                       borderRadius: "4px",
-                      fontWeight: 700,
+                      fontWeight: 600,
                       display: "inline-flex",
                       alignItems: "center",
                       gap: "3px",
                     }}
                   >
-                    <ShieldCheck size={11} /> ADMIN DISPATCH
+                    <ShieldCheck size={10} /> ADMIN
                   </span>
                 )}
               </div>
               <span
                 style={{
-                  fontSize: "0.72rem",
+                  fontSize: "0.7rem",
                   color: "var(--cnm-text-muted, #94a3b8)",
                   display: "block",
                 }}
               >
-                Rider: <strong>{currentUser?.fullName}</strong> · Live dispatch queue
+                Rider Station: <strong>{currentUser?.fullName}</strong> · Live dispatch queue
               </span>
             </div>
           </div>
         </div>
 
         {/* Right side controls */}
-        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
           {/* Admin View Mode Toggle */}
           {currentUser?.role === "ADMIN" && (
             <div
               style={{
                 display: "flex",
                 backgroundColor: "var(--cnm-bg, #0f1117)",
-                borderRadius: "6px",
+                borderRadius: "5px",
                 padding: "2px",
                 border: "1px solid var(--cnm-border, rgba(255,255,255,0.08))",
               }}
@@ -622,10 +662,10 @@ export default function RiderPage() {
                 onClick={() => setViewMode("ALL_DISPATCH")}
                 style={{
                   border: "none",
-                  padding: "4px 8px",
+                  padding: "3px 8px",
                   borderRadius: "4px",
-                  fontSize: "0.72rem",
-                  fontWeight: 700,
+                  fontSize: "0.7rem",
+                  fontWeight: 600,
                   cursor: "pointer",
                   backgroundColor: viewMode === "ALL_DISPATCH" ? "#3b82f6" : "transparent",
                   color: viewMode === "ALL_DISPATCH" ? "#ffffff" : "var(--cnm-text-muted, #94a3b8)",
@@ -638,10 +678,10 @@ export default function RiderPage() {
                 onClick={() => setViewMode("MY_RUNS")}
                 style={{
                   border: "none",
-                  padding: "4px 8px",
+                  padding: "3px 8px",
                   borderRadius: "4px",
-                  fontSize: "0.72rem",
-                  fontWeight: 700,
+                  fontSize: "0.7rem",
+                  fontWeight: 600,
                   cursor: "pointer",
                   backgroundColor: viewMode === "MY_RUNS" ? "#3b82f6" : "transparent",
                   color: viewMode === "MY_RUNS" ? "#ffffff" : "var(--cnm-text-muted, #94a3b8)",
@@ -660,9 +700,9 @@ export default function RiderPage() {
               background: "rgba(255,255,255,0.06)",
               border: "1px solid var(--cnm-border, rgba(255,255,255,0.08))",
               color: "var(--cnm-text-primary, #ffffff)",
-              width: "34px",
-              height: "34px",
-              borderRadius: "8px",
+              width: "30px",
+              height: "30px",
+              borderRadius: "6px",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -670,7 +710,7 @@ export default function RiderPage() {
             }}
             title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
           >
-            {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
+            {theme === "dark" ? <Sun size={14} /> : <Moon size={14} />}
           </button>
 
           {/* Refresh button */}
@@ -682,17 +722,17 @@ export default function RiderPage() {
               background: "rgba(255,255,255,0.06)",
               border: "1px solid var(--cnm-border, rgba(255,255,255,0.08))",
               color: "var(--cnm-text-primary, #ffffff)",
-              padding: "6px 12px",
-              borderRadius: "8px",
+              padding: "5px 10px",
+              borderRadius: "6px",
               display: "flex",
               alignItems: "center",
-              gap: "6px",
-              fontSize: "0.8rem",
-              fontWeight: 600,
+              gap: "5px",
+              fontSize: "0.76rem",
+              fontWeight: 500,
               cursor: "pointer",
             }}
           >
-            <RefreshCw size={14} className={isLoading ? "spin" : ""} />
+            <RefreshCw size={13} className={isLoading ? "spin" : ""} />
             <span className="hide-on-mobile">Sync</span>
           </button>
         </div>
@@ -703,17 +743,17 @@ export default function RiderPage() {
         style={{
           backgroundColor: "var(--cnm-surface-elevated, #161922)",
           borderBottom: "1px solid var(--cnm-border, rgba(255,255,255,0.06))",
-          padding: "10px 18px",
+          padding: "8px 16px",
           display: "grid",
           gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))",
-          gap: "10px",
+          gap: "8px",
         }}
       >
         {/* KPI: Unassigned Deliveries */}
         <div
           onClick={() => setAssignmentFilter(assignmentFilter === "UNASSIGNED" ? "ALL" : "UNASSIGNED")}
           style={{
-            padding: "8px 12px",
+            padding: "6px 10px",
             backgroundColor:
               assignmentFilter === "UNASSIGNED"
                 ? "rgba(239, 68, 68, 0.15)"
@@ -724,15 +764,15 @@ export default function RiderPage() {
                 : kpis.unassigned > 0
                 ? "1px solid rgba(239, 68, 68, 0.3)"
                 : "1px solid var(--cnm-border, rgba(255,255,255,0.06))",
-            borderRadius: "8px",
+            borderRadius: "6px",
             cursor: "pointer",
             transition: "all 0.15s ease",
           }}
         >
           <span
             style={{
-              fontSize: "0.68rem",
-              fontWeight: 700,
+              fontSize: "0.65rem",
+              fontWeight: 600,
               color: kpis.unassigned > 0 ? "#ef4444" : "var(--cnm-text-muted, #94a3b8)",
               textTransform: "uppercase",
               display: "block",
@@ -742,8 +782,8 @@ export default function RiderPage() {
           </span>
           <span
             style={{
-              fontSize: "1.25rem",
-              fontWeight: 900,
+              fontSize: "1.1rem",
+              fontWeight: 700,
               lineHeight: 1.2,
               color: kpis.unassigned > 0 ? "#ef4444" : "inherit",
             }}
@@ -756,7 +796,7 @@ export default function RiderPage() {
         <div
           onClick={() => setStatusFilter(statusFilter === "READY" ? "ALL" : "READY")}
           style={{
-            padding: "8px 12px",
+            padding: "6px 10px",
             backgroundColor:
               statusFilter === "READY"
                 ? "rgba(249, 115, 22, 0.15)"
@@ -765,15 +805,15 @@ export default function RiderPage() {
               statusFilter === "READY"
                 ? "1.5px solid #f97316"
                 : "1px solid var(--cnm-border, rgba(255,255,255,0.06))",
-            borderRadius: "8px",
+            borderRadius: "6px",
             cursor: "pointer",
             transition: "all 0.15s ease",
           }}
         >
           <span
             style={{
-              fontSize: "0.68rem",
-              fontWeight: 700,
+              fontSize: "0.65rem",
+              fontWeight: 600,
               color: "#f97316",
               textTransform: "uppercase",
               display: "block",
@@ -781,7 +821,7 @@ export default function RiderPage() {
           >
             Ready for Pickup
           </span>
-          <span style={{ fontSize: "1.25rem", fontWeight: 900, lineHeight: 1.2 }}>
+          <span style={{ fontSize: "1.1rem", fontWeight: 700, lineHeight: 1.2 }}>
             {kpis.ready}
           </span>
         </div>
@@ -790,7 +830,7 @@ export default function RiderPage() {
         <div
           onClick={() => setStatusFilter(statusFilter === "OUT_FOR_DELIVERY" ? "ALL" : "OUT_FOR_DELIVERY")}
           style={{
-            padding: "8px 12px",
+            padding: "6px 10px",
             backgroundColor:
               statusFilter === "OUT_FOR_DELIVERY"
                 ? "rgba(59, 130, 246, 0.15)"
@@ -799,15 +839,15 @@ export default function RiderPage() {
               statusFilter === "OUT_FOR_DELIVERY"
                 ? "1.5px solid #3b82f6"
                 : "1px solid var(--cnm-border, rgba(255,255,255,0.06))",
-            borderRadius: "8px",
+            borderRadius: "6px",
             cursor: "pointer",
             transition: "all 0.15s ease",
           }}
         >
           <span
             style={{
-              fontSize: "0.68rem",
-              fontWeight: 700,
+              fontSize: "0.65rem",
+              fontWeight: 600,
               color: "#60a5fa",
               textTransform: "uppercase",
               display: "block",
@@ -815,7 +855,7 @@ export default function RiderPage() {
           >
             Out for Delivery
           </span>
-          <span style={{ fontSize: "1.25rem", fontWeight: 900, lineHeight: 1.2 }}>
+          <span style={{ fontSize: "1.1rem", fontWeight: 700, lineHeight: 1.2 }}>
             {kpis.inTransit}
           </span>
         </div>
@@ -824,7 +864,7 @@ export default function RiderPage() {
         <div
           onClick={() => setStatusFilter(statusFilter === "COMPLETED" ? "ALL" : "COMPLETED")}
           style={{
-            padding: "8px 12px",
+            padding: "6px 10px",
             backgroundColor:
               statusFilter === "COMPLETED"
                 ? "rgba(16, 185, 129, 0.15)"
@@ -833,15 +873,15 @@ export default function RiderPage() {
               statusFilter === "COMPLETED"
                 ? "1.5px solid #10b981"
                 : "1px solid var(--cnm-border, rgba(255,255,255,0.06))",
-            borderRadius: "8px",
+            borderRadius: "6px",
             cursor: "pointer",
             transition: "all 0.15s ease",
           }}
         >
           <span
             style={{
-              fontSize: "0.68rem",
-              fontWeight: 700,
+              fontSize: "0.65rem",
+              fontWeight: 600,
               color: "#10b981",
               textTransform: "uppercase",
               display: "block",
@@ -849,7 +889,7 @@ export default function RiderPage() {
           >
             Delivered Today
           </span>
-          <span style={{ fontSize: "1.25rem", fontWeight: 900, lineHeight: 1.2 }}>
+          <span style={{ fontSize: "1.1rem", fontWeight: 700, lineHeight: 1.2 }}>
             {kpis.completedToday}
           </span>
         </div>
@@ -857,24 +897,24 @@ export default function RiderPage() {
         {/* KPI: Active Riders */}
         <div
           style={{
-            padding: "8px 12px",
+            padding: "6px 10px",
             backgroundColor: "var(--cnm-surface, #1e2230)",
             border: "1px solid var(--cnm-border, rgba(255,255,255,0.06))",
-            borderRadius: "8px",
+            borderRadius: "6px",
           }}
         >
           <span
             style={{
-              fontSize: "0.68rem",
-              fontWeight: 700,
+              fontSize: "0.65rem",
+              fontWeight: 600,
               color: "var(--cnm-text-muted, #94a3b8)",
               textTransform: "uppercase",
               display: "block",
             }}
           >
-            Active Fleet Riders
+            Fleet Riders
           </span>
-          <span style={{ fontSize: "1.25rem", fontWeight: 900, lineHeight: 1.2 }}>
+          <span style={{ fontSize: "1.1rem", fontWeight: 700, lineHeight: 1.2 }}>
             {activeRiders.length}
           </span>
         </div>
@@ -883,24 +923,24 @@ export default function RiderPage() {
       {/* 3. SEARCH & DISPATCH FILTERS */}
       <div
         style={{
-          padding: "10px 18px",
+          padding: "8px 16px",
           backgroundColor: "var(--cnm-surface, #1e2230)",
           borderBottom: "1px solid var(--cnm-border, rgba(255,255,255,0.06))",
           display: "flex",
           flexWrap: "wrap",
           alignItems: "center",
           justifyContent: "space-between",
-          gap: "10px",
+          gap: "8px",
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: "8px", flex: "1 1 300px" }}>
           {/* Search Input */}
-          <div style={{ position: "relative", flex: "1 1 220px", maxWidth: "340px" }}>
+          <div style={{ position: "relative", flex: "1 1 200px", maxWidth: "320px" }}>
             <Search
-              size={15}
+              size={13}
               style={{
                 position: "absolute",
-                left: "10px",
+                left: "9px",
                 top: "50%",
                 transform: "translateY(-50%)",
                 color: "var(--cnm-text-muted, #94a3b8)",
@@ -913,12 +953,12 @@ export default function RiderPage() {
               onChange={(e) => setSearchQuery(e.target.value)}
               style={{
                 width: "100%",
-                padding: "7px 10px 7px 32px",
+                padding: "6px 8px 6px 28px",
                 backgroundColor: "var(--cnm-bg, #0f1117)",
                 border: "1px solid var(--cnm-border, rgba(255,255,255,0.1))",
-                borderRadius: "6px",
+                borderRadius: "5px",
                 color: "var(--cnm-text-primary, #ffffff)",
-                fontSize: "0.82rem",
+                fontSize: "0.8rem",
                 outline: "none",
               }}
             />
@@ -928,7 +968,7 @@ export default function RiderPage() {
                 onClick={() => setSearchQuery("")}
                 style={{
                   position: "absolute",
-                  right: "8px",
+                  right: "6px",
                   top: "50%",
                   transform: "translateY(-50%)",
                   background: "none",
@@ -937,7 +977,7 @@ export default function RiderPage() {
                   cursor: "pointer",
                 }}
               >
-                <X size={14} />
+                <X size={13} />
               </button>
             )}
           </div>
@@ -947,13 +987,13 @@ export default function RiderPage() {
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
             style={{
-              padding: "7px 10px",
+              padding: "6px 8px",
               backgroundColor: "var(--cnm-bg, #0f1117)",
               border: "1px solid var(--cnm-border, rgba(255,255,255,0.1))",
-              borderRadius: "6px",
+              borderRadius: "5px",
               color: "var(--cnm-text-primary, #ffffff)",
-              fontSize: "0.8rem",
-              fontWeight: 600,
+              fontSize: "0.78rem",
+              fontWeight: 500,
             }}
           >
             <option value="ALL">All Statuses</option>
@@ -969,13 +1009,13 @@ export default function RiderPage() {
               value={selectedRiderFilter}
               onChange={(e) => setSelectedRiderFilter(e.target.value)}
               style={{
-                padding: "7px 10px",
+                padding: "6px 8px",
                 backgroundColor: "var(--cnm-bg, #0f1117)",
                 border: "1px solid var(--cnm-border, rgba(255,255,255,0.1))",
-                borderRadius: "6px",
+                borderRadius: "5px",
                 color: "var(--cnm-text-primary, #ffffff)",
-                fontSize: "0.8rem",
-                fontWeight: 600,
+                fontSize: "0.78rem",
+                fontWeight: 500,
               }}
             >
               <option value="ALL">All Riders</option>
@@ -992,13 +1032,13 @@ export default function RiderPage() {
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as any)}
             style={{
-              padding: "7px 10px",
+              padding: "6px 8px",
               backgroundColor: "var(--cnm-bg, #0f1117)",
               border: "1px solid var(--cnm-border, rgba(255,255,255,0.1))",
-              borderRadius: "6px",
+              borderRadius: "5px",
               color: "var(--cnm-text-primary, #ffffff)",
-              fontSize: "0.8rem",
-              fontWeight: 600,
+              fontSize: "0.78rem",
+              fontWeight: 500,
             }}
           >
             <option value="OLDEST">Oldest Placed (Priority)</option>
@@ -1014,45 +1054,45 @@ export default function RiderPage() {
             type="button"
             onClick={clearFilters}
             style={{
-              background: "rgba(239, 68, 68, 0.15)",
-              border: "1px solid rgba(239, 68, 68, 0.3)",
+              background: "rgba(239, 68, 68, 0.12)",
+              border: "1px solid rgba(239, 68, 68, 0.25)",
               color: "#ef4444",
-              padding: "5px 10px",
-              borderRadius: "6px",
-              fontSize: "0.75rem",
-              fontWeight: 700,
+              padding: "4px 8px",
+              borderRadius: "5px",
+              fontSize: "0.72rem",
+              fontWeight: 600,
               cursor: "pointer",
               display: "flex",
               alignItems: "center",
               gap: "4px",
             }}
           >
-            <X size={13} />
+            <X size={12} />
             <span>Reset Filters</span>
           </button>
         )}
       </div>
 
       {/* 4. COMPACT DISPATCH LIST / BOARD */}
-      <main style={{ padding: "16px", flex: 1 }}>
+      <main style={{ padding: "14px 16px", flex: 1 }}>
         {filteredDeliveries.length === 0 ? (
           <div
             style={{
               textAlign: "center",
-              padding: "80px 20px",
+              padding: "70px 20px",
               color: "var(--cnm-text-muted, #94a3b8)",
               backgroundColor: "var(--cnm-surface, #1e2230)",
-              borderRadius: "12px",
+              borderRadius: "10px",
               border: "1px dashed var(--cnm-border, rgba(255,255,255,0.1))",
-              maxWidth: "500px",
-              margin: "40px auto",
+              maxWidth: "460px",
+              margin: "30px auto",
             }}
           >
-            <Bike size={48} style={{ margin: "0 auto 12px", opacity: 0.3, color: "#3b82f6" }} />
-            <h3 style={{ fontSize: "1.2rem", fontWeight: 800, color: "var(--cnm-text-primary, #fff)" }}>
+            <Bike size={40} style={{ margin: "0 auto 10px", opacity: 0.3, color: "#3b82f6" }} />
+            <h3 style={{ fontSize: "1.05rem", fontWeight: 700, color: "var(--cnm-text-primary, #fff)" }}>
               {hasActiveFilters ? "No Deliveries Matching Filter" : "No Active Delivery Orders"}
             </h3>
-            <p style={{ fontSize: "0.85rem", marginTop: "6px" }}>
+            <p style={{ fontSize: "0.82rem", marginTop: "4px" }}>
               {hasActiveFilters
                 ? "Try resetting filters to show all active dispatch tickets."
                 : "When customers place delivery orders and kitchen prepares them, they will appear here."}
@@ -1062,14 +1102,14 @@ export default function RiderPage() {
                 type="button"
                 onClick={clearFilters}
                 style={{
-                  marginTop: "14px",
-                  padding: "6px 14px",
+                  marginTop: "12px",
+                  padding: "6px 12px",
                   backgroundColor: "#3b82f6",
                   color: "#ffffff",
                   border: "none",
-                  borderRadius: "6px",
-                  fontWeight: 700,
-                  fontSize: "0.8rem",
+                  borderRadius: "5px",
+                  fontWeight: 600,
+                  fontSize: "0.78rem",
                   cursor: "pointer",
                 }}
               >
@@ -1118,9 +1158,9 @@ export default function RiderPage() {
             style={{
               backgroundColor: "var(--cnm-surface, #1e2230)",
               border: "1px solid var(--cnm-border, rgba(255,255,255,0.1))",
-              borderRadius: "12px",
+              borderRadius: "10px",
               width: "100%",
-              maxWidth: "560px",
+              maxWidth: "520px",
               maxHeight: "90vh",
               overflowY: "auto",
               boxShadow: "0 25px 50px -12px rgba(0,0,0,0.5)",
@@ -1131,7 +1171,7 @@ export default function RiderPage() {
             {/* Modal Header */}
             <div
               style={{
-                padding: "16px 20px",
+                padding: "14px 18px",
                 borderBottom: "1px solid var(--cnm-border, rgba(255,255,255,0.08))",
                 display: "flex",
                 alignItems: "center",
@@ -1139,15 +1179,15 @@ export default function RiderPage() {
               }}
             >
               <div>
-                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                  <h3 style={{ fontSize: "1.15rem", fontWeight: 900, margin: 0 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "7px" }}>
+                  <h3 style={{ fontSize: "1.05rem", fontWeight: 700, margin: 0 }}>
                     {selectedOrder.orderNumber}
                   </h3>
                   <span
                     style={{
-                      fontSize: "0.7rem",
-                      fontWeight: 800,
-                      padding: "2px 8px",
+                      fontSize: "0.68rem",
+                      fontWeight: 600,
+                      padding: "2px 7px",
                       borderRadius: "4px",
                       textTransform: "uppercase",
                       backgroundColor:
@@ -1164,7 +1204,7 @@ export default function RiderPage() {
                 </div>
                 <span
                   style={{
-                    fontSize: "0.78rem",
+                    fontSize: "0.75rem",
                     color: "var(--cnm-text-muted, #94a3b8)",
                     marginTop: "2px",
                     display: "block",
@@ -1180,28 +1220,28 @@ export default function RiderPage() {
                 style={{
                   background: "rgba(255,255,255,0.06)",
                   border: "none",
-                  borderRadius: "6px",
+                  borderRadius: "5px",
                   color: "var(--cnm-text-muted, #94a3b8)",
-                  width: "32px",
-                  height: "32px",
+                  width: "28px",
+                  height: "28px",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
                   cursor: "pointer",
                 }}
               >
-                <X size={18} />
+                <X size={16} />
               </button>
             </div>
 
             {/* Modal Body */}
-            <div style={{ padding: "20px", display: "flex", flexDirection: "column", gap: "16px" }}>
+            <div style={{ padding: "16px", display: "flex", flexDirection: "column", gap: "14px" }}>
               {/* Customer Contact & Call */}
               <div
                 style={{
-                  padding: "12px 14px",
+                  padding: "10px 12px",
                   backgroundColor: "var(--cnm-surface-elevated, #161922)",
-                  borderRadius: "8px",
+                  borderRadius: "6px",
                   border: "1px solid var(--cnm-border, rgba(255,255,255,0.06))",
                   display: "flex",
                   justifyContent: "space-between",
@@ -1209,10 +1249,10 @@ export default function RiderPage() {
                 }}
               >
                 <div>
-                  <span style={{ display: "block", fontWeight: 800, fontSize: "0.95rem" }}>
+                  <span style={{ display: "block", fontWeight: 600, fontSize: "0.9rem" }}>
                     {selectedOrder.customerNameSnapshot || selectedOrder.customerName || "Customer"}
                   </span>
-                  <span style={{ fontSize: "0.8rem", color: "var(--cnm-text-muted, #94a3b8)" }}>
+                  <span style={{ fontSize: "0.76rem", color: "var(--cnm-text-muted, #94a3b8)" }}>
                     Phone: {selectedOrder.customerPhoneSnapshot || selectedOrder.customerPhone || "N/A"}
                   </span>
                 </div>
@@ -1224,16 +1264,16 @@ export default function RiderPage() {
                       backgroundColor: "#10b981",
                       color: "#ffffff",
                       textDecoration: "none",
-                      padding: "8px 14px",
-                      borderRadius: "6px",
-                      fontWeight: 700,
-                      fontSize: "0.8rem",
+                      padding: "6px 12px",
+                      borderRadius: "5px",
+                      fontWeight: 600,
+                      fontSize: "0.76rem",
                       display: "flex",
                       alignItems: "center",
-                      gap: "6px",
+                      gap: "5px",
                     }}
                   >
-                    <Phone size={14} />
+                    <Phone size={13} />
                     <span>Call Customer</span>
                   </a>
                 )}
@@ -1242,28 +1282,28 @@ export default function RiderPage() {
               {/* Delivery Address & Google Maps link */}
               <div
                 style={{
-                  padding: "12px 14px",
+                  padding: "10px 12px",
                   backgroundColor: "var(--cnm-surface-elevated, #161922)",
-                  borderRadius: "8px",
+                  borderRadius: "6px",
                   border: "1px solid var(--cnm-border, rgba(255,255,255,0.06))",
                   display: "flex",
                   flexDirection: "column",
-                  gap: "8px",
+                  gap: "6px",
                 }}
               >
-                <div style={{ display: "flex", alignItems: "flex-start", gap: "8px" }}>
-                  <MapPin size={18} color="#f97316" style={{ flexShrink: 0, marginTop: "2px" }} />
+                <div style={{ display: "flex", alignItems: "flex-start", gap: "6px" }}>
+                  <MapPin size={16} color="#f97316" style={{ flexShrink: 0, marginTop: "2px" }} />
                   <div style={{ flex: 1 }}>
-                    <span style={{ fontWeight: 800, color: "#f97316", fontSize: "0.85rem" }}>
+                    <span style={{ fontWeight: 600, color: "#f97316", fontSize: "0.8rem" }}>
                       Area: {selectedOrder.deliveryAreaNameSnapshot || selectedOrder.deliveryAreaName || "General Area"}
                     </span>
-                    <p style={{ margin: "2px 0 0", fontSize: "0.85rem", lineHeight: 1.4 }}>
+                    <p style={{ margin: "2px 0 0", fontSize: "0.8rem", lineHeight: 1.4 }}>
                       {selectedOrder.deliveryAddressSnapshot || selectedOrder.deliveryAddress || "Address on record"}
                     </p>
                     {(selectedOrder.deliveryLandmarkSnapshot || selectedOrder.deliveryLandmark) && (
                       <span
                         style={{
-                          fontSize: "0.75rem",
+                          fontSize: "0.72rem",
                           color: "var(--cnm-text-muted, #94a3b8)",
                           display: "block",
                           marginTop: "2px",
@@ -1284,38 +1324,39 @@ export default function RiderPage() {
                   style={{
                     display: "inline-flex",
                     alignItems: "center",
-                    gap: "6px",
+                    gap: "4px",
                     color: "#60a5fa",
-                    fontSize: "0.78rem",
-                    fontWeight: 700,
+                    fontSize: "0.75rem",
+                    fontWeight: 600,
                     textDecoration: "none",
                     alignSelf: "flex-start",
-                    marginTop: "4px",
+                    marginTop: "2px",
+                    marginLeft: "22px",
                   }}
                 >
                   <span>Open in Google Maps</span>
-                  <ExternalLinkIcon size={12} />
+                  <ExternalLinkIcon size={11} />
                 </a>
               </div>
 
-              {/* Rider Assignment section (Admin can change) */}
+              {/* Rider Assignment Section */}
               <div
                 style={{
-                  padding: "12px 14px",
+                  padding: "10px 12px",
                   backgroundColor: "rgba(59, 130, 246, 0.08)",
                   border: "1px solid rgba(59, 130, 246, 0.2)",
-                  borderRadius: "8px",
+                  borderRadius: "6px",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "space-between",
-                  gap: "10px",
+                  gap: "8px",
                 }}
               >
                 <div>
                   <span
                     style={{
-                      fontSize: "0.7rem",
-                      fontWeight: 800,
+                      fontSize: "0.68rem",
+                      fontWeight: 600,
                       color: "#60a5fa",
                       textTransform: "uppercase",
                       display: "block",
@@ -1323,13 +1364,13 @@ export default function RiderPage() {
                   >
                     Assigned Delivery Rider
                   </span>
-                  <span style={{ fontWeight: 800, fontSize: "0.95rem" }}>
+                  <span style={{ fontWeight: 600, fontSize: "0.88rem" }}>
                     {selectedOrder.assignedRiderName || "Unassigned"}
                   </span>
                   {selectedOrder.assignedRiderPhone && (
                     <span
                       style={{
-                        fontSize: "0.75rem",
+                        fontSize: "0.72rem",
                         color: "var(--cnm-text-muted, #94a3b8)",
                         display: "block",
                       }}
@@ -1345,13 +1386,13 @@ export default function RiderPage() {
                     onChange={(e) => handleAssignRider(selectedOrder.id, e.target.value)}
                     disabled={actionInProgress === selectedOrder.id}
                     style={{
-                      padding: "6px 10px",
+                      padding: "5px 8px",
                       backgroundColor: "var(--cnm-surface, #1e2230)",
                       border: "1px solid var(--cnm-border, rgba(255,255,255,0.2))",
-                      borderRadius: "6px",
+                      borderRadius: "5px",
                       color: "var(--cnm-text-primary, #ffffff)",
-                      fontSize: "0.8rem",
-                      fontWeight: 600,
+                      fontSize: "0.78rem",
+                      fontWeight: 500,
                     }}
                   >
                     <option value="">-- Unassigned --</option>
@@ -1370,23 +1411,23 @@ export default function RiderPage() {
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "space-between",
-                  padding: "12px 16px",
-                  backgroundColor: "rgba(249, 115, 22, 0.12)",
-                  border: "1.5px dashed #f97316",
-                  borderRadius: "8px",
+                  padding: "10px 14px",
+                  backgroundColor: "rgba(249, 115, 22, 0.1)",
+                  border: "1px dashed #f97316",
+                  borderRadius: "6px",
                 }}
               >
                 <span
                   style={{
-                    fontSize: "0.75rem",
-                    fontWeight: 800,
+                    fontSize: "0.72rem",
+                    fontWeight: 600,
                     textTransform: "uppercase",
-                    letterSpacing: "0.04em",
+                    letterSpacing: "0.03em",
                   }}
                 >
-                  CASH TO COLLECT FROM CUSTOMER
+                  CASH TO COLLECT
                 </span>
-                <span style={{ fontSize: "1.25rem", fontWeight: 900, color: "#f97316" }}>
+                <span style={{ fontSize: "1.1rem", fontWeight: 700, color: "#f97316" }}>
                   {selectedOrder.totalPkr?.toLocaleString()} PKR
                 </span>
               </div>
@@ -1395,27 +1436,27 @@ export default function RiderPage() {
               <div>
                 <span
                   style={{
-                    fontSize: "0.72rem",
-                    fontWeight: 800,
+                    fontSize: "0.7rem",
+                    fontWeight: 600,
                     textTransform: "uppercase",
                     color: "var(--cnm-text-muted, #94a3b8)",
-                    letterSpacing: "0.04em",
+                    letterSpacing: "0.03em",
                     display: "block",
-                    marginBottom: "8px",
+                    marginBottom: "6px",
                   }}
                 >
                   Order Items ({selectedOrder.items?.length || 0})
                 </span>
 
-                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
                   {selectedOrder.items?.map((item, idx) => (
                     <div
                       key={idx}
                       style={{
-                        padding: "8px 10px",
+                        padding: "7px 9px",
                         backgroundColor: "var(--cnm-surface-elevated, #161922)",
-                        borderRadius: "6px",
-                        fontSize: "0.85rem",
+                        borderRadius: "5px",
+                        fontSize: "0.8rem",
                         display: "flex",
                         justifyContent: "space-between",
                       }}
@@ -1423,12 +1464,12 @@ export default function RiderPage() {
                       <span>
                         <strong>{item.quantity}x</strong> {item.productNameSnapshot || item.productName}
                         {(item.variantNameSnapshot || item.variantName) && (
-                          <span style={{ color: "var(--cnm-text-muted, #94a3b8)", fontSize: "0.75rem", marginLeft: "6px" }}>
+                          <span style={{ color: "var(--cnm-text-muted, #94a3b8)", fontSize: "0.72rem", marginLeft: "5px" }}>
                             ({item.variantNameSnapshot || item.variantName})
                           </span>
                         )}
                       </span>
-                      <span style={{ fontWeight: 700 }}>
+                      <span style={{ fontWeight: 600 }}>
                         {item.lineTotalPkr?.toLocaleString()} PKR
                       </span>
                     </div>
@@ -1440,10 +1481,10 @@ export default function RiderPage() {
             {/* Modal Actions */}
             <div
               style={{
-                padding: "14px 20px",
+                padding: "12px 18px",
                 borderTop: "1px solid var(--cnm-border, rgba(255,255,255,0.08))",
                 display: "flex",
-                gap: "10px",
+                gap: "8px",
                 justifyContent: "flex-end",
               }}
             >
@@ -1456,17 +1497,17 @@ export default function RiderPage() {
                     backgroundColor: "#3b82f6",
                     color: "#ffffff",
                     border: "none",
-                    padding: "10px 20px",
-                    borderRadius: "8px",
-                    fontWeight: 800,
-                    fontSize: "0.85rem",
+                    padding: "8px 16px",
+                    borderRadius: "6px",
+                    fontWeight: 600,
+                    fontSize: "0.82rem",
                     cursor: "pointer",
                     display: "flex",
                     alignItems: "center",
-                    gap: "6px",
+                    gap: "5px",
                   }}
                 >
-                  <Bike size={16} />
+                  <Bike size={15} />
                   <span>Pick Up & Start Delivery</span>
                 </button>
               )}
@@ -1480,17 +1521,17 @@ export default function RiderPage() {
                     backgroundColor: "#10b981",
                     color: "#ffffff",
                     border: "none",
-                    padding: "10px 20px",
-                    borderRadius: "8px",
-                    fontWeight: 800,
-                    fontSize: "0.85rem",
+                    padding: "8px 16px",
+                    borderRadius: "6px",
+                    fontWeight: 600,
+                    fontSize: "0.82rem",
                     cursor: "pointer",
                     display: "flex",
                     alignItems: "center",
-                    gap: "6px",
+                    gap: "5px",
                   }}
                 >
-                  <CheckCircle2 size={16} />
+                  <CheckCircle2 size={15} />
                   <span>Mark Delivered & Cash Collected</span>
                 </button>
               )}
@@ -1502,10 +1543,10 @@ export default function RiderPage() {
                   backgroundColor: "rgba(255,255,255,0.06)",
                   color: "var(--cnm-text-primary, #ffffff)",
                   border: "none",
-                  padding: "10px 16px",
-                  borderRadius: "8px",
-                  fontWeight: 600,
-                  fontSize: "0.85rem",
+                  padding: "8px 14px",
+                  borderRadius: "6px",
+                  fontWeight: 500,
+                  fontSize: "0.82rem",
                   cursor: "pointer",
                 }}
               >
@@ -1540,8 +1581,8 @@ export default function RiderPage() {
 
         .rider-delivery-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-          gap: 14px;
+          grid-template-columns: repeat(auto-fill, minmax(310px, 360px));
+          gap: 12px;
         }
 
         @media (max-width: 640px) {
@@ -1570,7 +1611,7 @@ export default function RiderPage() {
   );
 }
 
-// Compact Rider Delivery Card Component
+// Compact Rider Delivery Card Component with Prominent Admin Rider Assignment
 function RiderDeliveryCard({
   delivery,
   currentUser,
@@ -1592,6 +1633,7 @@ function RiderDeliveryCard({
   const isDelivered = delivery.status === ORDER_STATUSES.COMPLETED;
   const isReady = delivery.status === ORDER_STATUSES.READY;
   const isUnassigned = !delivery.assignedRiderId;
+  const isAdmin = currentUser?.role === "ADMIN";
 
   // Status color
   const statusColor = isInTransit
@@ -1608,25 +1650,25 @@ function RiderDeliveryCard({
     <div
       style={{
         backgroundColor: "var(--card-bg, #1e2230)",
-        borderRadius: "8px",
+        borderRadius: "7px",
         border: isInTransit
-          ? "2px solid #3b82f6"
+          ? "1.5px solid #3b82f6"
           : isUnassigned && !isDelivered
-          ? "2px solid #ef4444"
+          ? "1.5px solid #ef4444"
           : "1px solid var(--cnm-border, rgba(255,255,255,0.08))",
         boxShadow: isInTransit
-          ? "0 4px 14px rgba(59, 130, 246, 0.15)"
-          : "0 2px 6px rgba(0,0,0,0.06)",
+          ? "0 3px 10px rgba(59, 130, 246, 0.12)"
+          : "0 1px 4px rgba(0,0,0,0.05)",
         overflow: "hidden",
         display: "flex",
         flexDirection: "column",
-        transition: "transform 0.15s ease",
+        transition: "all 0.15s ease",
       }}
     >
       {/* Top Banner with Order #, Placed Time, and Status */}
       <div
         style={{
-          padding: "8px 12px",
+          padding: "6px 9px",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
@@ -1634,32 +1676,31 @@ function RiderDeliveryCard({
           backgroundColor: "var(--cnm-surface-elevated, #161922)",
         }}
       >
-        <div>
-          <span style={{ fontSize: "0.95rem", fontWeight: 900 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+          <span style={{ fontSize: "0.85rem", fontWeight: 700 }}>
             {delivery.orderNumber}
           </span>
           <span
             style={{
               fontSize: "0.68rem",
               color: "var(--cnm-text-muted, #94a3b8)",
-              display: "block",
             }}
           >
-            Ready: {new Date(delivery.updatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+            ({new Date(delivery.updatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })})
           </span>
         </div>
 
         <span
           style={{
-            fontSize: "0.68rem",
-            fontWeight: 800,
+            fontSize: "0.66rem",
+            fontWeight: 600,
             color: statusColor,
-            backgroundColor: `${statusColor}18`,
-            border: `1px solid ${statusColor}40`,
-            padding: "2px 8px",
+            backgroundColor: `${statusColor}15`,
+            border: `1px solid ${statusColor}35`,
+            padding: "2px 6px",
             borderRadius: "4px",
             textTransform: "uppercase",
-            letterSpacing: "0.04em",
+            letterSpacing: "0.03em",
           }}
         >
           {delivery.status}
@@ -1667,14 +1708,14 @@ function RiderDeliveryCard({
       </div>
 
       {/* Main Delivery Info */}
-      <div style={{ padding: "12px", flex: 1, display: "flex", flexDirection: "column", gap: "8px" }}>
+      <div style={{ padding: "8px 9px", flex: 1, display: "flex", flexDirection: "column", gap: "6px" }}>
         {/* Customer Name & Quick Call */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
-            <span style={{ fontSize: "0.85rem", fontWeight: 800, display: "block" }}>
+            <span style={{ fontSize: "0.82rem", fontWeight: 600, display: "block" }}>
               {delivery.customerNameSnapshot || delivery.customerName || "Customer"}
             </span>
-            <span style={{ fontSize: "0.72rem", color: "var(--cnm-text-muted, #94a3b8)" }}>
+            <span style={{ fontSize: "0.7rem", color: "var(--cnm-text-muted, #94a3b8)" }}>
               {customerPhone || "No phone"}
             </span>
           </div>
@@ -1683,21 +1724,21 @@ function RiderDeliveryCard({
             <a
               href={`tel:${customerPhone}`}
               style={{
-                backgroundColor: "rgba(16, 185, 129, 0.15)",
+                backgroundColor: "rgba(16, 185, 129, 0.12)",
                 color: "#10b981",
-                border: "1px solid rgba(16, 185, 129, 0.3)",
-                padding: "4px 8px",
-                borderRadius: "6px",
-                fontSize: "0.72rem",
-                fontWeight: 700,
+                border: "1px solid rgba(16, 185, 129, 0.25)",
+                padding: "3px 7px",
+                borderRadius: "5px",
+                fontSize: "0.7rem",
+                fontWeight: 600,
                 textDecoration: "none",
                 display: "inline-flex",
                 alignItems: "center",
-                gap: "4px",
+                gap: "3px",
               }}
               title="Call customer"
             >
-              <Phone size={11} />
+              <Phone size={10} />
               <span>Call</span>
             </a>
           )}
@@ -1706,17 +1747,17 @@ function RiderDeliveryCard({
         {/* Address & Google Maps link */}
         <div
           style={{
-            padding: "8px",
+            padding: "6px 8px",
             backgroundColor: "var(--cnm-surface-elevated, #161922)",
-            borderRadius: "6px",
-            fontSize: "0.75rem",
+            borderRadius: "5px",
+            fontSize: "0.73rem",
             lineHeight: 1.3,
           }}
         >
           <div style={{ display: "flex", alignItems: "flex-start", gap: "5px" }}>
-            <MapPin size={14} color="#f97316" style={{ flexShrink: 0, marginTop: "2px" }} />
+            <MapPin size={13} color="#f97316" style={{ flexShrink: 0, marginTop: "1px" }} />
             <div>
-              <span style={{ fontWeight: 800, color: "#f97316" }}>{areaName}: </span>
+              <span style={{ fontWeight: 600, color: "#f97316" }}>{areaName}: </span>
               <span>{addressText}</span>
             </div>
           </div>
@@ -1727,90 +1768,118 @@ function RiderDeliveryCard({
             rel="noopener noreferrer"
             style={{
               color: "#60a5fa",
-              fontSize: "0.7rem",
-              fontWeight: 700,
+              fontSize: "0.68rem",
+              fontWeight: 500,
               textDecoration: "none",
               display: "inline-flex",
               alignItems: "center",
               gap: "3px",
-              marginTop: "4px",
-              marginLeft: "19px",
+              marginTop: "3px",
+              marginLeft: "18px",
             }}
           >
             <span>Open Maps</span>
-            <ExternalLinkIcon size={10} />
+            <ExternalLinkIcon size={9} />
           </a>
         </div>
 
-        {/* Cash to Collect & Assigned Rider */}
+        {/* Cash to Collect */}
         <div
           style={{
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            padding: "6px 8px",
+            padding: "5px 7px",
             backgroundColor: "rgba(249, 115, 22, 0.08)",
-            border: "1px dashed rgba(249, 115, 22, 0.4)",
-            borderRadius: "6px",
+            border: "1px dashed rgba(249, 115, 22, 0.35)",
+            borderRadius: "5px",
           }}
         >
-          <span style={{ fontSize: "0.68rem", fontWeight: 800, textTransform: "uppercase" }}>
-            CASH TO COLLECT
+          <span style={{ fontSize: "0.65rem", fontWeight: 600, textTransform: "uppercase" }}>
+            Cash to Collect
           </span>
-          <span style={{ fontSize: "0.95rem", fontWeight: 900, color: "#f97316" }}>
+          <span style={{ fontSize: "0.88rem", fontWeight: 700, color: "#f97316" }}>
             {delivery.totalPkr?.toLocaleString()} PKR
           </span>
         </div>
 
-        {/* Assigned Rider Tag & Admin Dropdown */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "6px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
-            <RiderIcon size={13} color={isUnassigned ? "#ef4444" : "#60a5fa"} />
-            <span
-              style={{
-                fontSize: "0.75rem",
-                fontWeight: 800,
-                color: isUnassigned ? "#ef4444" : "#60a5fa",
-              }}
-            >
-              {delivery.assignedRiderName ? delivery.assignedRiderName : "⚠️ Unassigned"}
-            </span>
+        {/* PROMINENT RIDER ASSIGNMENT SECTION (Always visible for Admin) */}
+        <div
+          style={{
+            padding: "6px 8px",
+            backgroundColor: isUnassigned
+              ? "rgba(239, 68, 68, 0.08)"
+              : "rgba(59, 130, 246, 0.08)",
+            border: `1px solid ${isUnassigned ? "rgba(239, 68, 68, 0.25)" : "rgba(59, 130, 246, 0.2)"}`,
+            borderRadius: "5px",
+            display: "flex",
+            flexDirection: "column",
+            gap: "4px",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+              <RiderIcon size={12} color={isUnassigned ? "#ef4444" : "#60a5fa"} />
+              <span
+                style={{
+                  fontSize: "0.72rem",
+                  fontWeight: 600,
+                  color: isUnassigned ? "#ef4444" : "#60a5fa",
+                }}
+              >
+                {delivery.assignedRiderName ? `Rider: ${delivery.assignedRiderName}` : "⚠️ Unassigned"}
+              </span>
+            </div>
+
+            {delivery.assignedRiderPhone && (
+              <span style={{ fontSize: "0.68rem", color: "var(--cnm-text-muted, #94a3b8)" }}>
+                {delivery.assignedRiderPhone}
+              </span>
+            )}
           </div>
 
-          {currentUser?.role === "ADMIN" && activeRiders.length > 0 && !isDelivered && (
-            <select
-              value={delivery.assignedRiderId || ""}
-              onChange={(e) => onAssignRider(delivery.id, e.target.value)}
-              disabled={isUpdating}
-              style={{
-                padding: "3px 6px",
-                fontSize: "0.7rem",
-                backgroundColor: "var(--cnm-surface-elevated, #161922)",
-                border: "1px solid var(--cnm-border, rgba(255,255,255,0.1))",
-                borderRadius: "4px",
-                color: "var(--cnm-text-primary, #ffffff)",
-                fontWeight: 600,
-              }}
-            >
-              <option value="">Assign Rider</option>
-              {activeRiders.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.fullName}
-                </option>
-              ))}
-            </select>
+          {/* Admin Assignment Selector with Real Rider Names */}
+          {isAdmin && !isDelivered && (
+            <div style={{ display: "flex", alignItems: "center", gap: "4px", marginTop: "2px" }}>
+              <span style={{ fontSize: "0.66rem", color: "var(--cnm-text-muted, #94a3b8)", whiteSpace: "nowrap" }}>
+                Assign:
+              </span>
+              <select
+                value={delivery.assignedRiderId || ""}
+                onChange={(e) => onAssignRider(delivery.id, e.target.value)}
+                disabled={isUpdating}
+                style={{
+                  flex: 1,
+                  padding: "3px 6px",
+                  fontSize: "0.72rem",
+                  backgroundColor: "var(--cnm-surface-elevated, #161922)",
+                  border: "1px solid var(--cnm-border, rgba(255,255,255,0.15))",
+                  borderRadius: "4px",
+                  color: "var(--cnm-text-primary, #ffffff)",
+                  fontWeight: 500,
+                }}
+              >
+                <option value="">-- Choose Rider --</option>
+                {activeRiders.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.fullName} ({r.activeOrdersAssigned || 0} active)
+                  </option>
+                ))}
+              </select>
+            </div>
           )}
         </div>
       </div>
 
-      {/* Action Buttons */}
+      {/* Action Buttons Row */}
       <div
         style={{
-          padding: "8px 10px",
+          padding: "6px 9px",
           borderTop: "1px solid var(--cnm-border, rgba(255,255,255,0.06))",
           backgroundColor: "var(--cnm-surface-elevated, #161922)",
           display: "flex",
           gap: "6px",
+          marginTop: "auto",
         }}
       >
         <button
@@ -1820,10 +1889,10 @@ function RiderDeliveryCard({
             background: "none",
             border: "1px solid var(--cnm-border, rgba(255,255,255,0.1))",
             color: "var(--cnm-text-muted, #94a3b8)",
-            borderRadius: "6px",
-            padding: "5px 8px",
-            fontSize: "0.72rem",
-            fontWeight: 600,
+            borderRadius: "5px",
+            padding: "4px 7px",
+            fontSize: "0.7rem",
+            fontWeight: 500,
             cursor: "pointer",
             display: "flex",
             alignItems: "center",
@@ -1831,7 +1900,7 @@ function RiderDeliveryCard({
           }}
           title="View full delivery details"
         >
-          <EyeIcon size={12} />
+          <EyeIcon size={11} />
           <span>Details</span>
         </button>
 
@@ -1846,10 +1915,10 @@ function RiderDeliveryCard({
               backgroundColor: "#3b82f6",
               color: "#ffffff",
               border: "none",
-              borderRadius: "6px",
-              padding: "6px 8px",
-              fontSize: "0.75rem",
-              fontWeight: 800,
+              borderRadius: "5px",
+              padding: "5px 8px",
+              fontSize: "0.74rem",
+              fontWeight: 600,
               cursor: "pointer",
               display: "flex",
               alignItems: "center",
@@ -1873,10 +1942,10 @@ function RiderDeliveryCard({
               backgroundColor: "#10b981",
               color: "#ffffff",
               border: "none",
-              borderRadius: "6px",
-              padding: "6px 8px",
-              fontSize: "0.75rem",
-              fontWeight: 800,
+              borderRadius: "5px",
+              padding: "5px 8px",
+              fontSize: "0.74rem",
+              fontWeight: 600,
               cursor: "pointer",
               display: "flex",
               alignItems: "center",
@@ -1889,24 +1958,24 @@ function RiderDeliveryCard({
           </button>
         )}
 
-        {/* Delivered complete state */}
+        {/* Delivered Complete State */}
         {isDelivered && (
           <span
             style={{
               flex: 1,
               textAlign: "center",
-              fontSize: "0.72rem",
-              fontWeight: 700,
+              fontSize: "0.7rem",
+              fontWeight: 600,
               color: "#10b981",
-              padding: "5px 0",
+              padding: "4px 0",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              gap: "4px",
+              gap: "3px",
             }}
           >
-            <Check size={13} />
-            <span>Delivered Successfully</span>
+            <Check size={12} />
+            <span>Delivered</span>
           </span>
         )}
       </div>

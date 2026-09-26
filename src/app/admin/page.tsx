@@ -55,6 +55,7 @@ export default function AdminPage() {
 
   // Optimistic UI Animation Trackers
   const [animatingOrders, setAnimatingOrders] = useState<Record<string, { targetStatus: OrderStatus; timestamp: number }>>({});
+  const recentStatusUpdatesRef = React.useRef<Map<string, { status: OrderStatus; assignedRiderId?: string; timestamp: number }>>(new Map());
 
   // Cancellation Modal State
   const [cancelModalOrder, setCancelModalOrder] = useState<Order | null>(null);
@@ -186,7 +187,34 @@ export default function AdminPage() {
       const ordersData = await ordersRes.json();
 
       if (ordersData.success && Array.isArray(ordersData.data)) {
-        setOrders(ordersData.data);
+        const now = Date.now();
+        // Prevent background polling from reversing recent optimistic updates
+        const mergedOrders = ordersData.data.map((ord: Order) => {
+          const lock = recentStatusUpdatesRef.current.get(ord.id);
+          if (lock) {
+            if (now - lock.timestamp < 15000) {
+              const statusMatched = ord.status === lock.status;
+              const riderMatched =
+                lock.assignedRiderId === undefined || ord.assignedRiderId === lock.assignedRiderId;
+              if (statusMatched && riderMatched) {
+                recentStatusUpdatesRef.current.delete(ord.id);
+                return ord;
+              } else {
+                return {
+                  ...ord,
+                  status: lock.status,
+                  assignedRiderId:
+                    lock.assignedRiderId !== undefined ? lock.assignedRiderId : ord.assignedRiderId,
+                };
+              }
+            } else {
+              recentStatusUpdatesRef.current.delete(ord.id);
+            }
+          }
+          return ord;
+        });
+
+        setOrders(mergedOrders);
       }
     } catch (err) {
       console.error("Failed to load operational orders:", err);
@@ -212,6 +240,13 @@ export default function AdminPage() {
   ) => {
     const previousOrders = [...orders];
 
+    // Lock update immediately so polling doesn't revert it
+    recentStatusUpdatesRef.current.set(orderId, {
+      status: targetStatus,
+      assignedRiderId: options?.assignedRiderId,
+      timestamp: Date.now(),
+    });
+
     // Optimistic Update
     setOrders((prev) =>
       prev.map((o) =>
@@ -219,6 +254,8 @@ export default function AdminPage() {
           ? {
               ...o,
               status: targetStatus,
+              assignedRiderId:
+                options?.assignedRiderId !== undefined ? options.assignedRiderId : o.assignedRiderId,
               cancellationReason:
                 targetStatus === ORDER_STATUSES.CANCELLED
                   ? options?.cancellationReason || "Cancelled by staff"
@@ -258,10 +295,12 @@ export default function AdminPage() {
       });
       const data = await res.json();
       if (!data.success) {
+        recentStatusUpdatesRef.current.delete(orderId);
         setOrders(previousOrders);
         alert(data.error?.message || "Failed to update order status");
       }
     } catch {
+      recentStatusUpdatesRef.current.delete(orderId);
       setOrders(previousOrders);
       alert("Network connection error. Reverted order status.");
     } finally {
