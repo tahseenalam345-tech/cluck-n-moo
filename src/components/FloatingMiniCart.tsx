@@ -3,18 +3,28 @@
 import React from "react";
 import { ShoppingBag, ArrowRight } from "lucide-react";
 import { useTheme } from "@/context/ThemeContext";
+import { useCart } from "@/context/CartContext";
 
 interface FloatingMiniCartProps {
-  cartCount: number;
-  totalPkr: number;
-  onOpenCart: () => void;
+  cartCount?: number;
+  totalPkr?: number;
+  onOpenCart?: () => void;
 }
 
-export function FloatingMiniCart({ cartCount, totalPkr, onOpenCart }: FloatingMiniCartProps) {
+export function FloatingMiniCart({
+  cartCount: propCartCount,
+  totalPkr: propTotalPkr,
+  onOpenCart: propOnOpenCart,
+}: FloatingMiniCartProps) {
+  const { cartCount: ctxCount, cartSubtotal: ctxTotal, openCart: ctxOpenCart, isCartOpen } = useCart();
+  const cartCount = propCartCount !== undefined ? propCartCount : ctxCount;
+  const totalPkr = propTotalPkr !== undefined ? propTotalPkr : ctxTotal;
+  const onOpenCart = propOnOpenCart || ctxOpenCart;
+
   const { theme } = useTheme();
   const isDark = theme === "dark";
 
-  if (cartCount <= 0) return null;
+  if (cartCount <= 0 || isCartOpen) return null;
 
   return (
     <aside

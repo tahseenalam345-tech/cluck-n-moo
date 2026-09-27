@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { CartItem, DeliveryArea } from "@/types";
 import { OrderType, BRAND } from "@/lib/constants";
 import { useOrderMode } from "@/context/OrderModeContext";
+import { useCart } from "@/context/CartContext";
 import { calculateCartWithCustomDeals } from "@/lib/customDeal";
 import { saveLocalOrder } from "@/lib/orderHistory";
 import { recordOrderedItems } from "@/lib/userHistory";
@@ -28,31 +29,47 @@ import {
   Sparkles,
 } from "lucide-react";
 
-interface CartDrawerProps {
-  isOpen: boolean;
-  onClose: () => void;
-  cartItems: CartItem[];
-  onRemoveItem: (cartItemId: string) => void;
-  onUpdateQuantity: (cartItemId: string, newQuantity: number) => void;
-  onQuickAddUpsell: (product: any) => void;
-  onClearCart: () => void;
+export interface CartDrawerProps {
+  isOpen?: boolean;
+  onClose?: () => void;
+  cartItems?: CartItem[];
+  onRemoveItem?: (cartItemId: string) => void;
+  onUpdateQuantity?: (cartItemId: string, newQuantity: number) => void;
+  onQuickAddUpsell?: (product: any) => void;
+  onClearCart?: () => void;
 }
 
-export function CartDrawer({
-  isOpen,
-  onClose,
-  cartItems,
-  onRemoveItem,
-  onUpdateQuantity,
-  onQuickAddUpsell,
-  onClearCart,
-}: CartDrawerProps) {
+export function CartDrawer(props: CartDrawerProps) {
   const router = useRouter();
+  const cartContext = useCart();
+
+  const isOpen = props.isOpen !== undefined ? props.isOpen : cartContext.isCartOpen;
+  const onClose = props.onClose || cartContext.closeCart;
+  const cartItems = props.cartItems || cartContext.cartItems;
+  const onRemoveItem = props.onRemoveItem || cartContext.removeItem;
+  const onUpdateQuantity = props.onUpdateQuantity || cartContext.updateQuantity;
+  const onClearCart = props.onClearCart || cartContext.clearCart;
+
   const { modeState, setOrderTypeOnly, saveOrderMode } = useOrderMode();
 
   // 2-Step Flow: 'review' (Step 1) | 'details' (Step 2)
   const [step, setStep] = useState<"review" | "details">("review");
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
+
+  // Lock body scroll when cart/checkout modal is open
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const originalOverflow = document.body.style.overflow;
+    const originalTouchAction = document.body.style.touchAction;
+    document.body.style.overflow = "hidden";
+    document.body.style.touchAction = "none";
+
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      document.body.style.touchAction = originalTouchAction;
+    };
+  }, [isOpen]);
 
   useEffect(() => {
     if (isOpen) {
@@ -288,17 +305,20 @@ export function CartDrawer({
 
         {/* Drawer Header */}
         <div
+          className="cart-drawer-header"
           style={{
             padding: "16px 20px",
             borderBottom: "1px solid var(--cnm-border)",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
+            flexShrink: 0,
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
             {step === "details" && (
               <button
+                type="button"
                 onClick={() => setStep("review")}
                 aria-label="Back to Tray Review"
                 style={{
@@ -307,13 +327,15 @@ export function CartDrawer({
                   display: "flex",
                   alignItems: "center",
                   cursor: "pointer",
+                  background: "none",
+                  border: "none",
                 }}
               >
                 <ArrowLeft size={18} />
               </button>
             )}
             <div>
-              <h2 style={{ fontFamily: "var(--font-display)", fontSize: "18px", fontWeight: 900, color: "var(--cnm-text-primary)" }}>
+              <h2 style={{ fontFamily: "var(--font-display)", fontSize: "18px", fontWeight: 900, color: "var(--cnm-text-primary)", margin: 0 }}>
                 {step === "review" ? "YOUR TRAY" : "CHECKOUT DETAILS"}
               </h2>
               <span style={{ fontSize: "11px", color: "var(--cnm-text-muted)" }}>
@@ -322,26 +344,82 @@ export function CartDrawer({
             </div>
           </div>
 
-          <button
-            onClick={onClose}
-            aria-label="Close Tray"
-            style={{
-              padding: "6px",
-              color: "var(--cnm-text-muted)",
-              borderRadius: "var(--radius-sm)",
-              backgroundColor: "var(--cnm-surface-elevated)",
-              cursor: "pointer",
-            }}
-          >
-            <X size={18} />
-          </button>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            {step === "review" && cartItems.length > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (window.confirm("Are you sure you want to clear your tray?")) {
+                    onClearCart();
+                  }
+                }}
+                aria-label="Clear all items in tray"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "4px",
+                  fontSize: "12px",
+                  fontWeight: 600,
+                  color: "var(--cnm-text-muted)",
+                  backgroundColor: "var(--cnm-surface-elevated)",
+                  border: "1px solid var(--cnm-border)",
+                  cursor: "pointer",
+                  padding: "5px 10px",
+                  borderRadius: "var(--radius-sm)",
+                  transition: "all 0.15s ease",
+                }}
+                className="cart-clear-btn"
+              >
+                <Trash2 size={13} />
+                <span>Clear</span>
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close Tray"
+              style={{
+                padding: "6px",
+                color: "var(--cnm-text-muted)",
+                borderRadius: "var(--radius-sm)",
+                backgroundColor: "var(--cnm-surface-elevated)",
+                border: "1px solid var(--cnm-border)",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <X size={18} />
+            </button>
+          </div>
         </div>
 
         {/* STEP 1: TRAY REVIEW */}
         {step === "review" ? (
-          <div style={{ display: "flex", flexDirection: "column", height: "calc(100% - 65px)" }}>
+          <div
+            className="cart-step-review-container"
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              flex: 1,
+              minHeight: 0,
+              overflow: "hidden",
+            }}
+          >
             {/* Scrollable Items */}
-            <div style={{ flex: 1, overflowY: "auto", padding: "16px 20px" }}>
+            <div
+              className="cart-items-scrollable"
+              style={{
+                flex: 1,
+                minHeight: 0,
+                overflowY: "auto",
+                WebkitOverflowScrolling: "touch",
+                overscrollBehavior: "contain",
+                padding: "16px 20px",
+              }}
+            >
               {cartItems.length === 0 ? (
                 <div style={{ textAlign: "center", padding: "64px 20px" }}>
                   <ShoppingBag size={48} color="var(--cnm-text-subtle)" style={{ margin: "0 auto 16px" }} />
@@ -510,10 +588,12 @@ export function CartDrawer({
             {/* Sticky Step 1 Footer */}
             {cartItems.length > 0 && (
               <div
+                className="cart-step-footer cart-review-footer"
                 style={{
                   padding: "16px 20px",
                   borderTop: "1px solid var(--cnm-border)",
                   backgroundColor: "var(--cnm-surface)",
+                  flexShrink: 0,
                 }}
               >
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px", fontSize: "14px" }}>
@@ -555,6 +635,7 @@ export function CartDrawer({
                 </div>
 
                 <button
+                  type="button"
                   onClick={handleProceedToDetails}
                   className="btn btn-primary btn-block"
                   style={{ padding: "14px", fontSize: "15px", justifyContent: "space-between" }}
@@ -569,9 +650,21 @@ export function CartDrawer({
           /* STEP 2: CHECKOUT DETAILS & CASH SETTLEMENT */
           <form
             onSubmit={handleCheckout}
-            style={{ display: "flex", flexDirection: "column", height: "calc(100% - 65px)" }}
+            className="cart-step-details-form"
+            style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0, overflow: "hidden" }}
           >
-            <div style={{ flex: 1, overflowY: "auto", padding: "12px 16px" }}>
+            <div
+              className="cart-details-scrollable"
+              style={{
+                flex: 1,
+                minHeight: 0,
+                overflowY: "auto",
+                WebkitOverflowScrolling: "touch",
+                overscrollBehavior: "contain",
+                touchAction: "pan-y",
+                padding: "12px 16px",
+              }}
+            >
               {/* Customer Contact */}
               <div style={{ marginBottom: "14px" }}>
                 <h3 style={{ fontSize: "13px", fontWeight: 800, color: "var(--cnm-orange)", marginBottom: "12px", letterSpacing: "0.05em" }}>
@@ -799,10 +892,15 @@ export function CartDrawer({
 
             {/* Sticky Step 2 Footer */}
             <div
+              className="cart-step-footer cart-checkout-sticky-footer"
               style={{
-                padding: "12px 16px",
+                padding: "12px 18px",
                 borderTop: "1px solid var(--cnm-border)",
                 backgroundColor: "var(--cnm-surface)",
+                flexShrink: 0,
+                position: "relative",
+                zIndex: 10,
+                boxShadow: "0 -4px 16px rgba(0, 0, 0, 0.08)",
               }}
             >
               {/* Price Breakdown in Step 2 */}
@@ -811,10 +909,10 @@ export function CartDrawer({
                   display: "flex",
                   flexDirection: "column",
                   gap: "6px",
-                  marginBottom: "12px",
+                  marginBottom: "10px",
                   fontSize: "13px",
                   borderBottom: "1px solid var(--cnm-border)",
-                  paddingBottom: "10px",
+                  paddingBottom: "8px",
                 }}
               >
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
@@ -845,7 +943,7 @@ export function CartDrawer({
                 </div>
               </div>
 
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "12px", fontSize: "14px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "10px", fontSize: "14px" }}>
                 <span style={{ fontWeight: 700, color: "var(--cnm-text-secondary)" }}>Total Cash to Pay</span>
                 <span style={{ fontFamily: "var(--font-display)", fontSize: "20px", fontWeight: 900, color: "var(--cnm-text-primary)" }}>
                   {totalPkr.toLocaleString()} PKR
@@ -856,7 +954,13 @@ export function CartDrawer({
                 type="submit"
                 disabled={isSubmitting}
                 className="btn btn-primary btn-block"
-                style={{ padding: "14px", fontSize: "15px" }}
+                style={{
+                  padding: "13px",
+                  fontSize: "15px",
+                  fontWeight: 800,
+                  borderRadius: "var(--radius-md)",
+                  boxShadow: "0 4px 14px rgba(255, 130, 67, 0.35)",
+                }}
               >
                 {isSubmitting ? "PLACING YOUR ORDER..." : `PLACE CASH ORDER (${totalPkr.toLocaleString()} PKR)`}
               </button>
@@ -870,23 +974,47 @@ export function CartDrawer({
           from { transform: translateY(100%); }
           to { transform: translateY(0); }
         }
+
+        .cart-step-review-container,
+        .cart-step-details-form {
+          display: flex;
+          flex-direction: column;
+          flex: 1;
+          min-height: 0;
+          overflow: hidden;
+        }
+
+        .cart-items-scrollable,
+        .cart-details-scrollable {
+          flex: 1;
+          min-height: 0;
+          overflow-y: auto;
+          -webkit-overflow-scrolling: touch;
+          overscroll-behavior: contain;
+          touch-action: pan-y;
+        }
+
         .cart-drag-handle-bar {
           display: none;
         }
+
         @media (max-width: 640px) {
           .cart-backdrop {
             align-items: flex-end !important;
             justify-content: center !important;
             padding: 0 !important;
+            touch-action: none !important;
+            overscroll-behavior: none !important;
           }
           .cart-drag-handle-bar {
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 10px 0 4px;
+            padding: 8px 0 4px;
             cursor: pointer;
             width: 100%;
             touch-action: none;
+            flex-shrink: 0;
           }
           .cart-drag-handle-pill {
             width: 40px;
@@ -901,20 +1029,47 @@ export function CartDrawer({
           }
           :global(.cart-drawer-panel) {
             max-width: 100% !important;
-            height: auto !important;
-            min-height: 52vh !important;
-            max-height: 60vh !important;
+            width: 100% !important;
+            height: 84dvh !important;
+            height: 84vh;
+            max-height: 88dvh !important;
+            min-height: 0 !important;
             border-left: none !important;
             border-top: 1.5px solid var(--cnm-border) !important;
             border-top-left-radius: 20px !important;
             border-top-right-radius: 20px !important;
             animation: cartSlideUp 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-            transition: max-height 0.22s ease;
+            transition: height 0.22s ease, max-height 0.22s ease;
             box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.4) !important;
+            display: flex !important;
+            flex-direction: column !important;
+            overflow: hidden !important;
           }
           :global(.cart-drawer-panel.is-expanded),
           :global(.cart-drawer-panel.is-step-details) {
-            max-height: 86vh !important;
+            height: 94dvh !important;
+            height: 94vh;
+            max-height: 96dvh !important;
+          }
+          .cart-drawer-header {
+            padding: 12px 16px !important;
+          }
+          .cart-items-scrollable,
+          .cart-details-scrollable {
+            padding: 12px 16px !important;
+            -webkit-overflow-scrolling: touch !important;
+            overscroll-behavior: contain !important;
+          }
+          .cart-step-footer {
+            padding: 10px 16px calc(12px + env(safe-area-inset-bottom, 0px)) !important;
+          }
+          .cart-checkout-sticky-footer {
+            position: relative !important;
+            bottom: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            z-index: 20 !important;
+            box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.12) !important;
           }
         }
       `}</style>

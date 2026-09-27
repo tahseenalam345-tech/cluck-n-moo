@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CustomerHeader } from "@/components/CustomerHeader";
 import { CustomerFooter } from "@/components/CustomerFooter";
-import { CartDrawer } from "@/components/CartDrawer";
+import { useCart } from "@/context/CartContext";
 import { createClient } from "@/lib/supabase/client";
 import { getLocalOrders } from "@/lib/orderHistory";
 import { ORDER_STATUSES, BRAND } from "@/lib/constants";
@@ -104,9 +104,8 @@ export default function TrackOrderPage() {
   const [manualError, setManualError] = useState<string | null>(null);
   const [isManualSearching, setIsManualSearching] = useState(false);
 
-  // Cart state for "Order Again"
-  const [cartItems, setCartItems] = useState<CartItem[]>([]);
-  const [isCartOpen, setIsCartOpen] = useState(false);
+  // Cart context for "Order Again"
+  const { addItems, openCart } = useCart();
 
   // Quick Inline Sign-In state for non-authenticated guests
   const [showSignInModal, setShowSignInModal] = useState(false);
@@ -368,8 +367,8 @@ export default function TrackOrderPage() {
       specialInstructions: "",
     }));
 
-    setCartItems(itemsToAdd);
-    setIsCartOpen(true);
+    addItems(itemsToAdd);
+    openCart();
   };
 
   return (
@@ -384,11 +383,7 @@ export default function TrackOrderPage() {
       }}
     >
       {/* 1. Header with Cart Navigation */}
-      <CustomerHeader
-        cartCount={cartItems.reduce((acc, i) => acc + i.quantity, 0)}
-        cartTotalPkr={cartItems.reduce((acc, i) => acc + (i.lineTotalPkr || i.unitPricePkr * i.quantity), 0)}
-        onOpenCart={() => setIsCartOpen(true)}
-      />
+      <CustomerHeader />
 
       <main className="track-main-container" style={{ flex: 1, minHeight: "calc(100vh - 80px)" }}>
         {/* Breadcrumb / Top Info */}
@@ -1168,20 +1163,6 @@ export default function TrackOrderPage() {
         )}
       </main>
 
-      {/* Cart Drawer for Reordering */}
-      <CartDrawer
-        isOpen={isCartOpen}
-        onClose={() => setIsCartOpen(false)}
-        cartItems={cartItems}
-        onRemoveItem={(id) => setCartItems((prev) => prev.filter((i) => i.cartItemId !== id))}
-        onUpdateQuantity={(id, q) =>
-          setCartItems((prev) =>
-            q <= 0 ? prev.filter((i) => i.cartItemId !== id) : prev.map((i) => (i.cartItemId === id ? { ...i, quantity: q } : i))
-          )
-        }
-        onQuickAddUpsell={(p) => {}}
-        onClearCart={() => setCartItems([])}
-      />
 
       {/* Quick Sign-In Modal */}
       {showSignInModal && (

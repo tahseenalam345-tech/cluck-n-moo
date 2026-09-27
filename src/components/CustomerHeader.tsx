@@ -5,6 +5,7 @@ import Link from "next/link";
 import { BrandLogo } from "./BrandLogo";
 import { useTheme } from "@/context/ThemeContext";
 import { useOrderMode } from "@/context/OrderModeContext";
+import { useCart } from "@/context/CartContext";
 import { BRAND } from "@/lib/constants";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -29,10 +30,15 @@ interface CustomerHeaderProps {
 }
 
 export function CustomerHeader({
-  cartCount = 0,
-  cartTotalPkr = 0,
-  onOpenCart,
+  cartCount: propCartCount,
+  cartTotalPkr: propCartTotalPkr,
+  onOpenCart: propOnOpenCart,
 }: CustomerHeaderProps) {
+  const { cartCount: ctxCartCount, cartSubtotal: ctxCartTotal, openCart: ctxOpenCart } = useCart();
+  const cartCount = propCartCount !== undefined ? propCartCount : ctxCartCount;
+  const cartTotalPkr = propCartTotalPkr !== undefined ? propCartTotalPkr : ctxCartTotal;
+  const onOpenCart = propOnOpenCart || ctxOpenCart;
+
   const { theme, toggleTheme } = useTheme();
   const { modeState, openOrderModeModal, setOrderTypeOnly } = useOrderMode();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);

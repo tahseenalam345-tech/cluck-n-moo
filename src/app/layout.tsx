@@ -4,6 +4,8 @@ import "./globals.css";
 import { ThemeProvider } from "@/context/ThemeContext";
 import { OrderModeProvider } from "@/context/OrderModeContext";
 import { OrderModeModal } from "@/components/OrderModeModal";
+import { CartProvider } from "@/context/CartContext";
+import { GlobalCart } from "@/components/GlobalCart";
 
 const outfit = Outfit({
   subsets: ["latin"],
@@ -80,8 +82,11 @@ export default function RootLayout({
       <body>
         <ThemeProvider>
           <OrderModeProvider>
-            {children}
-            <OrderModeModal />
+            <CartProvider>
+              {children}
+              <OrderModeModal />
+              <GlobalCart />
+            </CartProvider>
           </OrderModeProvider>
         </ThemeProvider>
       </body>

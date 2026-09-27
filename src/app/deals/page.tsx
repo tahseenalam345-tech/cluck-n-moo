@@ -6,16 +6,15 @@ import { CustomerHeader } from "@/components/CustomerHeader";
 import { CustomerFooter } from "@/components/CustomerFooter";
 import { ProductCard } from "@/components/ProductCard";
 import { ItemCustomizerModal } from "@/components/ItemCustomizerModal";
-import { CartDrawer } from "@/components/CartDrawer";
 import { BuildYourOwnDealModal } from "@/components/BuildYourOwnDealModal";
 import { FloatingMiniCart } from "@/components/FloatingMiniCart";
+import { useCart } from "@/context/CartContext";
 import { Flame, Sparkles, Plus, ArrowRight } from "lucide-react";
 
 export default function DealsPage() {
+  const { addItem, addItems, openCart, cartCount, cartSubtotal, setIsCartOpen } = useCart();
   const [deals, setDeals] = useState<Product[]>([]);
-  const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [isCartOpen, setIsCartOpen] = useState(false);
   const [isByoDealOpen, setIsByoDealOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -53,17 +52,14 @@ export default function DealsPage() {
   }, []);
 
   const handleAddToCart = (item: CartItem) => {
-    setCartItems((prev) => [...prev, item]);
-    setIsCartOpen(true);
+    addItem(item);
+    openCart();
   };
 
   const handleAddCustomDealToCart = (dealItems: CartItem[]) => {
-    setCartItems((prev) => [...prev, ...dealItems]);
-    setIsCartOpen(true);
+    addItems(dealItems);
+    openCart();
   };
-
-  const cartCount = cartItems.reduce((acc, itm) => acc + itm.quantity, 0);
-  const cartSubtotal = cartItems.reduce((acc, itm) => acc + itm.lineTotalPkr, 0);
 
   return (
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
@@ -166,25 +162,7 @@ export default function DealsPage() {
         />
       )}
 
-      <FloatingMiniCart
-        cartCount={cartCount}
-        totalPkr={cartSubtotal}
-        onOpenCart={() => setIsCartOpen(true)}
-      />
-
-      <CartDrawer
-        isOpen={isCartOpen}
-        onClose={() => setIsCartOpen(false)}
-        cartItems={cartItems}
-        onRemoveItem={(id) => setCartItems((prev) => prev.filter((i) => i.cartItemId !== id))}
-        onUpdateQuantity={(id, q) =>
-          setCartItems((prev) =>
-            prev.map((i) => (i.cartItemId === id ? { ...i, quantity: q, lineTotalPkr: i.unitPricePkr * q } : i))
-          )
-        }
-        onQuickAddUpsell={() => {}}
-        onClearCart={() => setCartItems([])}
-      />
+      <FloatingMiniCart />
 
       <BuildYourOwnDealModal
         isOpen={isByoDealOpen}

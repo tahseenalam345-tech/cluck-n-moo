@@ -6,18 +6,17 @@ import { CustomerHeader } from "@/components/CustomerHeader";
 import { CustomerFooter } from "@/components/CustomerFooter";
 import { ProductCard } from "@/components/ProductCard";
 import { ItemCustomizerModal } from "@/components/ItemCustomizerModal";
-import { CartDrawer } from "@/components/CartDrawer";
 import { MenuSearchBar } from "@/components/MenuSearchBar";
 import { FloatingMiniCart } from "@/components/FloatingMiniCart";
+import { useCart } from "@/context/CartContext";
 import { Flame, Sparkles } from "lucide-react";
 import { getCategoryEmoji } from "@/lib/categoryEmojis";
 
 export default function FullMenuPage() {
+  const { addItem, openCart, cartCount, cartSubtotal, setIsCartOpen } = useCart();
   const [categories, setCategories] = useState<Category[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [isCartOpen, setIsCartOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -47,12 +46,9 @@ export default function FullMenuPage() {
   }, []);
 
   const handleAddToCart = (item: CartItem) => {
-    setCartItems((prev) => [...prev, item]);
-    setIsCartOpen(true);
+    addItem(item);
+    openCart();
   };
-
-  const cartCount = cartItems.reduce((acc, itm) => acc + itm.quantity, 0);
-  const cartSubtotal = cartItems.reduce((acc, itm) => acc + itm.lineTotalPkr, 0);
 
   // Filter products by search query
   const filteredCategories = categories.map((cat) => ({
@@ -193,27 +189,8 @@ export default function FullMenuPage() {
         />
       )}
 
-      <FloatingMiniCart
-        cartCount={cartCount}
-        totalPkr={cartSubtotal}
-        onOpenCart={() => setIsCartOpen(true)}
-      />
-
-      <CartDrawer
-        isOpen={isCartOpen}
-        onClose={() => setIsCartOpen(false)}
-        cartItems={cartItems}
-        onRemoveItem={(id) => setCartItems((prev) => prev.filter((i) => i.cartItemId !== id))}
-        onUpdateQuantity={(id, q) =>
-          setCartItems((prev) =>
-            prev.map((i) => (i.cartItemId === id ? { ...i, quantity: q, lineTotalPkr: i.unitPricePkr * q } : i))
-          )
-        }
-        onQuickAddUpsell={() => {}}
-        onClearCart={() => setCartItems([])}
-      />
-
-      <CustomerFooter hasFloatingCart={cartCount > 0} />
+      <FloatingMiniCart />
+      <CustomerFooter />
 
       <style jsx>{`
         .menu-main-content {

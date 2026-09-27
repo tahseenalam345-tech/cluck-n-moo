@@ -17,14 +17,10 @@ import { CustomerFooter } from "@/components/CustomerFooter";
 import { useOrderMode } from "@/context/OrderModeContext";
 import { filterProductsBySignature, SIGNATURE_SECTIONS } from "@/lib/signatureSections";
 import { getCategoryEmoji } from "@/lib/categoryEmojis";
+import { useCart } from "@/context/CartContext";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 // Lazy-load non-critical modals and below-the-fold sections to shrink initial JS bundle
-const CartDrawer = dynamic(
-  () => import("@/components/CartDrawer").then((m) => m.CartDrawer),
-  { ssr: false }
-);
-
 const ItemCustomizerModal = dynamic(
   () => import("@/components/ItemCustomizerModal").then((m) => m.ItemCustomizerModal),
   { ssr: false }
@@ -47,15 +43,14 @@ const BrandStorySection = dynamic(
 
 export default function StorefrontPage() {
   const { modeState } = useOrderMode();
+  const { cartItems, addItem, removeItem, updateQuantity, clearCart, isCartOpen, setIsCartOpen, openCart, closeCart, cartCount, cartSubtotal } = useCart();
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [activeSignatureSlug, setActiveSignatureSlug] = useState<string>("menu");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
-  const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [selectedPromotion, setSelectedPromotion] = useState<Promotion | null>(null);
-  const [isCartOpen, setIsCartOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -142,64 +137,14 @@ export default function StorefrontPage() {
 
   // Cart operations
   const handleAddToCart = (newItem: CartItem) => {
-    setCartItems((prev) => {
-      const existingIdx = prev.findIndex(
-        (i) =>
-          i.productId === newItem.productId &&
-          i.variantId === newItem.variantId &&
-          i.specialInstructions === newItem.specialInstructions &&
-          JSON.stringify(i.modifiers) === JSON.stringify(newItem.modifiers)
-      );
-
-      if (existingIdx > -1) {
-        const updated = [...prev];
-        const updatedQty = updated[existingIdx].quantity + newItem.quantity;
-        updated[existingIdx] = {
-          ...updated[existingIdx],
-          quantity: updatedQty,
-          lineTotalPkr: updated[existingIdx].unitPricePkr * updatedQty,
-        };
-        return updated;
-      }
-      return [...prev, newItem];
-    });
-
-    setIsCartOpen(true);
-  };
-
-  const handleUpdateQuantity = (cartItemId: string, newQuantity: number) => {
-    if (newQuantity <= 0) {
-      handleRemoveItem(cartItemId);
-      return;
-    }
-    setCartItems((prev) =>
-      prev.map((item) =>
-        item.cartItemId === cartItemId
-          ? {
-              ...item,
-              quantity: newQuantity,
-              lineTotalPkr: item.unitPricePkr * newQuantity,
-            }
-          : item
-      )
-    );
-  };
-
-  const handleRemoveItem = (cartItemId: string) => {
-    setCartItems((prev) => prev.filter((item) => item.cartItemId !== cartItemId));
-  };
-
-  const handleClearCart = () => {
-    setCartItems([]);
+    addItem(newItem);
+    openCart();
   };
 
   const handleSelectProduct = (product: Product) => {
     recordProductVisit(product.id);
     setSelectedProduct(product);
   };
-
-  const cartCount = cartItems.reduce((acc, item) => acc + item.quantity, 0);
-  const cartSubtotal = cartItems.reduce((acc, item) => acc + item.lineTotalPkr, 0);
 
   // Flatten all products across all categories for Popular Picks (memoized)
   const allProducts: Product[] = useMemo(
@@ -740,22 +685,7 @@ export default function StorefrontPage() {
 
 
       {/* Floating Mini-Cart for Mobile & Quick Checkout */}
-      <FloatingMiniCart
-        cartCount={cartCount}
-        totalPkr={cartSubtotal}
-        onOpenCart={() => setIsCartOpen(true)}
-      />
-
-      {/* Slide-Out Cart Drawer */}
-      <CartDrawer
-        isOpen={isCartOpen}
-        onClose={() => setIsCartOpen(false)}
-        cartItems={cartItems}
-        onUpdateQuantity={handleUpdateQuantity}
-        onRemoveItem={handleRemoveItem}
-        onQuickAddUpsell={(p) => setSelectedProduct(p)}
-        onClearCart={handleClearCart}
-      />
+      <FloatingMiniCart />
 
 
       <style jsx>{`
