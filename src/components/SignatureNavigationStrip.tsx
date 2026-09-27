@@ -76,9 +76,6 @@ export function SignatureNavigationStrip({
         boxShadow: "0 2px 8px rgba(0, 0, 0, 0.05)",
         backdropFilter: "blur(10px)",
         transition: "background-color 0.2s ease",
-        height: "110px",
-        minHeight: "110px",
-        maxHeight: "110px",
         boxSizing: "border-box",
         overflow: "hidden",
       }}
@@ -318,6 +315,13 @@ export function SignatureNavigationStrip({
       </div>
 
       <style jsx>{`
+        :global(.signature-navigation-wrapper),
+        .signature-navigation-wrapper {
+          height: 110px;
+          min-height: 110px;
+          max-height: 110px;
+        }
+
         .signature-circle-btn:hover {
           transform: translateY(-2px);
           border-color: var(--cnm-orange);
@@ -330,16 +334,23 @@ export function SignatureNavigationStrip({
           .signature-scroll-arrow {
             display: none !important;
           }
-          :global(.signature-navigation-wrapper) {
-            padding: 2px 0 3px !important;
+          :global(.signature-navigation-wrapper),
+          .signature-navigation-wrapper {
+            height: auto !important;
+            min-height: unset !important;
+            max-height: none !important;
+            padding: 3px 0 4px !important;
           }
           .signature-item-box {
             gap: 2px !important;
+            min-width: 50px !important;
+            min-height: unset !important;
           }
           .signature-strip-track {
             justify-content: flex-start !important;
-            gap: 12px !important;
-            padding: 1px 12px 2px !important;
+            gap: 10px !important;
+            padding: 1px 10px 2px !important;
+            min-height: unset !important;
           }
           .signature-circle-btn {
             width: 44px !important;
@@ -349,7 +360,8 @@ export function SignatureNavigationStrip({
           .signature-label {
             font-size: 10.5px !important;
             line-height: 1.15 !important;
-            padding: 1px 4px !important;
+            height: auto !important;
+            padding: 0 4px !important;
           }
         }
 
